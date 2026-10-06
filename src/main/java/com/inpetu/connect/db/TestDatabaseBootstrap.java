@@ -9,8 +9,6 @@ import org.hibernate.boot.MetadataSources;
 import org.hibernate.boot.registry.StandardServiceRegistry;
 import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
 import org.hibernate.cfg.AvailableSettings;
-import org.hibernate.tool.hbm2ddl.SchemaUpdate;
-import org.hibernate.tool.schema.TargetType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -23,8 +21,6 @@ import org.springframework.core.annotation.Order;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.security.crypto.password.PasswordEncoder;
-
-import java.util.EnumSet;
 
 /**
  * O Hibernate (ddl-auto=update) e o import.sql só rodam no banco principal.
@@ -77,12 +73,13 @@ public class TestDatabaseBootstrap {
             .applySetting(AvailableSettings.DATASOURCE, registry.test())
             .applySetting(AvailableSettings.PHYSICAL_NAMING_STRATEGY, "org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy")
             .applySetting(AvailableSettings.IMPLICIT_NAMING_STRATEGY, "org.springframework.boot.orm.jpa.hibernate.SpringImplicitNamingStrategy")
+            .applySetting(AvailableSettings.HBM2DDL_AUTO, "update")
             .build();
         try {
             MetadataSources fontes = new MetadataSources(servicos);
             for (EntityType<?> entidade : emf.getMetamodel().getEntities()) fontes.addAnnotatedClass(entidade.getJavaType());
             Metadata metadata = fontes.buildMetadata();
-            new SchemaUpdate().execute(EnumSet.of(TargetType.DATABASE), metadata);
+            metadata.buildSessionFactory().close();
         } finally {
             StandardServiceRegistryBuilder.destroy(servicos);
         }
