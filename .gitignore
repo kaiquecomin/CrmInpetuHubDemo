@@ -1,0 +1,14 @@
+target/
+bin/
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+uploads/
+*.log
+
+# Credenciais e atalhos locais: NUNCA versionar
+private/
+iniciar-inpetu.bat
+iniciar-inpetu-demo.ps1
