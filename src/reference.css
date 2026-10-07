@@ -25,6 +25,11 @@
 .public-app .profile-menu{position:absolute;z-index:40;top:calc(100% + 8px);right:0;min-width:200px;padding:6px;border:1px solid #e1e7ef;border-radius:10px;background:#fff;box-shadow:0 14px 32px rgba(23,36,61,.14)}
 .public-app .profile-menu button{width:100%;min-height:38px;padding:0 11px;border:0;border-radius:7px;background:transparent;color:#34445d;text-align:left;font-size:11px;font-weight:600}
 .public-app .profile-menu button:hover,.public-app .profile-menu button:focus-visible{background:#eef4fb;color:#15569a}
+.public-app .profile-details{display:grid;gap:0;margin:0}
+.public-app .profile-details>div{padding:13px 0;border-bottom:1px solid #e7ecf2}
+.public-app .profile-details>div:last-child{border-bottom:0}
+.public-app .profile-details dt{margin-bottom:5px;color:#738198;font-size:11px}
+.public-app .profile-details dd{margin:0;color:#263750;font-size:14px;font-weight:600;overflow-wrap:anywhere}
 .public-app .reference-header-cta,.public-app .button-primary{background:#15569a;color:#fff;border-color:#15569a;border-radius:7px}
 .public-app .reference-header-cta{min-height:36px;padding:0 13px;font-size:10px}
 .public-app .reference-header-cta:hover,.public-app .button-primary:hover:not(:disabled){background:#10477f}

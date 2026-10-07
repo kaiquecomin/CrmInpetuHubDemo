@@ -192,11 +192,12 @@ function NotificationCenter({ user }) {
 function Header({ view, setView, openLogin, onOpenCalendar, user, onLogout }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [profileDetailsOpen, setProfileDetailsOpen] = useState(false)
   const goTo = (id) => { setView('home'); setMenuOpen(false); window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0) }
   const perfilLabel = user?.perfil === 1 ? 'Coordenador / Admin' : user?.perfil === 2 ? 'Gestor de espaços' : user?.perfil === 3 ? 'Atendente / Staff' : 'Solicitante'
   return <header className="site-header reference-header"><div className="header-inner"><button className="logo-button" onClick={() => { setView('home'); window.scrollTo({ top: 0, behavior: 'smooth' }) }}><span className="reference-logo-icon"><Building2 size={20} /></span><span className="reference-brand-copy"><strong>InPETU Connect</strong><small>UFSC · LOTE 73</small></span></button>
     <nav className={`main-nav ${menuOpen ? 'nav-open' : ''}`}><button className={view === 'home' ? 'nav-active' : ''} onClick={() => { setView('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); setMenuOpen(false) }}>Início</button><button onClick={() => goTo('spaces')}>Nossos Espaços</button><button onClick={() => goTo('about')}>Sobre o Hub</button><button className={view === 'help' ? 'nav-active' : ''} onClick={() => { setView('help'); setMenuOpen(false) }}>Fale Conosco</button></nav>
-    <div className="header-actions">{user ? <div className="profile-control"><NotificationCenter user={user} /><div className="profile-switcher"><button type="button" className="profile-trigger" aria-haspopup="menu" aria-expanded={profileOpen} onClick={() => setProfileOpen(value => !value)}><span className="profile-meta"><strong>{user.nome || user.email || 'Perfil'}</strong><small>{perfilLabel}</small></span></button>{profileOpen && <div className="profile-menu" role="menu"><button type="button" role="menuitem" onClick={() => { setView(isCrmUser(user) ? 'crm' : 'reservations'); setProfileOpen(false) }}>{isCrmUser(user) ? 'Painel administrativo' : 'Minhas reservas'}</button><button type="button" role="menuitem" onClick={() => { onLogout?.(); setProfileOpen(false) }}>Sair da conta</button></div>}</div></div> : <button className="team-link reference-login" onClick={() => { openLogin(); setMenuOpen(false) }}>Entrar / Minhas Reservas</button>}<button className="team-link reference-login" onClick={() => { if (user) setView('reservations'); else openLogin(); setMenuOpen(false) }}>{user ? 'Minhas Reservas' : 'Entrar / Minhas Reservas'}</button><Button icon={CalendarDays} className="reference-header-cta" onClick={() => { onOpenCalendar(); setMenuOpen(false) }}>Agendar Espaço</Button></div><button className="mobile-menu icon-button" onClick={() => setMenuOpen(!menuOpen)} aria-label="Abrir menu"><MenuIcon /></button>
+    <div className="header-actions">{user ? <div className="profile-control"><NotificationCenter user={user} /><div className="profile-switcher"><button type="button" className="profile-trigger" aria-haspopup="menu" aria-expanded={profileOpen} onClick={() => setProfileOpen(value => !value)}><span className="profile-meta"><strong>{user.nome || user.email || 'Perfil'}</strong><small>{perfilLabel}</small></span></button>{profileOpen && <div className="profile-menu" role="menu"><button type="button" role="menuitem" onClick={() => { setProfileDetailsOpen(true); setProfileOpen(false) }}>Meu perfil</button><button type="button" role="menuitem" onClick={() => { setView('reservations'); setProfileOpen(false) }}>Minhas reservas</button>{isCrmUser(user) && <button type="button" role="menuitem" onClick={() => { setView('crm'); setProfileOpen(false) }}>Painel administrativo</button>}<button type="button" role="menuitem" onClick={() => { onLogout?.(); setProfileOpen(false) }}>Sair da conta</button></div>}</div><Modal open={profileDetailsOpen} close={() => setProfileDetailsOpen(false)} title="Meu perfil"><dl className="profile-details"><div><dt>Nome</dt><dd>{user.nome || 'Não informado'}</dd></div><div><dt>E-mail</dt><dd>{user.email || 'Não informado'}</dd></div><div><dt>Perfil de acesso</dt><dd>{perfilLabel}</dd></div></dl></Modal></div> : <button className="team-link reference-login" onClick={() => { openLogin(); setMenuOpen(false) }}>Entrar</button>}<Button icon={CalendarDays} className="reference-header-cta" onClick={() => { onOpenCalendar(); setMenuOpen(false) }}>Agendar Espaço</Button></div><button className="mobile-menu icon-button" onClick={() => setMenuOpen(!menuOpen)} aria-label="Abrir menu"><MenuIcon /></button>
   </div></header>
 }
 function Home({ spaces, onConsultSpace, onSearchAvailability, onOpenCalendar }) {
@@ -287,7 +288,7 @@ function AccessPage({ onLogin, onSignup }) {
     <div className="account-page-heading"><h1>Acesso ao InPETU Connect</h1><p>Entre com seu e-mail e senha para acessar sua conta.</p></div>
     <section className="account-card" aria-label="Acessar sua conta">
       <p className="account-description">Acesse para acompanhar e gerenciar suas solicitações. O painel da equipe é exibido conforme as permissões da sua conta.</p>
-      {import.meta.env.DEV && <div className="account-dev-banner">Login rápido de desenvolvimento: {devAdminEmail} / {devAdminPassword}</div>}
+      {import.meta.env.DEV && <div className="account-dev-banner">Acesso de desenvolvimento: {devAdminEmail} / {devAdminPassword}</div>}
       <form className="form-stack account-form" onSubmit={submit}>
         <label>E-mail <span aria-hidden="true">*</span><input required type="email" autoComplete="email" placeholder="seu.email@empresa.com" value={email} onChange={e => setEmail(e.target.value)} /></label>
         <label>Senha <span aria-hidden="true">*</span><input required type="password" autoComplete="current-password" placeholder="Sua senha" value={password} onChange={e => setPassword(e.target.value)} /></label>
@@ -663,6 +664,7 @@ function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, set
     } catch (error) {
       notify(error.message)
     }
+  }
     function editReservation(item) {
       setReservationEditTarget(item)
       setReservationEditForm({
@@ -725,7 +727,6 @@ function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, set
         setNegotiationBusy(false)
       }
     }
-  }
   async function cancelReservationByTeam() {
     if (!reservationCancelTarget || !reservationCancelReason.trim() || reservationCancelBusy) return
     setReservationCancelBusy(true)
