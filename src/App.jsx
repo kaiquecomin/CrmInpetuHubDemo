@@ -185,12 +185,14 @@ function NotificationCenter({ user }) {
     </section>}
   </div>
 }
-function Header({ view, setView, openLogin, onOpenCalendar, user }) {
+function Header({ view, setView, openLogin, onOpenCalendar, user, onLogout }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
   const goTo = (id) => { setView('home'); setMenuOpen(false); window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0) }
+  const perfilLabel = user?.perfil === 1 ? 'Coordenador' : user?.perfil === 2 ? 'Gestor' : user?.perfil === 3 ? 'Atendimento' : 'Perfil'
   return <header className="site-header reference-header"><div className="header-inner"><button className="logo-button" onClick={() => { setView('home'); window.scrollTo({ top: 0, behavior: 'smooth' }) }}><span className="reference-logo-icon"><Building2 size={20} /></span><span className="reference-brand-copy"><strong>InPETU Connect</strong><small>UFSC · LOTE 73</small></span></button>
     <nav className={`main-nav ${menuOpen ? 'nav-open' : ''}`}><button className={view === 'home' ? 'nav-active' : ''} onClick={() => { setView('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); setMenuOpen(false) }}>Início</button><button onClick={() => goTo('spaces')}>Nossos Espaços</button><button onClick={() => goTo('about')}>Sobre o Hub</button><button className={view === 'help' ? 'nav-active' : ''} onClick={() => { setView('help'); setMenuOpen(false) }}>Fale Conosco</button></nav>
-    <div className="header-actions">{user && <NotificationCenter user={user} />}<button className="team-link reference-login" onClick={() => { if (user) setView('reservations'); else openLogin(); setMenuOpen(false) }}>{user ? 'Minhas Reservas' : 'Entrar / Minhas Reservas'}</button><Button icon={CalendarDays} className="reference-header-cta" onClick={() => { onOpenCalendar(); setMenuOpen(false) }}>Agendar Espaço</Button></div><button className="mobile-menu icon-button" onClick={() => setMenuOpen(!menuOpen)} aria-label="Abrir menu"><MenuIcon /></button>
+    <div className="header-actions">{user && <NotificationCenter user={user} />}{user ? <div className="profile-switcher"><button type="button" className="profile-trigger" onClick={() => setProfileOpen(value => !value)}><span className="profile-avatar">{(user.nome || user.email || 'P').slice(0, 1).toUpperCase()}</span><span className="profile-meta"><strong>{user.nome || 'Perfil'}</strong><small>{perfilLabel}</small></span></button>{profileOpen && <div className="profile-menu" role="menu"><button type="button" onClick={() => { setView(user.perfil === 1 || user.perfil === 2 || user.perfil === 3 ? 'crm' : 'reservations'); setProfileOpen(false) }}>Ver perfil</button><button type="button" onClick={() => { onLogout?.(); setProfileOpen(false) }}>Sair do perfil</button></div>}</div> : <button className="team-link reference-login" onClick={() => { openLogin(); setMenuOpen(false) }}>Entrar / Minhas Reservas</button>}<button className="team-link reference-login" onClick={() => { if (user) setView('reservations'); else openLogin(); setMenuOpen(false) }}>{user ? 'Minhas Reservas' : 'Entrar / Minhas Reservas'}</button><Button icon={CalendarDays} className="reference-header-cta" onClick={() => { onOpenCalendar(); setMenuOpen(false) }}>Agendar Espaço</Button></div><button className="mobile-menu icon-button" onClick={() => setMenuOpen(!menuOpen)} aria-label="Abrir menu"><MenuIcon /></button>
   </div></header>
 }
 function Home({ spaces, onConsultSpace, onSearchAvailability, onOpenCalendar }) {
@@ -263,21 +265,25 @@ function BookingModal({ space, close, onSaved, openLogin, initialDate, initialTi
   </Modal>
 }
 function AccessPage({ onLogin, onSignup }) {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const devAdminEmail = import.meta.env.VITE_DEMO_ADMIN_EMAIL || 'admin@inpetuhub.ufsc.br'
+  const devAdminPassword = import.meta.env.VITE_DEMO_ADMIN_PASSWORD || 'DevAdmin-InPETU-2026!'
+  const [email, setEmail] = useState(import.meta.env.DEV ? devAdminEmail : '')
+  const [password, setPassword] = useState(import.meta.env.DEV ? devAdminPassword : '')
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
   async function submit(event) {
     event.preventDefault(); setBusy(true); setNotice('')
     try {
       const result = await request('/auth/login', { method: 'POST', body: JSON.stringify({ email, senha: password }) })
-      localStorage.setItem('inpetu-token', result.token); localStorage.setItem('inpetu-user', JSON.stringify(result)); onLogin(result)
+      const normalized = { ...result, perfil: Number(result.perfil ?? result.idPerfil ?? 4) }
+      localStorage.setItem('inpetu-token', normalized.token); localStorage.setItem('inpetu-user', JSON.stringify(normalized)); onLogin(normalized)
     } catch (error) { setNotice(error.message) } finally { setBusy(false) }
   }
   return <main className="account-page">
     <div className="account-page-heading"><h1>Acesso ao InPETU Connect</h1><p>Entre com seu e-mail e senha para acessar sua conta.</p></div>
     <section className="account-card" aria-label="Acessar sua conta">
       <p className="account-description">Acesse para acompanhar e gerenciar suas solicitações. O painel da equipe é exibido conforme as permissões da sua conta.</p>
+      {import.meta.env.DEV && <div className="account-dev-banner">Login rápido de desenvolvimento: {devAdminEmail} / {devAdminPassword}</div>}
       <form className="form-stack account-form" onSubmit={submit}>
         <label>E-mail <span aria-hidden="true">*</span><input required type="email" autoComplete="email" placeholder="seu.email@empresa.com" value={email} onChange={e => setEmail(e.target.value)} /></label>
         <label>Senha <span aria-hidden="true">*</span><input required type="password" autoComplete="current-password" placeholder="Sua senha" value={password} onChange={e => setPassword(e.target.value)} /></label>
@@ -1125,6 +1131,12 @@ function AppInner() {
     setView('calendar')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+  function logout() {
+    localStorage.removeItem('inpetu-token')
+    localStorage.removeItem('inpetu-user')
+    setUser(null)
+    setView('home')
+  }
   useEffect(() => { request('/espacos').then(data => data?.length && setSpaces(data)).catch(() => { }) }, [])
   useEffect(() => { if (localStorage.getItem('inpetu-token')) request('/reservas/minhas').then(setMyReservations).catch(() => { }) }, [user])
   function updateCancel(item, reason) {
@@ -1137,30 +1149,79 @@ function AppInner() {
     setAvailabilityVersion(version => version + 1)
   }
   if (view === 'crm') return <Crm user={user} setUser={setUser} onReturnHome={() => { setView('home'); window.scrollTo({ top: 0, behavior: 'smooth' }) }} spaces={spaces} setSpaces={setSpaces} reservations={reservations} setReservations={setReservations} />
-  return <div className="public-app"><Header view={view} setView={setView} openLogin={() => setView('access')} onOpenCalendar={openCalendar} user={user} />{view === 'home' && <Home spaces={spaces} onConsultSpace={showSpaceAvailability} setSignupOpen={() => setView('signup')} onOpenCalendar={openCalendar} onSearchAvailability={(date, kind) => { setCalendarQuery({ date, kind, spaceId: '' }); setView('calendar'); window.scrollTo({ top: 0, behavior: 'smooth' }) }} />}{view === 'calendar' && <CalendarPage spaces={spaces} onReserve={openBooking} initialDate={calendarQuery.date || localDateValue()} initialKind={calendarQuery.kind} initialSpaceId={calendarQuery.spaceId} availabilityVersion={availabilityVersion} />}{view === 'reservations' && <ReservationsPage items={myReservations} onCancel={updateCancel} />}{view === 'help' && <HelpPage />}{view === 'access' && <AccessPage onLogin={result => { setUser(result); setView(result.perfil === 1 || result.perfil === 2 || result.perfil === 3 ? 'crm' : 'reservations') }} onSignup={() => setView('signup')} />}{view === 'signup' && <SignupPage onBack={() => setView('access')} />}{!['access', 'signup'].includes(view) && <Footer setView={setView} />}<BookingModal space={bookingSpace} close={() => setBookingSpace(null)} onSaved={updateSaved} openLogin={() => setView('access')} initialDate={bookingSchedule.date} initialTime={bookingSchedule.time} initialEndTime={bookingEndTime} /></div>
+  return <div className="public-app"><Header view={view} setView={setView} openLogin={() => setView('access')} onOpenCalendar={openCalendar} user={user} onLogout={logout} />{view === 'home' && <Home spaces={spaces} onConsultSpace={showSpaceAvailability} setSignupOpen={() => setView('signup')} onOpenCalendar={openCalendar} onSearchAvailability={(date, kind) => { setCalendarQuery({ date, kind, spaceId: '' }); setView('calendar'); window.scrollTo({ top: 0, behavior: 'smooth' }) }} />}{view === 'calendar' && <CalendarPage spaces={spaces} onReserve={openBooking} initialDate={calendarQuery.date || localDateValue()} initialKind={calendarQuery.kind} initialSpaceId={calendarQuery.spaceId} availabilityVersion={availabilityVersion} />}{view === 'reservations' && <ReservationsPage items={myReservations} onCancel={updateCancel} />}{view === 'help' && <HelpPage />}{view === 'access' && <AccessPage onLogin={result => { const perfil = Number(result?.perfil ?? result?.idPerfil ?? 4); const nextUser = { ...result, perfil }; setUser(nextUser); setView(perfil === 1 || perfil === 2 || perfil === 3 ? 'crm' : 'reservations') }} onSignup={() => setView('signup')} />}{view === 'signup' && <SignupPage onBack={() => setView('access')} />}{!['access', 'signup'].includes(view) && <Footer setView={setView} />}<BookingModal space={bookingSpace} close={() => setBookingSpace(null)} onSaved={updateSaved} openLogin={() => setView('access')} initialDate={bookingSchedule.date} initialTime={bookingSchedule.time} initialEndTime={bookingEndTime} /></div>
 }
 
 function DbSwitch() {
   const [info, setInfo] = useState(null)
+  const [user, setUser] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('inpetu-user') || 'null')
+    } catch {
+      return null
+    }
+  })
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [devPassword, setDevPassword] = useState('')
+  const [confirmError, setConfirmError] = useState('')
   const current = getDb()
+  const devAdminPassword = import.meta.env.VITE_DEMO_ADMIN_PASSWORD || 'DevAdmin-InPETU-2026!'
+
   useEffect(() => { request('/database').then(setInfo).catch(() => { }) }, [])
   useEffect(() => {
+    const syncUser = () => {
+      try {
+        setUser(JSON.parse(localStorage.getItem('inpetu-user') || 'null'))
+      } catch {
+        setUser(null)
+      }
+    }
+    window.addEventListener('storage', syncUser)
+    return () => window.removeEventListener('storage', syncUser)
+  }, [])
+  useEffect(() => {
     if (info && !info.testeDisponivel && current === 'test') { localStorage.setItem('inpetu-db', 'main'); window.location.reload() }
-  }, [info, current])
-  if (!info?.testeDisponivel) return null
+    if (info && info.testeDisponivel && user && user.perfil !== 1 && current === 'test') {
+      localStorage.setItem('inpetu-db', 'main');
+      window.location.reload()
+    }
+  }, [info, current, user])
+  const canUseTestDb = Boolean(user && user.perfil === 1)
+  if (!info?.testeDisponivel || !canUseTestDb) return current === 'test' ? <div className="db-banner" role="status">AMBIENTE DE TESTE · os dados deste banco são fictícios e separados do principal</div> : null
   function change(next) {
     if (next === current) return
     localStorage.setItem('inpetu-db', next)
     localStorage.removeItem('inpetu-token'); localStorage.removeItem('inpetu-user')
     window.location.reload()
   }
+  function openTestConfirm() {
+    setConfirmError('')
+    setDevPassword('')
+    setConfirmOpen(true)
+  }
+  function confirmTestSwitch() {
+    if (devPassword !== devAdminPassword) {
+      setConfirmError('Senha do admin/dev inválida. Tente novamente.')
+      return
+    }
+    setConfirmOpen(false)
+    setDevPassword('')
+    setConfirmError('')
+    change('test')
+  }
   return <>
     {current === 'test' && <div className="db-banner" role="status">AMBIENTE DE TESTE · os dados deste banco são fictícios e separados do principal</div>}
     <div className="db-switch" role="group" aria-label="Banco de dados">
       <span>Banco</span>
       <button type="button" className={current === 'main' ? 'db-on' : ''} onClick={() => change('main')} aria-pressed={current === 'main'}>Principal</button>
-      <button type="button" className={current === 'test' ? 'db-on db-on-test' : ''} onClick={() => change('test')} aria-pressed={current === 'test'}>Teste</button>
+      <button type="button" className={current === 'test' ? 'db-on db-on-test' : ''} onClick={openTestConfirm} aria-pressed={current === 'test'}>Teste</button>
     </div>
+    <Modal open={confirmOpen} close={() => { setConfirmOpen(false); setDevPassword(''); setConfirmError('') }} title="Confirmar acesso ao banco de teste">
+      <p className="access-intro">Somente o admin/dev pode entrar no ambiente de teste. Use a senha do ambiente de desenvolvimento para continuar.</p>
+      <label className="reason-field">Senha do admin/dev<input type="password" value={devPassword} onChange={event => { setDevPassword(event.target.value); setConfirmError('') }} placeholder="Digite a senha de desenvolvimento" autoComplete="current-password" /></label>
+      {confirmError && <p className="form-message" role="alert">{confirmError}</p>}
+      <Button type="button" onClick={confirmTestSwitch}>Confirmar e entrar no teste</Button>
+    </Modal>
   </>
 }
 

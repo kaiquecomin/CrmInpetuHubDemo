@@ -28,21 +28,23 @@ public class DemoDataSeed {
     private record ReservaDemo(String titulo, String descricao, String tipoEspaco, int dias, String inicio, String fim, int participantes, String status) {}
     private record ChamadoDemo(String email, String telefone, String mensagem, String resposta, String status) {}
 
-    private static final List<PessoaDemo> PESSOAS = List.of(
-        new PessoaDemo("Coordenador InPETU", "admin@inpetuhub.ufsc.br", "Coordenação", "UFSC / InPETU Hub", 1, 1, "InPetu-Admin-2026!"),
-        new PessoaDemo("Camila Nunes", "demo.coordenacao@inpetu.test", "Coordenação de demonstração", "UFSC / InPETU Hub", 1, 1, "Coord-Demo-2026!"),
-        new PessoaDemo("Rafael Martins", "demo.gestor@inpetu.test", "Gestor de espaços (demonstração)", "Laboratório Lagoa (Demonstração)", 2, 1, "Gestor-Demo-2026!"),
-        new PessoaDemo("Lia Ferreira", "demo.atendimento@inpetu.test", "Atendimento (demonstração)", "Laboratório Lagoa (Demonstração)", 3, 1, "Atende-Demo-2026!"),
-        new PessoaDemo("Ana Souza", "ana@laboratorio-lagoa.test", "Pesquisadora", "Laboratório Lagoa (Demonstração)", 4, 3, "Ana-LabLagoa-2026!"),
-        new PessoaDemo("Helena Faria (Governo/UFSC)", "helena@governo-ufsc-demo.test", "Assessora Especial", "Governo Estadual / UFSC (DEMO)", 4, 4, "Helena-GovUFSC-2026!"),
-        new PessoaDemo("Marcos Lima", "marcos@cidade-criativa.test", "Coordenador de projetos", "Cidade Criativa (Demonstração)", 4, 3, "Marcos-Cidade-2026!"),
-        new PessoaDemo("Bianca Costa", "bianca@startup-ilha.test", "Fundadora", "Startup Ilha (Demonstração)", 4, 3, "Bianca-Startup-2026!"),
-        new PessoaDemo("Pedro Almeida", "pedro@acate-labs-demo.test", "Líder de inovação", "ACATE Labs (DEMO)", 4, 3, "Pedro-ACATE-2026!"),
-        new PessoaDemo("Júlia Ribeiro", "julia@mare-sustentavel-demo.test", "Diretora de projetos", "Maré Sustentável (DEMO)", 4, 3, "Julia-Mare-2026!"),
-        new PessoaDemo("Lucas Freitas", "lucas@ponte-digital-demo.test", "Fundador", "Ponte Digital (DEMO)", 4, 5, "Lucas-Ponte-2026!"),
-        new PessoaDemo("Marina Lopes", "marina@cidade-laboratorio-demo.test", "Pesquisadora", "Cidade Laboratório (DEMO)", 4, 2, "Marina-Cidade-2026!"),
-        new PessoaDemo("André Carvalho", "andre@impacto-ilha-demo.test", "Gestor de comunidade", "Impacto Ilha (DEMO)", 4, 5, "Andre-Impacto-2026!")
-    );
+    private static List<PessoaDemo> pessoasDemo(String adminEmail, String adminPassword) {
+        return List.of(
+            new PessoaDemo("Coordenador InPETU", adminEmail, "Coordenação", "UFSC / InPETU Hub", 1, 1, adminPassword),
+            new PessoaDemo("Camila Nunes", "demo.coordenacao@inpetu.test", "Coordenação de demonstração", "UFSC / InPETU Hub", 1, 1, "Coord-Demo-2026!"),
+            new PessoaDemo("Rafael Martins", "demo.gestor@inpetu.test", "Gestor de espaços (demonstração)", "Laboratório Lagoa (Demonstração)", 2, 1, "Gestor-Demo-2026!"),
+            new PessoaDemo("Lia Ferreira", "demo.atendimento@inpetu.test", "Atendimento (demonstração)", "Laboratório Lagoa (Demonstração)", 3, 1, "Atende-Demo-2026!"),
+            new PessoaDemo("Ana Souza", "ana@laboratorio-lagoa.test", "Pesquisadora", "Laboratório Lagoa (Demonstração)", 4, 3, "Ana-LabLagoa-2026!"),
+            new PessoaDemo("Helena Faria (Governo/UFSC)", "helena@governo-ufsc-demo.test", "Assessora Especial", "Governo Estadual / UFSC (DEMO)", 4, 4, "Helena-GovUFSC-2026!"),
+            new PessoaDemo("Marcos Lima", "marcos@cidade-criativa.test", "Coordenador de projetos", "Cidade Criativa (Demonstração)", 4, 3, "Marcos-Cidade-2026!"),
+            new PessoaDemo("Bianca Costa", "bianca@startup-ilha.test", "Fundadora", "Startup Ilha (Demonstração)", 4, 3, "Bianca-Startup-2026!"),
+            new PessoaDemo("Pedro Almeida", "pedro@acate-labs-demo.test", "Líder de inovação", "ACATE Labs (DEMO)", 4, 3, "Pedro-ACATE-2026!"),
+            new PessoaDemo("Júlia Ribeiro", "julia@mare-sustentavel-demo.test", "Diretora de projetos", "Maré Sustentável (DEMO)", 4, 3, "Julia-Mare-2026!"),
+            new PessoaDemo("Lucas Freitas", "lucas@ponte-digital-demo.test", "Fundador", "Ponte Digital (DEMO)", 4, 5, "Lucas-Ponte-2026!"),
+            new PessoaDemo("Marina Lopes", "marina@cidade-laboratorio-demo.test", "Pesquisadora", "Cidade Laboratório (DEMO)", 4, 2, "Marina-Cidade-2026!"),
+            new PessoaDemo("André Carvalho", "andre@impacto-ilha-demo.test", "Gestor de comunidade", "Impacto Ilha (DEMO)", 4, 5, "Andre-Impacto-2026!")
+        );
+    }
 
     private static final List<ReservaDemo> RESERVAS = List.of(
         new ReservaDemo("Oficina de inovação aberta (DEMO)", "Dados de demonstração para validar a revisão de reservas.", "Sala de Aula 1", 2, "09:00", "11:00", 18, "Pendente"),
@@ -71,16 +73,20 @@ public class DemoDataSeed {
         DuvidaAtendimentoRepository duvidas,
         PasswordEncoder passwordEncoder,
         @Value("${spring.datasource.url}") String datasourceUrl,
-        @Value("${DEMO_DATA_ALLOW_NON_LOCAL:false}") boolean allowNonLocalDatabase
+        @Value("${DEMO_DATA_ALLOW_NON_LOCAL:false}") boolean allowNonLocalDatabase,
+        @Value("${app.demo.admin.email:admin@inpetuhub.ufsc.br}") String adminEmail,
+        @Value("${app.demo.admin.password:DevAdmin-InPETU-2026!}") String adminPassword
     ) {
         return args -> {
             if (!allowNonLocalDatabase && !usesLocalDatabase(datasourceUrl)) {
                 throw new IllegalStateException("A carga demo só pode usar banco local. Confirme conscientemente com DEMO_DATA_ALLOW_NON_LOCAL=true para outro banco.");
             }
-            if (PESSOAS.stream().anyMatch(pessoa -> pessoa.senhaDemo().length() < 12 || pessoa.senhaDemo().length() > 72)) {
+            String senhaAdmin = (adminPassword == null || adminPassword.isBlank()) ? "DevAdmin-InPETU-2026!" : adminPassword;
+            var pessoas = pessoasDemo(adminEmail, senhaAdmin);
+            if (pessoas.stream().anyMatch(pessoa -> pessoa.senhaDemo().length() < 12 || pessoa.senhaDemo().length() > 72)) {
                 throw new IllegalStateException("As senhas de demonstração devem ter entre 12 e 72 caracteres.");
             }
-            var usuariosDemo = PESSOAS.stream().map(pessoa -> criarUsuario(pessoa, passwordEncoder, usuarios, organizacoes)).toList();
+            var usuariosDemo = pessoas.stream().map(pessoa -> criarUsuario(pessoa, passwordEncoder, usuarios, organizacoes)).toList();
             Usuario coordenacao = usuariosDemo.stream().filter(usuario -> usuario.getEmail().equals("demo.coordenacao@inpetu.test")).findFirst().orElseThrow();
             var solicitantes = usuariosDemo.stream().filter(usuario -> usuario.getIdPerfil() == 4).toList();
             if (solicitantes.size() < RESERVAS.size()) {

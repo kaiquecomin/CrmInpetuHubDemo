@@ -17,6 +17,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.*;
+import org.springframework.http.HttpMethod;
 import java.util.List;
 
 @Configuration @EnableWebSecurity @EnableMethodSecurity
@@ -35,8 +36,9 @@ public class SecurityConfig {
     @Bean SecurityFilterChain filterChain(HttpSecurity http, JwtAuthenticationFilter jwtFilter, AuthenticationProvider provider) throws Exception {
         return http.csrf(csrf -> csrf.disable()).cors(cors -> {}).sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authenticationProvider(provider).authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/v1/auth/**", "/api/v1/usuarios/cadastro-publico", "/api/v1/espacos/**", "/api/v1/duvidas", "/api/v1/ecossistema", "/api/v1/ecossistema/*/logo").permitAll()
-                .requestMatchers("/api/v1/database").permitAll()
+                .requestMatchers("/api/v1/auth/**", "/api/v1/usuarios/cadastro-publico", "/api/v1/database").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/espacos/**", "/api/v1/ecossistema", "/api/v1/ecossistema/*/logo").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/duvidas").permitAll()
                 .requestMatchers("/api/**").authenticated()
                 .anyRequest().permitAll())
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class).build();

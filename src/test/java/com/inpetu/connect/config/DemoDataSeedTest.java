@@ -94,7 +94,8 @@ class DemoDataSeedTest {
 
         ApplicationRunner runner = new DemoDataSeed().seedDemoData(
             usuarios, organizacoes, espacos, reservas, duvidas, encoder,
-            "jdbc:mysql://localhost:3306/inpetu_connect", false);
+            "jdbc:mysql://localhost:3306/inpetu_connect", false,
+            "admin@inpetuhub.ufsc.br", "DevAdmin-InPETU-2026!");
         ApplicationArguments args = mock(ApplicationArguments.class);
         runner.run(args);
         runner.run(args);
@@ -141,7 +142,8 @@ class DemoDataSeedTest {
         PasswordEncoder encoder = mock(PasswordEncoder.class);
         ApplicationRunner runner = new DemoDataSeed().seedDemoData(
             usuarios, organizacoes, espacos, reservas, duvidas, encoder,
-            "jdbc:mysql://production.example:3306/inpetu_connect", false);
+            "jdbc:mysql://production.example:3306/inpetu_connect", false,
+            "admin@inpetuhub.ufsc.br", "DevAdmin-InPETU-2026!");
 
         IllegalStateException error = assertThrows(IllegalStateException.class, () -> runner.run(mock(ApplicationArguments.class)));
 

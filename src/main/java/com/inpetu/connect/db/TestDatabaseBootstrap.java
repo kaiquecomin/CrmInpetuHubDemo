@@ -39,7 +39,9 @@ public class TestDatabaseBootstrap {
         @Qualifier("seedEcossistema") ApplicationRunner seedEcossistema,
         UsuarioRepository usuarios, OrganizacaoRepository organizacoes, EspacoRepository espacos,
         ReservaRepository reservas, DuvidaAtendimentoRepository duvidas, PasswordEncoder encoder,
-        @Value("${app.db.test.seed-demo:true}") boolean seedDemo
+        @Value("${app.db.test.seed-demo:true}") boolean seedDemo,
+        @Value("${app.demo.admin.email:admin@inpetuhub.ufsc.br}") String adminEmail,
+        @Value("${app.demo.admin.password:DevAdmin-InPETU-2026!}") String adminPassword
     ) {
         return (ApplicationArguments args) -> {
             if (!registry.testEnabled()) { log.info("Banco de teste não configurado (DB_TEST_URL vazio): seletor desativado."); return; }
@@ -50,7 +52,7 @@ public class TestDatabaseBootstrap {
                 populator.execute(registry.test());
                 executarNoTeste(() -> seedEcossistema.run(args));
                 if (seedDemo) {
-                    ApplicationRunner demo = new DemoDataSeed().seedDemoData(usuarios, organizacoes, espacos, reservas, duvidas, encoder, registry.testUrl(), true);
+                    ApplicationRunner demo = new DemoDataSeed().seedDemoData(usuarios, organizacoes, espacos, reservas, duvidas, encoder, registry.testUrl(), true, adminEmail, adminPassword);
                     executarNoTeste(() -> demo.run(args));
                 }
                 log.info("Banco de teste pronto.");
