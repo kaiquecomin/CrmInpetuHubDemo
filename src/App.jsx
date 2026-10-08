@@ -1199,17 +1199,24 @@ function DbSwitch() {
     return () => window.removeEventListener('storage', syncUser)
   }, [])
   useEffect(() => {
-    if (info && !info.testeDisponivel && current === 'test') { localStorage.setItem('inpetu-db', 'main'); window.location.reload() }
+    if (info && !info.testeDisponivel && current === 'test') { sessionStorage.removeItem('inpetu-db'); window.location.reload() }
     if (info && info.testeDisponivel && user && user.perfil !== 1 && current === 'test') {
-      localStorage.setItem('inpetu-db', 'main');
+      sessionStorage.removeItem('inpetu-db')
       window.location.reload()
     }
   }, [info, current, user])
   const canUseTestDb = Boolean(user && user.perfil === 1)
-  if (!info?.testeDisponivel || !canUseTestDb) return current === 'test' ? <div className="db-banner" role="status">AMBIENTE DE TESTE · os dados deste banco são fictícios e separados do principal</div> : null
+  if (current === 'test' && (!info?.testeDisponivel || !canUseTestDb)) {
+    return <div className="db-banner" role="status">
+      <span>AMBIENTE DE TESTE · os dados deste banco são fictícios e separados do principal</span>
+      <button type="button" onClick={() => change('main')}>Voltar ao banco principal</button>
+    </div>
+  }
+  if (!info?.testeDisponivel || !canUseTestDb) return null
   function change(next) {
     if (next === current) return
-    sessionStorage.setItem('inpetu-db', next)
+    if (next === 'test') sessionStorage.setItem('inpetu-db', next)
+    else sessionStorage.removeItem('inpetu-db')
     localStorage.removeItem('inpetu-token'); localStorage.removeItem('inpetu-user')
     window.location.reload()
   }
@@ -1229,7 +1236,10 @@ function DbSwitch() {
     change('test')
   }
   return <>
-    {current === 'test' && <div className="db-banner" role="status">AMBIENTE DE TESTE · os dados deste banco são fictícios e separados do principal</div>}
+    {current === 'test' && <div className="db-banner" role="status">
+      <span>AMBIENTE DE TESTE · os dados deste banco são fictícios e separados do principal</span>
+      <button type="button" onClick={() => change('main')}>Voltar ao banco principal</button>
+    </div>}
     <div className="db-switch" role="group" aria-label="Banco de dados">
       <span>Banco</span>
       <button type="button" className={current === 'main' ? 'db-on' : ''} onClick={() => change('main')} aria-pressed={current === 'main'}>Principal</button>

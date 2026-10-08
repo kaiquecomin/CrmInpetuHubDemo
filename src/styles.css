@@ -336,4 +336,7 @@
 .db-switch button:hover { background: rgba(255,255,255,.12); }
 .db-switch button.db-on { background: #16a34a; color: #fff; }
 .db-switch button.db-on-test { background: #f59e0b; color: #1f2937; }
-.db-banner { position: fixed; top: 0; left: 0; right: 0; z-index: 9998; padding: 4px 12px; background: #f59e0b; color: #1f2937; text-align: center; font: 700 11px/1.4 system-ui, sans-serif; letter-spacing: .04em; }
+.db-banner { position: fixed; top: 0; left: 0; right: 0; z-index: 9998; min-height: 32px; padding: 4px 12px; display: flex; align-items: center; justify-content: center; gap: 12px; background: #f59e0b; color: #1f2937; text-align: center; font: 700 11px/1.4 system-ui, sans-serif; letter-spacing: .04em; }
+.db-banner button { border: 1px solid #713f12; border-radius: 999px; padding: 4px 10px; background: #fff7e6; color: #713f12; font: 700 11px/1.2 system-ui, sans-serif; white-space: nowrap; }
+.db-banner button:hover { background: #fff; }
+@media(max-width:600px) { .db-banner { justify-content: space-between; gap: 8px; font-size: 9px; } .db-banner button { padding: 4px 7px; font-size: 9px; } }
