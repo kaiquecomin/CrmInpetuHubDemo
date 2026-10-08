@@ -312,6 +312,10 @@
 .crm-profile-menu-items button:hover,.crm-profile-menu-items button:focus-visible{background:#eef4fb;color:#15569a}
 .crm-profile-menu-items button:last-child{color:#a44242}
 .crm-profile-menu-items button:last-child:hover,.crm-profile-menu-items button:last-child:focus-visible{background:#fff1ef;color:#a44242}
+.crm-topbar-profile{position:relative;display:flex}
+.crm-layout .crm-topbar-profile .crm-avatar{padding:0;border:0;cursor:pointer}
+.crm-layout .crm-topbar-profile .crm-avatar:hover,.crm-layout .crm-topbar-profile .crm-avatar[aria-expanded="true"]{box-shadow:0 0 0 3px #dceaf8}
+.crm-topbar-profile-items{top:calc(100% + 8px);right:0;bottom:auto;left:auto;width:190px}
 
 @media(max-width:900px){
   .crm-layout .dashboard-columns{grid-template-columns:1fr}
