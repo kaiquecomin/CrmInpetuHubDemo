@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.mock.env.MockEnvironment;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.HashMap;
@@ -94,8 +95,7 @@ class DemoDataSeedTest {
 
         ApplicationRunner runner = new DemoDataSeed().seedDemoData(
             usuarios, organizacoes, espacos, reservas, duvidas, encoder,
-            "jdbc:mysql://localhost:3306/inpetu_connect", false,
-            "admin@inpetuhub.ufsc.br", "DevAdmin-InPETU-2026!");
+            "jdbc:mysql://localhost:3306/inpetu_connect", demoEnvironment());
         ApplicationArguments args = mock(ApplicationArguments.class);
         runner.run(args);
         runner.run(args);
@@ -121,7 +121,7 @@ class DemoDataSeedTest {
         assertEquals(1, pessoas.get("demo.coordenacao@inpetu.test").getIdPerfil());
         assertEquals(3, pessoas.get("demo.atendimento@inpetu.test").getIdPerfil());
         assertEquals(4, pessoas.get("ana@laboratorio-lagoa.test").getIdPerfil());
-        assertEquals("encoded-Gestor-Demo-2026!", pessoas.get("demo.gestor@inpetu.test").getSenhaHash());
+        assertEquals("encoded-Local-Only-manager-2026!", pessoas.get("demo.gestor@inpetu.test").getSenhaHash());
         ArgumentCaptor<String> passwordCaptor = ArgumentCaptor.forClass(String.class);
         verify(encoder, times(13)).encode(passwordCaptor.capture());
         assertEquals(13, passwordCaptor.getAllValues().stream().distinct().count());
@@ -142,12 +142,25 @@ class DemoDataSeedTest {
         PasswordEncoder encoder = mock(PasswordEncoder.class);
         ApplicationRunner runner = new DemoDataSeed().seedDemoData(
             usuarios, organizacoes, espacos, reservas, duvidas, encoder,
-            "jdbc:mysql://production.example:3306/inpetu_connect", false,
-            "admin@inpetuhub.ufsc.br", "DevAdmin-InPETU-2026!");
+            "jdbc:mysql://production.example:3306/inpetu_connect", demoEnvironment());
 
         IllegalStateException error = assertThrows(IllegalStateException.class, () -> runner.run(mock(ApplicationArguments.class)));
 
-        assertTrue(error.getMessage().contains("banco local"));
+        assertTrue(error.getMessage().contains("banco MySQL local"));
         verifyNoInteractions(usuarios, organizacoes, espacos, reservas, duvidas, encoder);
+    }
+
+    private MockEnvironment demoEnvironment() {
+        String[] keys = {
+            "admin", "coordinator", "manager", "staff", "customer-laboratory", "customer-government",
+            "customer-city-creative", "customer-startup-island", "customer-acate", "customer-mare",
+            "customer-ponte", "customer-cidade-laboratorio", "customer-impacto"
+        };
+        MockEnvironment environment = new MockEnvironment()
+            .withProperty("app.demo.admin.email", "admin@inpetu.test");
+        for (String key : keys) {
+            environment.setProperty("INPETU_DEMO_PASSWORD_" + key.replace('-', '_').toUpperCase(Locale.ROOT), "Local-Only-" + key + "-2026!");
+        }
+        return environment;
     }
 }

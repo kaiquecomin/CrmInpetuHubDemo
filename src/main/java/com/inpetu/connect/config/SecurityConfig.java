@@ -36,7 +36,7 @@ public class SecurityConfig {
     @Bean SecurityFilterChain filterChain(HttpSecurity http, JwtAuthenticationFilter jwtFilter, AuthenticationProvider provider) throws Exception {
         return http.csrf(csrf -> csrf.disable()).cors(cors -> {}).sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authenticationProvider(provider).authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/v1/auth/**", "/api/v1/usuarios/cadastro-publico", "/api/v1/database").permitAll()
+                .requestMatchers("/api/v1/auth/**", "/api/v1/usuarios/cadastro-publico").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/espacos/**", "/api/v1/ecossistema", "/api/v1/ecossistema/*/logo").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/duvidas").permitAll()
                 .requestMatchers("/api/**").authenticated()
@@ -45,7 +45,7 @@ public class SecurityConfig {
     }
     @Bean CorsConfigurationSource corsConfigurationSource(@Value("${app.cors.allowed-origin}") String origin) {
         CorsConfiguration config = new CorsConfiguration(); config.setAllowedOrigins(List.of(origin)); config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Database")); config.setAllowCredentials(true); config.setExposedHeaders(List.of("X-Database"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type")); config.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource(); source.registerCorsConfiguration("/**", config); return source;
     }
 }

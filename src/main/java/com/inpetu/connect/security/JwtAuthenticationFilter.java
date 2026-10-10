@@ -1,6 +1,5 @@
 package com.inpetu.connect.security;
 
-import com.inpetu.connect.db.DbContext;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
@@ -21,7 +20,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String header = request.getHeader("Authorization");
         if (header != null && header.startsWith("Bearer ") && SecurityContextHolder.getContext().getAuthentication() == null) {
             try {
-                if (!jwt.extrairBanco(header.substring(7)).equals(DbContext.get())) { chain.doFilter(request, response); return; }
                 String email = jwt.extrairEmail(header.substring(7)); UserDetails user = users.loadUserByUsername(email);
                 if (jwt.valido(header.substring(7), user)) {
                     var auth = new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());

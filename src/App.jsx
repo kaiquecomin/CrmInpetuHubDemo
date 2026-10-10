@@ -3,18 +3,16 @@ import { Dialog, DialogPanel, DialogTitle, Menu, MenuButton, MenuItem, MenuItems
 import { ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, Bell, Building2, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, Clock3, DoorOpen, Download, ExternalLink, FileText, Filter, GraduationCap, Home as HomeIcon, LayoutDashboard, ListChecks, Mail, MapPin, Menu as MenuIcon, MessageCircle, MoreHorizontal, Plus, Search, ShieldCheck, SlidersHorizontal, Users, X } from 'lucide-react'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1'
-const getDb = () => sessionStorage.getItem('inpetu-db') === 'test' ? 'test' : 'main'
 const getStoredUser = () => {
   try { return JSON.parse(localStorage.getItem('inpetu-user') || 'null') } catch { return null }
 }
 const isCrmUser = user => [1, 2, 3].includes(Number(user?.perfil ?? user?.idPerfil))
-const withDb = url => getDb() === 'test' ? `${url}${url.includes('?') ? '&' : '?'}db=test` : url
 const isGuidedTour = type => type?.trim().toLocaleLowerCase('pt-BR') === 'visita guiada'
 const images = {
-  'Auditório': 'https://images.unsplash.com/photo-1773829020694-413e879d2957?crop=entropy&cs=srgb&fm=jpg&w=1100&q=85',
+  'Auditório': '/images/rooms/auditorio.jpg',
   'Sala de aula': 'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=1000&q=85',
-  Coworking: 'https://images.unsplash.com/photo-1556761175-4b46a572b786?auto=format&fit=crop&w=1000&q=85',
-  'Sala de reunião': 'https://images.unsplash.com/photo-1517502884422-41eaead166d4?auto=format&fit=crop&w=1000&q=85',
+  Coworking: '/images/rooms/coworking.jpg',
+  'Sala de reunião': '/images/rooms/sala-reuniao.jpg',
   'Visita guiada': 'https://images.unsplash.com/photo-1771911650735-b471e85e8b17?auto=format&fit=crop&w=1000&q=85',
 }
 const localDateValue = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
@@ -31,24 +29,6 @@ const addMinutesToTime = (time, minutes) => {
   const total = hours * 60 + mins + minutes
   return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
 }
-const starterSpaces = [
-  { idEspaco: 1, nomeEspaco: 'Auditório Principal', tipoEspaco: 'Auditório', capacidadePessoas: 80, equipamentosDisponiveis: 'Palco · Som · Projeção', ativo: true },
-  { idEspaco: 2, nomeEspaco: 'Sala de Aula 1', tipoEspaco: 'Sala de aula', capacidadePessoas: 35, equipamentosDisponiveis: 'Projetor · Quadro branco', ativo: true },
-  { idEspaco: 3, nomeEspaco: 'Área de Coworking', tipoEspaco: 'Coworking', capacidadePessoas: 24, equipamentosDisponiveis: 'Wi-Fi · Mesas compartilhadas', ativo: true },
-  { idEspaco: 4, nomeEspaco: 'Sala de Reunião 1', tipoEspaco: 'Sala de reunião', capacidadePessoas: 6, equipamentosDisponiveis: 'Videoconferência · Display', ativo: true },
-  { idEspaco: 5, nomeEspaco: 'Sala de Reunião 2', tipoEspaco: 'Sala de reunião', capacidadePessoas: 10, equipamentosDisponiveis: 'Videoconferência · Quadro', ativo: true },
-  { idEspaco: 6, nomeEspaco: 'Visita Guiada', tipoEspaco: 'Visita guiada', capacidadePessoas: 20, equipamentosDisponiveis: 'Experiência acompanhada', ativo: true },
-]
-const initialReservations = [
-  { idReserva: 104, tituloEvento: 'Encontro de pesquisa aplicada', espaco: 'Auditório Principal', dataReserva: '2026-10-08', horarioInicio: '09:00', horarioFim: '11:30', statusReserva: 'Pendente', solicitante: 'Marina Costa', persona: 2 },
-  { idReserva: 103, tituloEvento: 'Workshop de prototipagem', espaco: 'Sala de Aula 1', dataReserva: '2026-10-08', horarioInicio: '10:00', horarioFim: '12:00', statusReserva: 'Pendente', solicitante: 'Lucas Martins', persona: 3 },
-  { idReserva: 102, tituloEvento: 'Conexão ecossistema', espaco: 'Sala de Reunião 2', dataReserva: '2026-10-08', horarioInicio: '14:00', horarioFim: '15:30', statusReserva: 'Confirmada', solicitante: 'ACATE', persona: 3 },
-]
-const initialPartners = [
-  { id: 1, name: 'Fundação Horizonte', contact: 'Ana Beatriz', email: 'ana@horizonte.org', status: 'Aguardando persona', persona: null },
-  { id: 2, name: 'Nexo Tecnologia', contact: 'Bruno Lima', email: 'bruno@nexo.dev', status: 'Aguardando persona', persona: null },
-  { id: 3, name: 'Universidade Federal de Santa Catarina', contact: 'Marina Costa', email: 'marina@ufsc.br', status: 'Persona definida', persona: 2 },
-]
 const personas = {
   1: { label: 'InPETU Hub', quota: null, badge: 'priority-one' },
   2: { label: 'UFSC outros', quota: 30, badge: 'priority-two' },
@@ -70,7 +50,7 @@ const monthlyQuotaUsed = (items, userId, date = new Date()) => items
 async function request(path, options = {}) {
   const token = localStorage.getItem('inpetu-token')
   const isFormData = options.body instanceof FormData
-  const headers = { ...(options.body && !isFormData ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}), 'X-Database': getDb(), ...options.headers }
+  const headers = { ...(options.body && !isFormData ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}), ...options.headers }
   let response
   try {
     response = await fetch(`${API}${path}`, { ...options, headers })
@@ -90,7 +70,7 @@ async function request(path, options = {}) {
     throw new Error('A API recusou a exclusão (HTTP 403). Essa ação exige perfil Coordenador. Se você já entrou com esse perfil, reinicie o backend Spring Boot e faça login novamente para carregar as regras atualizadas.')
   }
   if (response.status === 401 && path === '/auth/login') {
-    throw new Error(`E-mail ou senha incorretos para o banco ${getDb() === 'test' ? 'de teste' : 'principal'}. Confirme que está usando uma conta cadastrada nesse banco.`)
+    throw new Error('E-mail ou senha incorretos. Confirme que está usando uma conta cadastrada.')
   }
   if (response.status === 403 && path === '/auth/login') {
     throw new Error('A API bloqueou o login (HTTP 403). Atualize o site e a API para a mesma versão e verifique as permissões da conta.')
@@ -105,7 +85,6 @@ function uploadQuestion(data, file, onProgress) {
     form.append('anexo', file)
     const xhr = new XMLHttpRequest()
     xhr.open('POST', `${API}/duvidas`)
-    xhr.setRequestHeader('X-Database', getDb())
     xhr.upload.onprogress = event => { if (event.lengthComputable) onProgress(Math.round((event.loaded / event.total) * 100)) }
     xhr.onload = () => {
       const result = xhr.responseText ? JSON.parse(xhr.responseText) : null
@@ -203,7 +182,7 @@ function Header({ view, setView, openLogin, onOpenCalendar, user, onLogout }) {
     <div className="header-actions">{user ? <div className="profile-control"><NotificationCenter user={user} /><div className="profile-switcher"><button type="button" className="profile-trigger" aria-haspopup="menu" aria-expanded={profileOpen} onClick={() => setProfileOpen(value => !value)}><span className="profile-meta"><strong>{user.nome || user.email || 'Perfil'}</strong><small>{perfilLabel}</small></span></button>{profileOpen && <div className="profile-menu" role="menu"><button type="button" role="menuitem" onClick={() => { setProfileDetailsOpen(true); setProfileOpen(false) }}>Meu perfil</button><button type="button" role="menuitem" onClick={() => { setView('reservations'); setProfileOpen(false) }}>Minhas reservas</button>{isCrmUser(user) && <button type="button" role="menuitem" onClick={() => { setView('crm'); setProfileOpen(false) }}>Painel administrativo</button>}<button type="button" role="menuitem" onClick={() => { onLogout?.(); setProfileOpen(false) }}>Sair da conta</button></div>}</div><Modal open={profileDetailsOpen} close={() => setProfileDetailsOpen(false)} title="Meu perfil"><dl className="profile-details"><div><dt>Nome</dt><dd>{user.nome || 'Não informado'}</dd></div><div><dt>E-mail</dt><dd>{user.email || 'Não informado'}</dd></div><div><dt>Perfil de acesso</dt><dd>{perfilLabel}</dd></div></dl></Modal></div> : <button className="team-link reference-login" onClick={() => { openLogin(); setMenuOpen(false) }}>Entrar</button>}<Button icon={CalendarDays} className="reference-header-cta" onClick={() => { onOpenCalendar(); setMenuOpen(false) }}>Agendar Espaço</Button></div><button className="mobile-menu icon-button" onClick={() => setMenuOpen(!menuOpen)} aria-label="Abrir menu"><MenuIcon /></button>
   </div></header>
 }
-function Home({ spaces, onConsultSpace, onSearchAvailability, onOpenCalendar }) {
+function Home({ spaces, spacesLoaded, onConsultSpace, onSearchAvailability, onOpenCalendar }) {
   const [filter, setFilter] = useState('Todos os espaços')
   const filtered = filter === 'Todos os espaços' ? spaces : spaces.filter(space => space.tipoEspaco === filter)
   const types = ['Todos os espaços', ...new Set(spaces.map(space => space.tipoEspaco))]
@@ -223,19 +202,21 @@ function Home({ spaces, onConsultSpace, onSearchAvailability, onOpenCalendar }) 
         </form>
         <dl className="reference-stats">
           <div><dt>08h–22h</dt><dd>Horário de funcionamento</dd></div>
-          <div><dt>{spaces.length}</dt><dd>Ambientes no Hub</dd></div>
+          <div><dt>{spaces.filter(space => space.ativo !== false).length}</dt><dd>Ambientes ativos</dd></div>
           <div><dt>UFSC</dt><dd>Inovação em Florianópolis</dd></div>
         </dl>
       </div>
       <div className="reference-hero-images">
-        <img className="reference-auditorium" src={images['Auditório']} alt="Auditório do InPETU Hub preparado para eventos e capacitações" />
-        <img className="reference-coworking" src={images.Coworking} alt="Área de coworking iluminada do InPETU Hub" />
+        <img className="reference-auditorium" src="/images/rooms/auditorio.jpg" alt="Auditório do InPETU Hub preparado para eventos e capacitações" />
+        <img className="reference-coworking" src="/images/rooms/coworking.jpg" alt="Área de coworking do InPETU Hub" />
         <div className="hero-image-note"><span><Building2 size={18} /></span><div><strong>Seu próximo encontro começa aqui</strong><small>InPETU Hub · Sapiens Parque</small></div></div>
       </div>
     </section>
     <section id="spaces" className="spaces-section"><div className="section-top"><div><div className="eyebrow">LOTE 73 · INPETU HUB</div><h2>Nossos <em>Espaços</em></h2><p>Ambientes preparados para capacitações, eventos, mentorias e visitas técnicas.</p></div><button className="all-spaces-link" onClick={onOpenCalendar}>Abrir calendário completo <ArrowRight size={16} /></button></div>
       <div className="filter-row"><div className="filter-label"><SlidersHorizontal size={15} /> EXPLORE POR TIPO</div>{types.map(type => <button key={type} className={`filter-chip ${filter === type ? 'filter-chip-active' : ''}`} onClick={() => setFilter(type)}>{type}</button>)}</div>
-      <div className="space-grid">{filtered.map((space, index) => { const unavailable = space.ativo === false; const guidedTourSpace = isGuidedTour(space.tipoEspaco); const image = space.arquivoImagem ? withDb(`${API}/espacos/${space.idEspaco}/imagem`) : images[space.tipoEspaco] || images.Coworking; return <article className={`space-card ${index === 0 ? 'space-card-featured' : ''} ${unavailable ? 'space-card-unavailable' : ''}`} key={space.idEspaco}><button className="space-image" onClick={() => onConsultSpace(space)} aria-label={`Consultar disponibilidade de ${space.nomeEspaco}`} style={{ backgroundImage: `url("${image}")` }}><span className="space-image-count">{String(index + 1).padStart(2, '0')} / {String(filtered.length).padStart(2, '0')}</span>{unavailable ? <span className="space-unavailable-overlay">INDISPONÍVEL</span> : <span className="availability-dot"><i /> Disponível</span>}</button><div className="space-info"><div className="space-meta"><span>{space.tipoEspaco}</span><span><Users size={14} /> Até {space.capacidadePessoas || 20} pessoas</span></div><h3>{space.nomeEspaco}</h3><p>{unavailable ? <>{space.motivoIndisponibilidade || 'Este espaço está temporariamente indisponível.'}<small className="unavailable-deadline">{unavailableDeadlineLabel(space.dataPrevisaoRetorno)}</small></> : space.equipamentosDisponiveis || 'Um ambiente versátil para as suas ideias.'}</p><button className="space-cta" onClick={() => onConsultSpace(space)}>{unavailable ? 'Ver motivo' : guidedTourSpace ? 'Solicitar visita' : 'Ver Horários'}</button></div></article> })}</div>
+      {!spacesLoaded && <p className="empty-inline" role="status">Carregando espaços...</p>}
+      {spacesLoaded && spaces.length === 0 && <p className="empty-inline" role="status">Nenhum espaço cadastrado no momento.</p>}
+      <div className="space-grid">{filtered.map((space, index) => { const unavailable = space.ativo === false; const guidedTourSpace = isGuidedTour(space.tipoEspaco); const image = space.arquivoImagem ? `${API}/espacos/${space.idEspaco}/imagem` : images[space.tipoEspaco] || images.Coworking; return <article className={`space-card ${index === 0 ? 'space-card-featured' : ''} ${unavailable ? 'space-card-unavailable' : ''}`} key={space.idEspaco}><button className="space-image" onClick={() => onConsultSpace(space)} aria-label={`Consultar disponibilidade de ${space.nomeEspaco}`} style={{ backgroundImage: `url("${image}")` }}><span className="space-image-count">{String(index + 1).padStart(2, '0')} / {String(filtered.length).padStart(2, '0')}</span>{unavailable ? <span className="space-unavailable-overlay">INDISPONÍVEL</span> : <span className="availability-dot"><i /> Disponível</span>}</button><div className="space-info"><div className="space-meta"><span>{space.tipoEspaco}</span><span><Users size={14} /> Até {space.capacidadePessoas || 20} pessoas</span></div><h3>{space.nomeEspaco}</h3><p>{unavailable ? <>{space.motivoIndisponibilidade || 'Este espaço está temporariamente indisponível.'}<small className="unavailable-deadline">{unavailableDeadlineLabel(space.dataPrevisaoRetorno)}</small></> : space.equipamentosDisponiveis || 'Um ambiente versátil para as suas ideias.'}</p><button className="space-cta" onClick={() => onConsultSpace(space)}>{unavailable ? 'Ver motivo' : guidedTourSpace ? 'Solicitar visita' : 'Ver Horários'}</button></div></article> })}</div>
     </section>
     <section id="about" className="about-hub"><div className="about-copy"><div className="eyebrow">CIÊNCIA, TECNOLOGIA E CONEXÕES</div><h2>Sobre o <em>Hub</em></h2><p>O <strong>Centro de Inovação InPETU Hub</strong> está instalado no <strong>Lote 73 do Parque Tecnológico Sapiens Parque</strong>, em Canasvieiras, Florianópolis, conectando pesquisa, empreendedorismo e desenvolvimento tecnológico.</p><p>O Hub oferece infraestrutura compartilhada para capacitações, eventos, mentorias e visitas técnicas, com espaços que podem ser consultados e solicitados diretamente pelo InPETU Connect.</p><ul><li><Check size={15} /> Infraestrutura multimídia para encontros e capacitações</li><li><Check size={15} /> Agendamento digital e acompanhamento pela equipe</li><li><Check size={15} /> Atendimento dedicado e cuidado com seus dados</li></ul></div><aside className="ecosystem-cta"><span className="eyebrow">INPETU CONNECT</span><strong>Conheça os espaços</strong><p>Consulte o calendário e encontre um ambiente para sua próxima atividade.</p><Button icon={ArrowRight} onClick={onOpenCalendar}>Ver disponibilidade</Button></aside></section>
   </>
@@ -263,7 +244,7 @@ function BookingModal({ space, close, onSaved, openLogin, initialDate, initialTi
     } finally { setBusy(false) }
   }
   return <Modal open={Boolean(space)} close={close} title="Solicitar este espaço">
-    <form className="form-stack" onSubmit={submit}><div className="selected-space"><img src={space?.arquivoImagem ? withDb(`${API}/espacos/${space.idEspaco}/imagem`) : images[space?.tipoEspaco] || images.Coworking} alt="" /><div><strong>{space?.nomeEspaco}</strong><small>{space?.tipoEspaco} · até {space?.capacidadePessoas} pessoas</small></div><span className="selected-status"><i /> {guidedTour ? 'Confirmação manual' : 'Aberto'}</span></div>
+    <form className="form-stack" onSubmit={submit}><div className="selected-space"><img src={space?.arquivoImagem ? `${API}/espacos/${space.idEspaco}/imagem` : images[space?.tipoEspaco] || images.Coworking} alt="" /><div><strong>{space?.nomeEspaco}</strong><small>{space?.tipoEspaco} · até {space?.capacidadePessoas} pessoas</small></div><span className="selected-status"><i /> {guidedTour ? 'Confirmação manual' : 'Aberto'}</span></div>
       {guidedTour && <p className="access-intro">A equipe confirma a visita, mas o intervalo fica reservado desde o primeiro pedido. Horários já solicitados não podem ser escolhidos novamente.</p>}
       <label>{guidedTour ? 'Data preferida da visita' : 'Data do encontro'}<input required type="date" min={localDateValue()} value={form.dataReserva} onChange={e => setForm({ ...form, dataReserva: e.target.value })} /></label><div className="field-pair"><label>{guidedTour ? 'Horário preferido de início' : 'Início'}<input required type="time" min="08:00" max="21:30" step="1800" value={form.horarioInicio} onChange={e => setForm({ ...form, horarioInicio: e.target.value })} /></label><label>{guidedTour ? 'Horário preferido de término' : 'Fim'}<input required type="time" min={form.horarioInicio || '08:30'} max="22:00" step="1800" value={form.horarioFim} onChange={e => setForm({ ...form, horarioFim: e.target.value })} /></label></div>
       {guidedTour && <label>Quantidade de visitantes<input required type="number" min="1" max={space?.capacidadePessoas || 20} value={form.quantidadeParticipantes} onChange={e => setForm({ ...form, quantidadeParticipantes: e.target.value })} /><small>Capacidade máxima: {space?.capacidadePessoas || 20} pessoas.</small></label>}
@@ -273,10 +254,8 @@ function BookingModal({ space, close, onSaved, openLogin, initialDate, initialTi
   </Modal>
 }
 function AccessPage({ onLogin, onSignup }) {
-  const devAdminEmail = import.meta.env.VITE_DEMO_ADMIN_EMAIL || 'admin@inpetuhub.ufsc.br'
-  const devAdminPassword = import.meta.env.VITE_DEMO_ADMIN_PASSWORD || 'DevAdmin-InPETU-2026!'
-  const [email, setEmail] = useState(import.meta.env.DEV ? devAdminEmail : '')
-  const [password, setPassword] = useState(import.meta.env.DEV ? devAdminPassword : '')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
   async function submit(event) {
@@ -291,7 +270,6 @@ function AccessPage({ onLogin, onSignup }) {
     <div className="account-page-heading"><h1>Acesso ao InPETU Connect</h1><p>Entre com seu e-mail e senha para acessar sua conta.</p></div>
     <section className="account-card" aria-label="Acessar sua conta">
       <p className="account-description">Acesse para acompanhar e gerenciar suas solicitações. O painel da equipe é exibido conforme as permissões da sua conta.</p>
-      {import.meta.env.DEV && <div className="account-dev-banner">Acesso de desenvolvimento: {devAdminEmail} / {devAdminPassword}</div>}
       <form className="form-stack account-form" onSubmit={submit}>
         <label>E-mail <span aria-hidden="true">*</span><input required type="email" autoComplete="email" placeholder="seu.email@empresa.com" value={email} onChange={e => setEmail(e.target.value)} /></label>
         <label>Senha <span aria-hidden="true">*</span><input required type="password" autoComplete="current-password" placeholder="Sua senha" value={password} onChange={e => setPassword(e.target.value)} /></label>
@@ -353,7 +331,7 @@ function ReservationsPage({ items, onCancel }) {
     <div className="section-top"><div><div className="eyebrow">SEU ESPAÇO, SEU HISTÓRICO</div><h1>Minhas <em>reservas</em></h1><p>Acompanhe cada encontro planejado no InPETU Hub.</p></div><div className="compact-filter"><Filter size={15} /><select value={filter} onChange={e => setFilter(e.target.value)}><option>Todas</option><option>Pendente</option><option>Confirmada</option><option>Cancelada</option></select><ChevronDown size={14} /></div></div>
     <div className="reservation-table-wrap"><table className="data-table"><thead><tr><th>Encontro</th><th>Espaço</th><th>Data e horário</th><th>Status</th><th>Ação</th></tr></thead><tbody>{list.map(item => {
       const cancellationAllowed = calendarDaysUntil(item.dataReserva) >= 15
-      return <tr key={item.idReserva}><td><strong>{item.tituloEvento}</strong><small>Solicitação #{item.idReserva}</small></td><td>{item.espaco || starterSpaces.find(s => s.idEspaco === item.idEspaco)?.nomeEspaco || 'Espaço InPETU'}</td><td>{item.dataReserva} · {item.horarioInicio}–{item.horarioFim}{item.quantidadeParticipantes ? <small>{item.quantidadeParticipantes} visitantes</small> : null}</td><td><span className={`status-pill ${item.statusReserva === 'Confirmada' ? 'status-confirmed' : item.statusReserva === 'Cancelada' ? 'status-cancelled' : 'status-pending'}`}><i />{item.statusReserva}</span></td><td>{item.statusReserva !== 'Cancelada' && (cancellationAllowed ? <button className="table-action" onClick={() => { setSelected(item); setCancelError('') }}>Cancelar</button> : <small>Menos de 15 dias: solicite exceção à equipe.</small>)}</td></tr>
+      return <tr key={item.idReserva}><td><strong>{item.tituloEvento}</strong><small>Solicitação #{item.idReserva}</small></td><td>{item.espaco || 'Espaço InPETU'}</td><td>{item.dataReserva} · {item.horarioInicio}–{item.horarioFim}{item.quantidadeParticipantes ? <small>{item.quantidadeParticipantes} visitantes</small> : null}</td><td><span className={`status-pill ${item.statusReserva === 'Confirmada' ? 'status-confirmed' : item.statusReserva === 'Cancelada' ? 'status-cancelled' : 'status-pending'}`}><i />{item.statusReserva}</span></td><td>{item.statusReserva !== 'Cancelada' && (cancellationAllowed ? <button className="table-action" onClick={() => { setSelected(item); setCancelError('') }}>Cancelar</button> : <small>Menos de 15 dias: solicite exceção à equipe.</small>)}</td></tr>
     })}</tbody></table>{list.length === 0 && <div className="empty-state"><CalendarDays size={25} /><p>Nenhuma reserva nesta categoria.</p></div>}</div>
     <Modal open={Boolean(selected)} close={() => { if (!cancelBusy) { setSelected(null); setCancelError('') } }} title="Cancelar solicitação">
       <div className="cancel-summary"><span>RESERVA #{selected?.idReserva}</span><strong>{selected?.tituloEvento}</strong><small>{selected?.dataReserva} · {selected?.horarioInicio}–{selected?.horarioFim}</small></div>
@@ -528,7 +506,7 @@ function CalendarPage({ spaces, onReserve, initialDate, initialKind, initialSpac
     </section>
     {selectedSpace ? <>
       <article className="catalog-space-card">
-        <div className="catalog-space-photo"><img src={selectedSpace.arquivoImagem ? withDb(`${API}/espacos/${selectedSpace.idEspaco}/imagem`) : images[selectedSpace.tipoEspaco] || images.Coworking} alt="" />{spaceUnavailable && <span className="space-unavailable-overlay">INDISPONÍVEL</span>}</div>
+        <div className="catalog-space-photo"><img src={selectedSpace.arquivoImagem ? `${API}/espacos/${selectedSpace.idEspaco}/imagem` : images[selectedSpace.tipoEspaco] || images.Coworking} alt="" />{spaceUnavailable && <span className="space-unavailable-overlay">INDISPONÍVEL</span>}</div>
         <div className="catalog-space-info"><small>{selectedSpace.tipoEspaco}</small><h2>{selectedSpace.nomeEspaco}</h2><span><Users size={15} /> Até {selectedSpace.capacidadePessoas || 20} pessoas</span>{selectedSpace.exigeAprovacaoManual && <em>{guidedTour ? 'Confirmação pela equipe' : 'Requer análise manual'}</em>}{spaceUnavailable && <p className="space-unavailable-reason"><strong>Motivo:</strong> {selectedSpace.motivoIndisponibilidade || 'Este espaço está temporariamente indisponível.'}<small className="unavailable-deadline">{unavailableDeadlineLabel(selectedSpace.dataPrevisaoRetorno)}</small></p>}</div>
         <Button icon={CalendarDays} disabled={!canRequestReservation} onClick={() => onReserve(selectedSpace, date, guidedTour ? '' : startTime, guidedTour ? '' : endTime)}>{guidedTour ? 'Solicitar visita guiada' : 'Solicitar Reserva'}</Button>
       </article>
@@ -551,7 +529,7 @@ function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, set
   const [helpOpen, setHelpOpen] = useState(false)
   const [profileDetailsOpen, setProfileDetailsOpen] = useState(false)
   const [dashboardDate, setDashboardDate] = useState(localDateValue())
-  const [partners, setPartners] = useState(initialPartners)
+  const [partners, setPartners] = useState([])
   const [clientUsers, setClientUsers] = useState([])
   const [clientProfile, setClientProfile] = useState(null)
   const [clientTab, setClientTab] = useState('Dados gerais')
@@ -644,7 +622,6 @@ function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, set
   function logout() {
     localStorage.removeItem('inpetu-token')
     localStorage.removeItem('inpetu-user')
-    sessionStorage.removeItem('inpetu-db')
     setUser(null)
     onReturnHome()
   }
@@ -1125,9 +1102,11 @@ function ClientProfileDialog({ client, reservations, tickets, auditItems, close 
 function Footer({ setView }) { return <footer className="site-footer"><div className="footer-main"><div><Logo inverse /><p>Espaço para ideias. Conexões para transformar.</p></div><div className="footer-links"><span>EXPLORE</span><button onClick={() => setView('home')}>Espaços</button><button onClick={() => setView('calendar')}>Disponibilidade</button><button onClick={() => setView('help')}>Fale conosco</button></div><div className="footer-address"><span>ENCONTRE A GENTE</span><p><MapPin size={15} /> Sapiens Parque · Lote 73<br />Rod. SC-401, 6001 · Florianópolis, SC</p><a href="https://maps.google.com/?q=Sapiens+Parque+Florianopolis" target="_blank" rel="noreferrer">Abrir mapa <ExternalLink size={13} /></a></div></div><div className="footer-bottom"><span>© 2026 InPETU Hub · UFSC</span><span><ShieldCheck size={14} /> Seus dados tratados com transparência, conforme a LGPD.</span><span>Ciência que aproxima. <span className="footer-heart">✳</span></span></div></footer> }
 function AppInner() {
   const [view, setView] = useState('home')
-  const [spaces, setSpaces] = useState(starterSpaces)
-  const [reservations, setReservations] = useState(initialReservations)
+  const [spaces, setSpaces] = useState([])
+  const [spacesLoaded, setSpacesLoaded] = useState(false)
+  const [reservations, setReservations] = useState([])
   const [myReservations, setMyReservations] = useState([])
+  const [dataError, setDataError] = useState('')
   const [bookingSpace, setBookingSpace] = useState(null)
   const [bookingSchedule, setBookingSchedule] = useState({ date: localDateValue(), time: '09:00' })
   const [bookingEndTime, setBookingEndTime] = useState('10:00')
@@ -1152,12 +1131,22 @@ function AppInner() {
   function logout() {
     localStorage.removeItem('inpetu-token')
     localStorage.removeItem('inpetu-user')
-    sessionStorage.removeItem('inpetu-db')
     setUser(null)
     setView('home')
   }
-  useEffect(() => { request('/espacos').then(data => data?.length && setSpaces(data)).catch(() => { }) }, [])
-  useEffect(() => { if (localStorage.getItem('inpetu-token')) request('/reservas/minhas').then(setMyReservations).catch(() => { }) }, [user])
+  useEffect(() => {
+    request('/espacos').then(data => {
+      if (!Array.isArray(data)) throw new Error('A API retornou uma lista de espaços inválida.')
+      setSpaces(data)
+    }).catch(error => setDataError(error.message)).finally(() => setSpacesLoaded(true))
+  }, [])
+  useEffect(() => {
+    if (localStorage.getItem('inpetu-token')) {
+      request('/reservas/minhas').then(setMyReservations).catch(error => setDataError(error.message))
+    } else {
+      setMyReservations([])
+    }
+  }, [user])
   function updateCancel(item, reason) {
     const update = items => items.map(r => r.idReserva === item.idReserva ? { ...r, statusReserva: 'Cancelada', motivoCancelamento: reason } : r)
     setReservations(update); setMyReservations(update)
@@ -1168,92 +1157,22 @@ function AppInner() {
     setAvailabilityVersion(version => version + 1)
   }
   if (view === 'crm') return <Crm user={user} setUser={setUser} onReturnHome={() => { setView('home'); window.scrollTo({ top: 0, behavior: 'smooth' }) }} spaces={spaces} setSpaces={setSpaces} reservations={reservations} setReservations={setReservations} />
-  return <div className="public-app"><Header view={view} setView={setView} openLogin={() => setView('access')} onOpenCalendar={openCalendar} user={user} onLogout={logout} />{view === 'home' && <Home spaces={spaces} onConsultSpace={showSpaceAvailability} setSignupOpen={() => setView('signup')} onOpenCalendar={openCalendar} onSearchAvailability={(date, kind) => { setCalendarQuery({ date, kind, spaceId: '' }); setView('calendar'); window.scrollTo({ top: 0, behavior: 'smooth' }) }} />}{view === 'calendar' && <CalendarPage spaces={spaces} onReserve={openBooking} initialDate={calendarQuery.date || localDateValue()} initialKind={calendarQuery.kind} initialSpaceId={calendarQuery.spaceId} availabilityVersion={availabilityVersion} />}{view === 'reservations' && <ReservationsPage items={myReservations} onCancel={updateCancel} />}{view === 'help' && <HelpPage />}{view === 'access' && <AccessPage onLogin={result => { const perfil = Number(result?.perfil ?? result?.idPerfil ?? 4); const nextUser = { ...result, perfil }; setUser(nextUser); setView(perfil === 1 || perfil === 2 || perfil === 3 ? 'crm' : 'reservations') }} onSignup={() => setView('signup')} />}{view === 'signup' && <SignupPage onBack={() => setView('access')} />}{!['access', 'signup'].includes(view) && <Footer setView={setView} />}<BookingModal space={bookingSpace} close={() => setBookingSpace(null)} onSaved={updateSaved} openLogin={() => setView('access')} initialDate={bookingSchedule.date} initialTime={bookingSchedule.time} initialEndTime={bookingEndTime} /></div>
-}
-
-function DbSwitch() {
-  const [info, setInfo] = useState(null)
-  const [user, setUser] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('inpetu-user') || 'null')
-    } catch {
-      return null
-    }
-  })
-  const [confirmOpen, setConfirmOpen] = useState(false)
-  const [devPassword, setDevPassword] = useState('')
-  const [confirmError, setConfirmError] = useState('')
-  const current = getDb()
-  const devAdminPassword = import.meta.env.VITE_DEMO_ADMIN_PASSWORD || 'DevAdmin-InPETU-2026!'
-
-  useEffect(() => { request('/database').then(setInfo).catch(() => { }) }, [])
-  useEffect(() => {
-    const syncUser = () => {
-      try {
-        setUser(JSON.parse(localStorage.getItem('inpetu-user') || 'null'))
-      } catch {
-        setUser(null)
-      }
-    }
-    window.addEventListener('storage', syncUser)
-    return () => window.removeEventListener('storage', syncUser)
-  }, [])
-  useEffect(() => {
-    if (info && !info.testeDisponivel && current === 'test') { sessionStorage.removeItem('inpetu-db'); window.location.reload() }
-    if (info && info.testeDisponivel && user && user.perfil !== 1 && current === 'test') {
-      sessionStorage.removeItem('inpetu-db')
-      window.location.reload()
-    }
-  }, [info, current, user])
-  const canUseTestDb = Boolean(user && user.perfil === 1)
-  if (current === 'test' && (!info?.testeDisponivel || !canUseTestDb)) {
-    return <div className="db-banner" role="status">
-      <span>AMBIENTE DE TESTE · os dados deste banco são fictícios e separados do principal</span>
-      <button type="button" onClick={() => change('main')}>Voltar ao banco principal</button>
+  return (
+    <div className="public-app">
+      <Header view={view} setView={setView} openLogin={() => setView('access')} onOpenCalendar={openCalendar} user={user} onLogout={logout} />
+      {dataError && <p className="form-message" role="alert">{dataError} Atualize a página para tentar novamente.</p>}
+      {view === 'home' && <Home spaces={spaces} spacesLoaded={spacesLoaded} onConsultSpace={showSpaceAvailability} setSignupOpen={() => setView('signup')} onOpenCalendar={openCalendar} onSearchAvailability={(date, kind) => { setCalendarQuery({ date, kind, spaceId: '' }); setView('calendar'); window.scrollTo({ top: 0, behavior: 'smooth' }) }} />}
+      {view === 'calendar' && <CalendarPage spaces={spaces} onReserve={openBooking} initialDate={calendarQuery.date || localDateValue()} initialKind={calendarQuery.kind} initialSpaceId={calendarQuery.spaceId} availabilityVersion={availabilityVersion} />}
+      {view === 'reservations' && <ReservationsPage items={myReservations} onCancel={updateCancel} />}
+      {view === 'help' && <HelpPage />}
+      {view === 'access' && <AccessPage onLogin={result => { const perfil = Number(result?.perfil ?? result?.idPerfil ?? 4); const nextUser = { ...result, perfil }; setUser(nextUser); setView(perfil === 1 || perfil === 2 || perfil === 3 ? 'crm' : 'reservations') }} onSignup={() => setView('signup')} />}
+      {view === 'signup' && <SignupPage onBack={() => setView('access')} />}
+      {!['access', 'signup'].includes(view) && <Footer setView={setView} />}
+      <BookingModal space={bookingSpace} close={() => setBookingSpace(null)} onSaved={updateSaved} openLogin={() => setView('access')} initialDate={bookingSchedule.date} initialTime={bookingSchedule.time} initialEndTime={bookingEndTime} />
     </div>
-  }
-  if (!info?.testeDisponivel || !canUseTestDb) return null
-  function change(next) {
-    if (next === current) return
-    if (next === 'test') sessionStorage.setItem('inpetu-db', next)
-    else sessionStorage.removeItem('inpetu-db')
-    localStorage.removeItem('inpetu-token'); localStorage.removeItem('inpetu-user')
-    window.location.reload()
-  }
-  function openTestConfirm() {
-    setConfirmError('')
-    setDevPassword('')
-    setConfirmOpen(true)
-  }
-  function confirmTestSwitch() {
-    if (devPassword !== devAdminPassword) {
-      setConfirmError('Senha do admin/dev inválida. Tente novamente.')
-      return
-    }
-    setConfirmOpen(false)
-    setDevPassword('')
-    setConfirmError('')
-    change('test')
-  }
-  return <>
-    {current === 'test' && <div className="db-banner" role="status">
-      <span>AMBIENTE DE TESTE · os dados deste banco são fictícios e separados do principal</span>
-      <button type="button" onClick={() => change('main')}>Voltar ao banco principal</button>
-    </div>}
-    <div className="db-switch" role="group" aria-label="Banco de dados">
-      <span>Banco</span>
-      <button type="button" className={current === 'main' ? 'db-on' : ''} onClick={() => change('main')} aria-pressed={current === 'main'}>Principal</button>
-      <button type="button" className={current === 'test' ? 'db-on db-on-test' : ''} onClick={openTestConfirm} aria-pressed={current === 'test'}>Teste</button>
-    </div>
-    <Modal open={confirmOpen} close={() => { setConfirmOpen(false); setDevPassword(''); setConfirmError('') }} title="Confirmar acesso ao banco de teste">
-      <p className="access-intro">Somente o admin/dev pode entrar no ambiente de teste. Use a senha do ambiente de desenvolvimento para continuar.</p>
-      <label className="reason-field">Senha do admin/dev<input type="password" value={devPassword} onChange={event => { setDevPassword(event.target.value); setConfirmError('') }} placeholder="Digite a senha de desenvolvimento" autoComplete="current-password" /></label>
-      {confirmError && <p className="form-message" role="alert">{confirmError}</p>}
-      <Button type="button" onClick={confirmTestSwitch}>Confirmar e entrar no teste</Button>
-    </Modal>
-  </>
+  )
 }
 
 export default function App() {
-  return <><AppInner /><DbSwitch /></>
+  return <AppInner />
 }
