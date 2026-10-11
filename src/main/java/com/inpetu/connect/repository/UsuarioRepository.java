@@ -12,6 +12,7 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
     Optional<Usuario> findByEmail(String email);
     Optional<Usuario> findByEmailIgnoreCase(String email);
     boolean existsByEmail(String email);
+    boolean existsByIdPerfil(Integer idPerfil);
     List<Usuario> findAllByIdOrganizacaoAndIdPerfilAndAtivoTrue(Integer idOrganizacao, Integer idPerfil);
     List<Usuario> findAllByAtivoTrueAndIdPerfilLessThan(Integer idPerfil);
     @Lock(LockModeType.PESSIMISTIC_WRITE)

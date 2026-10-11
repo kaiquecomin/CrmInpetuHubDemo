@@ -27,9 +27,10 @@ Os endereços `.test` são identidades sintéticas para uso local, não recebem 
 ## Iniciar o ambiente de demonstração
 
 1. Inicie o MySQL local e disponibilize o banco `inpetu_connect`.
-2. Execute `.\scripts\start-local-demo.ps1` no PowerShell. O script solicita a senha do MySQL e, depois, cada senha do Passbolt sem exibir os caracteres.
-3. Em outro terminal, execute `npm run dev` e abra `http://localhost:5173`.
-4. Ao encerrar a API, o script restaura as variáveis de ambiente anteriores. A chave JWT local é aleatória e temporária; sessões locais deixam de valer após reiniciar a API.
+2. Opcionalmente, copie `scripts\local-secrets.example.ps1` para `scripts\local-secrets.ps1` e preencha os valores diretamente no arquivo local. O arquivo real é ignorado pelo Git. Se existir, o script usa os valores preenchidos e solicita, sem exibir caracteres, somente as senhas que estiverem vazias ou ausentes.
+3. Execute `.\scripts\start-local-demo.ps1` no PowerShell. As senhas de cada conta precisam ter entre 12 e 72 caracteres e ser diferentes entre si.
+4. Em outro terminal, execute `npm run dev` e abra `http://localhost:5173`.
+5. Ao encerrar a API, o script restaura as variáveis de ambiente anteriores. A chave JWT local é aleatória e temporária; sessões locais deixam de valer após reiniciar a API.
 
 O perfil `demo` valida que a URL JDBC aponta para `localhost`, `127.0.0.1` ou `::1` ao criar o `DataSource`, antes da inicialização do Hibernate e da execução de SQL. Ele não permite desativar essa proteção por variável de ambiente. A API e o Vite locais são vinculados a loopback e não ficam expostos à rede.
 

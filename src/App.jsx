@@ -6,16 +6,91 @@ const API = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1'
 const getStoredUser = () => {
   try { return JSON.parse(localStorage.getItem('inpetu-user') || 'null') } catch { return null }
 }
+const storeUser = user => localStorage.setItem('inpetu-user', JSON.stringify(user))
+const clearStoredUser = () => localStorage.removeItem('inpetu-user')
 const isCrmUser = user => [1, 2, 3].includes(Number(user?.perfil ?? user?.idPerfil))
 const isGuidedTour = type => type?.trim().toLocaleLowerCase('pt-BR') === 'visita guiada'
-const images = {
-  'Auditório': '/images/rooms/auditorio.jpg',
-  'Sala de aula': 'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=1000&q=85',
-  Coworking: '/images/rooms/coworking.jpg',
-  'Sala de reunião': '/images/rooms/sala-reuniao.jpg',
-  'Visita guiada': 'https://images.unsplash.com/photo-1771911650735-b471e85e8b17?auto=format&fit=crop&w=1000&q=85',
+const normalizeRoomName = value => value?.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLocaleLowerCase('pt-BR') || ''
+const roomPhotoSets = {
+  auditorio: ['/images/rooms/auditorio/01_auditorio_1.jpg', '/images/rooms/auditorio/02_auditorio_2.jpg'],
+  'sala-reuniao': ['/images/rooms/sala-reuniao/03_sala-reuniao_1.jpg'],
+  coworking: ['/images/rooms/coworking/04_coworking_1.jpg'],
+  'sala-reuniao-1-coworking': ['/images/rooms/sala-reuniao-1-coworking/05_sala-reuniao-1-coworking_1.jpg'],
+  'sala-reuniao-2-coworking': ['/images/rooms/sala-reuniao-2-coworking/06_sala-reuniao-2-coworking_1.jpg'],
+  'sala-pre-incubacao': ['/images/rooms/sala-pre-incubacao/07_sala-pre-incubacao_1.jpg', '/images/rooms/sala-pre-incubacao/08_sala-pre-incubacao_2.jpg', '/images/rooms/sala-pre-incubacao/09_sala-pre-incubacao_3.jpg'],
+  'sala-maker-via': ['/images/rooms/sala-maker-via/10_sala-maker-via_1.jpg', '/images/rooms/sala-maker-via/11_sala-maker-via_2.jpg', '/images/rooms/sala-maker-via/12_sala-maker-via_3.jpg'],
+  'sala-via-hub': ['/images/rooms/sala-via-hub/13_sala-via-hub_1.jpg', '/images/rooms/sala-via-hub/14_sala-via-hub_2.jpg', '/images/rooms/sala-via-hub/15_sala-via-hub_3.jpg'],
+  'sala-distrito-inovacao': ['/images/rooms/sala-distrito-inovacao/16_sala-distrito-inovacao_1.jpg', '/images/rooms/sala-distrito-inovacao/17_sala-distrito-inovacao_2.jpg', '/images/rooms/sala-distrito-inovacao/18_sala-distrito-inovacao_3.jpg'],
 }
+const roomPhotos = {
+  'auditorio': roomPhotoSets.auditorio[0],
+  'auditorio principal': roomPhotoSets.auditorio[0],
+  'sala de reuniao': roomPhotoSets['sala-reuniao'][0],
+  'coworking': roomPhotoSets.coworking[0],
+  'area de coworking': roomPhotoSets.coworking[0],
+  'sala de reuniao 1 (coworking)': roomPhotoSets['sala-reuniao-1-coworking'][0],
+  'sala de reuniao 1': roomPhotoSets['sala-reuniao-1-coworking'][0],
+  'sala de reuniao 2 (coworking)': roomPhotoSets['sala-reuniao-2-coworking'][0],
+  'sala de reuniao 2': roomPhotoSets['sala-reuniao-2-coworking'][0],
+  'sala pre-incubacao': roomPhotoSets['sala-pre-incubacao'][0],
+  'sala maker via': roomPhotoSets['sala-maker-via'][0],
+  'sala via hub': roomPhotoSets['sala-via-hub'][0],
+  'sala distrito de inovacao': roomPhotoSets['sala-distrito-inovacao'][0],
+}
+const imageByType = {
+  'auditorio': roomPhotos.auditorio,
+  'sala de aula': roomPhotos['sala de reuniao'],
+  'sala de reuniao': roomPhotos['sala de reuniao'],
+  'coworking': roomPhotos.coworking,
+  'visita guiada': roomPhotos.auditorio,
+}
+const getRoomImage = space => roomPhotos[normalizeRoomName(space?.nomeEspaco)]
+  || roomPhotos[normalizeRoomName(space?.arquivoImagem?.replace(/\.(jpe?g|png|webp)$/i, '').replaceAll('-', ' '))]
+  || imageByType[normalizeRoomName(space?.tipoEspaco)]
+  || (space?.arquivoImagem ? `${API}/espacos/${space.idEspaco}/imagem` : roomPhotos.coworking)
+const getRoomImages = space => {
+  const name = normalizeRoomName(space?.nomeEspaco)
+  const type = normalizeRoomName(space?.tipoEspaco)
+  const roomKey = {
+    'auditorio principal': 'auditorio',
+    'sala de reuniao': 'sala-reuniao',
+    'area de coworking': 'coworking',
+    'sala de reuniao 1 (coworking)': 'sala-reuniao-1-coworking',
+    'sala de reuniao 1': 'sala-reuniao-1-coworking',
+    'sala de reuniao 2 (coworking)': 'sala-reuniao-2-coworking',
+    'sala de reuniao 2': 'sala-reuniao-2-coworking',
+    'sala pre-incubacao': 'sala-pre-incubacao',
+    'sala maker via': 'sala-maker-via',
+    'sala via hub': 'sala-via-hub',
+    'sala distrito de inovacao': 'sala-distrito-inovacao',
+  }[name] || name
+  if (roomPhotoSets[roomKey]) return roomPhotoSets[roomKey]
+  const typeKey = { auditorio: 'auditorio', 'sala de aula': 'sala-reuniao', 'sala de reuniao': 'sala-reuniao', coworking: 'coworking', 'visita guiada': 'auditorio' }[type]
+  return typeKey ? roomPhotoSets[typeKey] : [getRoomImage(space)]
+}
+const getRoomInitials = user => (user?.nome || user?.email || 'U')
+  .split(/[\s@._-]+/)
+  .filter(Boolean)
+  .slice(0, 2)
+  .map(part => part[0].toLocaleUpperCase('pt-BR'))
+  .join('')
 const localDateValue = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+const saoPauloDateTime = () => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date())
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]))
+  return {
+    date: `${values.year}-${values.month}-${values.day}`,
+    time: `${values.hour}:${values.minute}`,
+  }
+}
 const calendarDaysUntil = value => {
   const [year, month, day] = value.split('-').map(Number)
   const now = new Date()
@@ -48,12 +123,11 @@ const monthlyQuotaUsed = (items, userId, date = new Date()) => items
     && item.dataReserva?.slice(0, 7) === `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`)
   .reduce((total, item) => total + reservationDurationHours(item), 0)
 async function request(path, options = {}) {
-  const token = localStorage.getItem('inpetu-token')
   const isFormData = options.body instanceof FormData
-  const headers = { ...(options.body && !isFormData ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}), ...options.headers }
+  const headers = { ...(options.body && !isFormData ? { 'Content-Type': 'application/json' } : {}), ...options.headers }
   let response
   try {
-    response = await fetch(`${API}${path}`, { ...options, headers })
+    response = await fetch(`${API}${path}`, { ...options, credentials: 'include', headers })
   } catch (error) {
     if (error instanceof TypeError) throw new Error(`Não foi possível conectar à API (${API}). Inicie o backend Spring Boot e confirme que o MySQL está disponível.`)
     throw error
@@ -75,7 +149,11 @@ async function request(path, options = {}) {
   if (response.status === 403 && path === '/auth/login') {
     throw new Error('A API bloqueou o login (HTTP 403). Atualize o site e a API para a mesma versão e verifique as permissões da conta.')
   }
-  if (!response.ok) throw new Error(body?.detail || body?.message || body?.title || body?.error || `Falha na solicitação (HTTP ${response.status}).`)
+  if (!response.ok) {
+    const error = new Error(body?.detail || body?.message || body?.title || body?.error || `Falha na solicitação (HTTP ${response.status}).`)
+    error.status = response.status
+    throw error
+  }
   return body
 }
 function uploadQuestion(data, file, onProgress) {
@@ -85,6 +163,7 @@ function uploadQuestion(data, file, onProgress) {
     form.append('anexo', file)
     const xhr = new XMLHttpRequest()
     xhr.open('POST', `${API}/duvidas`)
+    xhr.withCredentials = true
     xhr.upload.onprogress = event => { if (event.lengthComputable) onProgress(Math.round((event.loaded / event.total) * 100)) }
     xhr.onload = () => {
       const result = xhr.responseText ? JSON.parse(xhr.responseText) : null
@@ -114,12 +193,26 @@ function Modal({ open, close, title, children, wide = false }) {
     </DialogPanel></TransitionChild></div>
   </Dialog></Transition>
 }
+function RoomPhoto({ space, alt, className = '' }) {
+  return <img
+    className={className}
+    src={getRoomImage(space)}
+    alt={alt || space?.nomeEspaco || 'Espaço do InPETU Hub'}
+    onError={event => {
+      const image = event.currentTarget
+      if (!image.dataset.fallbackApplied) {
+        image.dataset.fallbackApplied = 'true'
+        image.src = roomPhotos.coworking
+      }
+    }}
+  />
+}
 function NotificationCenter({ user }) {
   const [items, setItems] = useState([])
   const [open, setOpen] = useState(false)
   const [error, setError] = useState('')
   useEffect(() => {
-    if (!user || !localStorage.getItem('inpetu-token')) {
+    if (!user) {
       setItems([])
       return
     }
@@ -179,16 +272,54 @@ function Header({ view, setView, openLogin, onOpenCalendar, user, onLogout }) {
   const perfilLabel = user?.perfil === 1 ? 'Coordenador / Admin' : user?.perfil === 2 ? 'Gestor de espaços' : user?.perfil === 3 ? 'Atendente / Staff' : 'Solicitante'
   return <header className="site-header reference-header"><div className="header-inner"><button className="logo-button" onClick={() => { setView('home'); window.scrollTo({ top: 0, behavior: 'smooth' }) }}><span className="reference-logo-icon"><Building2 size={20} /></span><span className="reference-brand-copy"><strong>InPETU Connect</strong><small>UFSC · LOTE 73</small></span></button>
     <nav className={`main-nav ${menuOpen ? 'nav-open' : ''}`}><button className={view === 'home' ? 'nav-active' : ''} onClick={() => { setView('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); setMenuOpen(false) }}>Início</button><button onClick={() => goTo('spaces')}>Nossos Espaços</button><button onClick={() => goTo('about')}>Sobre o Hub</button><button className={view === 'help' ? 'nav-active' : ''} onClick={() => { setView('help'); setMenuOpen(false) }}>Fale Conosco</button></nav>
-    <div className="header-actions">{user ? <div className="profile-control"><NotificationCenter user={user} /><div className="profile-switcher"><button type="button" className="profile-trigger" aria-haspopup="menu" aria-expanded={profileOpen} onClick={() => setProfileOpen(value => !value)}><span className="profile-meta"><strong>{user.nome || user.email || 'Perfil'}</strong><small>{perfilLabel}</small></span></button>{profileOpen && <div className="profile-menu" role="menu"><button type="button" role="menuitem" onClick={() => { setProfileDetailsOpen(true); setProfileOpen(false) }}>Meu perfil</button><button type="button" role="menuitem" onClick={() => { setView('reservations'); setProfileOpen(false) }}>Minhas reservas</button>{isCrmUser(user) && <button type="button" role="menuitem" onClick={() => { setView('crm'); setProfileOpen(false) }}>Painel administrativo</button>}<button type="button" role="menuitem" onClick={() => { onLogout?.(); setProfileOpen(false) }}>Sair da conta</button></div>}</div><Modal open={profileDetailsOpen} close={() => setProfileDetailsOpen(false)} title="Meu perfil"><dl className="profile-details"><div><dt>Nome</dt><dd>{user.nome || 'Não informado'}</dd></div><div><dt>E-mail</dt><dd>{user.email || 'Não informado'}</dd></div><div><dt>Perfil de acesso</dt><dd>{perfilLabel}</dd></div></dl></Modal></div> : <button className="team-link reference-login" onClick={() => { openLogin(); setMenuOpen(false) }}>Entrar</button>}<Button icon={CalendarDays} className="reference-header-cta" onClick={() => { onOpenCalendar(); setMenuOpen(false) }}>Agendar Espaço</Button></div><button className="mobile-menu icon-button" onClick={() => setMenuOpen(!menuOpen)} aria-label="Abrir menu"><MenuIcon /></button>
+    <div className="header-actions">{user ? <div className="profile-control"><NotificationCenter user={user} /><div className="profile-switcher"><button type="button" className="profile-trigger" aria-haspopup="menu" aria-expanded={profileOpen} onClick={() => setProfileOpen(value => !value)}><span className="profile-avatar" aria-hidden="true">{getRoomInitials(user)}</span><span className="profile-meta"><strong>{user.nome || user.email || 'Perfil'}</strong><small>{perfilLabel}</small></span><ChevronDown className="profile-chevron" size={16} aria-hidden="true" /></button>{profileOpen && <div className="profile-menu" role="menu"><button type="button" role="menuitem" onClick={() => { setProfileDetailsOpen(true); setProfileOpen(false) }}>Meu perfil</button><button type="button" role="menuitem" onClick={() => { setView('reservations'); setProfileOpen(false) }}>Minhas reservas</button>{isCrmUser(user) && <button type="button" role="menuitem" onClick={() => { setView('crm'); setProfileOpen(false) }}>Painel administrativo</button>}<button type="button" role="menuitem" onClick={() => { onLogout?.(); setProfileOpen(false) }}>Sair da conta</button></div>}</div><Modal open={profileDetailsOpen} close={() => setProfileDetailsOpen(false)} title="Meu perfil"><dl className="profile-details"><div><dt>Nome</dt><dd>{user.nome || 'Não informado'}</dd></div><div><dt>E-mail</dt><dd>{user.email || 'Não informado'}</dd></div><div><dt>Perfil de acesso</dt><dd>{perfilLabel}</dd></div></dl></Modal></div> : <button className="team-link reference-login" onClick={() => { openLogin(); setMenuOpen(false) }}>Entrar</button>}<Button icon={CalendarDays} className="reference-header-cta" onClick={() => { onOpenCalendar(); setMenuOpen(false) }}>Agendar Espaço</Button></div><button className="mobile-menu icon-button" onClick={() => setMenuOpen(!menuOpen)} aria-label="Abrir menu"><MenuIcon /></button>
   </div></header>
+}
+function RoomGallery({ space, onClose, onConsultSpace }) {
+  const [imageIndex, setImageIndex] = useState(0)
+  if (!space) return null
+  const images = getRoomImages(space)
+  const selectedImage = images[imageIndex] || images[0]
+  const coverImage = getRoomImage(space)
+  return <Modal open={Boolean(space)} close={onClose} title={`Foto de ${space.nomeEspaco}`} wide>
+    <div className="room-gallery">
+      <div className="room-gallery-stage" aria-live="polite">
+        <img key={selectedImage} src={selectedImage} alt={`${space.nomeEspaco} — foto ${imageIndex + 1} de ${images.length}`} onError={event => {
+          const image = event.currentTarget
+          if (image.src !== new URL(coverImage, window.location.href).href) image.src = coverImage
+        }} />
+        {images.length > 1 && <>
+          <button type="button" className="room-gallery-arrow room-gallery-previous" aria-label="Foto anterior" onClick={() => setImageIndex(index => (index - 1 + images.length) % images.length)}><ChevronLeft size={22} /></button>
+          <button type="button" className="room-gallery-arrow room-gallery-next" aria-label="Próxima foto" onClick={() => setImageIndex(index => (index + 1) % images.length)}><ChevronRight size={22} /></button>
+          <span className="room-gallery-counter">{imageIndex + 1} / {images.length}</span>
+        </>}
+      </div>
+      {images.length > 1 && <div className="room-gallery-thumbnails" aria-label="Selecionar foto">
+        {images.map((image, index) => <button key={image} type="button" className={index === imageIndex ? 'room-gallery-thumbnail room-gallery-thumbnail-active' : 'room-gallery-thumbnail'} aria-label={`Mostrar foto ${index + 1}`} aria-pressed={index === imageIndex} onClick={() => setImageIndex(index)}>
+          <img src={image} alt="" />
+        </button>)}
+      </div>}
+      <div className="room-gallery-caption">
+        <div><small>{space.tipoEspaco}</small><h3>{space.nomeEspaco}</h3><p>Capacidade para até {space.capacidadePessoas || '—'} pessoas</p></div>
+        <Button icon={CalendarDays} onClick={() => { onClose(); onConsultSpace(space) }}>Ver horários</Button>
+      </div>
+    </div>
+  </Modal>
 }
 function Home({ spaces, spacesLoaded, onConsultSpace, onSearchAvailability, onOpenCalendar }) {
   const [filter, setFilter] = useState('Todos os espaços')
   const filtered = filter === 'Todos os espaços' ? spaces : spaces.filter(space => space.tipoEspaco === filter)
   const types = ['Todos os espaços', ...new Set(spaces.map(space => space.tipoEspaco))]
+  const showcaseSpaces = spaces.filter(space => space.ativo !== false)
+  const [heroIndex, setHeroIndex] = useState(0)
+  const [gallerySpace, setGallerySpace] = useState(null)
   const todayValue = localDateValue()
   const [searchType, setSearchType] = useState('')
   const [searchDate, setSearchDate] = useState(todayValue)
+  useEffect(() => {
+    if (heroIndex >= showcaseSpaces.length) setHeroIndex(0)
+  }, [heroIndex, showcaseSpaces.length])
+  const heroSpace = showcaseSpaces[heroIndex]
   return <>
     <section className="hero-shell reference-hero">
       <div className="reference-hero-copy">
@@ -207,17 +338,22 @@ function Home({ spaces, spacesLoaded, onConsultSpace, onSearchAvailability, onOp
         </dl>
       </div>
       <div className="reference-hero-images">
-        <img className="reference-auditorium" src="/images/rooms/auditorio.jpg" alt="Auditório do InPETU Hub preparado para eventos e capacitações" />
-        <img className="reference-coworking" src="/images/rooms/coworking.jpg" alt="Área de coworking do InPETU Hub" />
-        <div className="hero-image-note"><span><Building2 size={18} /></span><div><strong>Seu próximo encontro começa aqui</strong><small>InPETU Hub · Sapiens Parque</small></div></div>
+        {heroSpace && <RoomPhoto key={heroSpace.idEspaco} className="reference-hero-photo" space={heroSpace} alt={`Foto de ${heroSpace.nomeEspaco}`} />}
+        <div className="hero-image-note"><span><Building2 size={18} /></span><div><strong>{heroSpace?.nomeEspaco || 'Seu próximo encontro começa aqui'}</strong><small>Até {heroSpace?.capacidadePessoas || '—'} pessoas · InPETU Hub</small></div></div>
+        {showcaseSpaces.length > 1 && <div className="hero-image-controls">
+          <span>{String(heroIndex + 1).padStart(2, '0')} <i /> {String(showcaseSpaces.length).padStart(2, '0')}</span>
+          <button type="button" onClick={() => setHeroIndex(index => (index - 1 + showcaseSpaces.length) % showcaseSpaces.length)} aria-label="Espaço anterior"><ChevronLeft size={18} /></button>
+          <button type="button" onClick={() => setHeroIndex(index => (index + 1) % showcaseSpaces.length)} aria-label="Próximo espaço"><ChevronRight size={18} /></button>
+        </div>}
       </div>
     </section>
     <section id="spaces" className="spaces-section"><div className="section-top"><div><div className="eyebrow">LOTE 73 · INPETU HUB</div><h2>Nossos <em>Espaços</em></h2><p>Ambientes preparados para capacitações, eventos, mentorias e visitas técnicas.</p></div><button className="all-spaces-link" onClick={onOpenCalendar}>Abrir calendário completo <ArrowRight size={16} /></button></div>
       <div className="filter-row"><div className="filter-label"><SlidersHorizontal size={15} /> EXPLORE POR TIPO</div>{types.map(type => <button key={type} className={`filter-chip ${filter === type ? 'filter-chip-active' : ''}`} onClick={() => setFilter(type)}>{type}</button>)}</div>
       {!spacesLoaded && <p className="empty-inline" role="status">Carregando espaços...</p>}
       {spacesLoaded && spaces.length === 0 && <p className="empty-inline" role="status">Nenhum espaço cadastrado no momento.</p>}
-      <div className="space-grid">{filtered.map((space, index) => { const unavailable = space.ativo === false; const guidedTourSpace = isGuidedTour(space.tipoEspaco); const image = space.arquivoImagem ? `${API}/espacos/${space.idEspaco}/imagem` : images[space.tipoEspaco] || images.Coworking; return <article className={`space-card ${index === 0 ? 'space-card-featured' : ''} ${unavailable ? 'space-card-unavailable' : ''}`} key={space.idEspaco}><button className="space-image" onClick={() => onConsultSpace(space)} aria-label={`Consultar disponibilidade de ${space.nomeEspaco}`} style={{ backgroundImage: `url("${image}")` }}><span className="space-image-count">{String(index + 1).padStart(2, '0')} / {String(filtered.length).padStart(2, '0')}</span>{unavailable ? <span className="space-unavailable-overlay">INDISPONÍVEL</span> : <span className="availability-dot"><i /> Disponível</span>}</button><div className="space-info"><div className="space-meta"><span>{space.tipoEspaco}</span><span><Users size={14} /> Até {space.capacidadePessoas || 20} pessoas</span></div><h3>{space.nomeEspaco}</h3><p>{unavailable ? <>{space.motivoIndisponibilidade || 'Este espaço está temporariamente indisponível.'}<small className="unavailable-deadline">{unavailableDeadlineLabel(space.dataPrevisaoRetorno)}</small></> : space.equipamentosDisponiveis || 'Um ambiente versátil para as suas ideias.'}</p><button className="space-cta" onClick={() => onConsultSpace(space)}>{unavailable ? 'Ver motivo' : guidedTourSpace ? 'Solicitar visita' : 'Ver Horários'}</button></div></article> })}</div>
+      <div className="space-grid">{filtered.map((space, index) => { const unavailable = space.ativo === false; const guidedTourSpace = isGuidedTour(space.tipoEspaco); return <article className={`space-card ${index === 0 ? 'space-card-featured' : ''} ${unavailable ? 'space-card-unavailable' : ''}`} key={space.idEspaco}><div className="space-image"><RoomPhoto space={space} alt={`Foto de ${space.nomeEspaco}`} /><button type="button" className="space-image-open" onClick={() => setGallerySpace(space)} aria-label={`Ver foto de ${space.nomeEspaco}`}>Ver foto <ArrowUpRight size={15} /></button>{unavailable ? <span className="space-unavailable-overlay">INDISPONÍVEL</span> : <span className="availability-dot"><i /> Disponível</span>}</div><div className="space-info"><div className="space-meta"><span>{space.tipoEspaco}</span><span><Users size={14} /> Até {space.capacidadePessoas || 20} pessoas</span></div><h3>{space.nomeEspaco}</h3><p>{unavailable ? <>{space.motivoIndisponibilidade || 'Este espaço está temporariamente indisponível.'}<small className="unavailable-deadline">{unavailableDeadlineLabel(space.dataPrevisaoRetorno)}</small></> : space.equipamentosDisponiveis || 'Um ambiente versátil para as suas ideias.'}</p><button className="space-cta" onClick={() => onConsultSpace(space)}>{unavailable ? 'Ver motivo' : guidedTourSpace ? 'Solicitar visita' : 'Ver Horários'}</button></div></article> })}</div>
     </section>
+    {gallerySpace && <RoomGallery space={gallerySpace} onClose={() => setGallerySpace(null)} onConsultSpace={onConsultSpace} />}
     <section id="about" className="about-hub"><div className="about-copy"><div className="eyebrow">CIÊNCIA, TECNOLOGIA E CONEXÕES</div><h2>Sobre o <em>Hub</em></h2><p>O <strong>Centro de Inovação InPETU Hub</strong> está instalado no <strong>Lote 73 do Parque Tecnológico Sapiens Parque</strong>, em Canasvieiras, Florianópolis, conectando pesquisa, empreendedorismo e desenvolvimento tecnológico.</p><p>O Hub oferece infraestrutura compartilhada para capacitações, eventos, mentorias e visitas técnicas, com espaços que podem ser consultados e solicitados diretamente pelo InPETU Connect.</p><ul><li><Check size={15} /> Infraestrutura multimídia para encontros e capacitações</li><li><Check size={15} /> Agendamento digital e acompanhamento pela equipe</li><li><Check size={15} /> Atendimento dedicado e cuidado com seus dados</li></ul></div><aside className="ecosystem-cta"><span className="eyebrow">INPETU CONNECT</span><strong>Conheça os espaços</strong><p>Consulte o calendário e encontre um ambiente para sua próxima atividade.</p><Button icon={ArrowRight} onClick={onOpenCalendar}>Ver disponibilidade</Button></aside></section>
   </>
 }
@@ -239,12 +375,12 @@ function BookingModal({ space, close, onSaved, openLogin, initialDate, initialTi
       const saved = await request('/reservas', { method: 'POST', body: JSON.stringify({ ...form, quantidadeParticipantes: guidedTour ? Number(form.quantidadeParticipantes) : null, idEspaco: space.idEspaco }) })
       onSaved(saved); close()
     } catch (error) {
-      if (!localStorage.getItem('inpetu-token')) { close(); openLogin(); return }
+      if (error.status === 401) { close(); openLogin(); return }
       setMessage(error.message)
     } finally { setBusy(false) }
   }
   return <Modal open={Boolean(space)} close={close} title="Solicitar este espaço">
-    <form className="form-stack" onSubmit={submit}><div className="selected-space"><img src={space?.arquivoImagem ? `${API}/espacos/${space.idEspaco}/imagem` : images[space?.tipoEspaco] || images.Coworking} alt="" /><div><strong>{space?.nomeEspaco}</strong><small>{space?.tipoEspaco} · até {space?.capacidadePessoas} pessoas</small></div><span className="selected-status"><i /> {guidedTour ? 'Confirmação manual' : 'Aberto'}</span></div>
+    <form className="form-stack" onSubmit={submit}><div className="selected-space"><RoomPhoto space={space} alt="" /><div><strong>{space?.nomeEspaco}</strong><small>{space?.tipoEspaco} · até {space?.capacidadePessoas} pessoas</small></div><span className="selected-status"><i /> {guidedTour ? 'Confirmação manual' : 'Aberto'}</span></div>
       {guidedTour && <p className="access-intro">A equipe confirma a visita, mas o intervalo fica reservado desde o primeiro pedido. Horários já solicitados não podem ser escolhidos novamente.</p>}
       <label>{guidedTour ? 'Data preferida da visita' : 'Data do encontro'}<input required type="date" min={localDateValue()} value={form.dataReserva} onChange={e => setForm({ ...form, dataReserva: e.target.value })} /></label><div className="field-pair"><label>{guidedTour ? 'Horário preferido de início' : 'Início'}<input required type="time" min="08:00" max="21:30" step="1800" value={form.horarioInicio} onChange={e => setForm({ ...form, horarioInicio: e.target.value })} /></label><label>{guidedTour ? 'Horário preferido de término' : 'Fim'}<input required type="time" min={form.horarioInicio || '08:30'} max="22:00" step="1800" value={form.horarioFim} onChange={e => setForm({ ...form, horarioFim: e.target.value })} /></label></div>
       {guidedTour && <label>Quantidade de visitantes<input required type="number" min="1" max={space?.capacidadePessoas || 20} value={form.quantidadeParticipantes} onChange={e => setForm({ ...form, quantidadeParticipantes: e.target.value })} /><small>Capacidade máxima: {space?.capacidadePessoas || 20} pessoas.</small></label>}
@@ -263,7 +399,7 @@ function AccessPage({ onLogin, onSignup }) {
     try {
       const result = await request('/auth/login', { method: 'POST', body: JSON.stringify({ email, senha: password }) })
       const normalized = { ...result, perfil: Number(result.perfil ?? result.idPerfil ?? 4) }
-      localStorage.setItem('inpetu-token', normalized.token); localStorage.setItem('inpetu-user', JSON.stringify(normalized)); onLogin(normalized)
+      storeUser(normalized); onLogin(normalized)
     } catch (error) { setNotice(error.message) } finally { setBusy(false) }
   }
   return <main className="account-page">
@@ -284,7 +420,7 @@ function AccessPage({ onLogin, onSignup }) {
 function SignupPage({ onBack }) {
   const [form, setForm] = useState({ nomeCompleto: '', email: '', telefone: '', organizacao: '', cargoVinculo: '', senha: '', confirmarSenha: '' })
   const [status, setStatus] = useState('')
-  async function submit(event) { event.preventDefault(); setStatus(''); if (form.senha !== form.confirmarSenha) return setStatus('As senhas não coincidem.'); try { const { confirmarSenha, ...cadastro } = form; await request('/usuarios/cadastro-publico', { method: 'POST', body: JSON.stringify(cadastro) }); setStatus('Cadastro criado. Você já pode entrar com seu e-mail e senha.'); } catch (error) { setStatus(error.message) } }
+  async function submit(event) { event.preventDefault(); setStatus(''); if (form.senha !== form.confirmarSenha) return setStatus('As senhas não coincidem.'); try { const { confirmarSenha, ...cadastro } = form; await request('/usuarios/cadastro-publico', { method: 'POST', body: JSON.stringify(cadastro) }); setStatus('Se o e-mail for válido, enviaremos as instruções de acesso.'); } catch (error) { setStatus(error.message) } }
   return <main className="account-page account-page-signup">
     <div className="account-page-heading"><h1>Criar acesso público</h1><p>Cadastre-se para solicitar espaços e acompanhar seus agendamentos.</p></div>
     <section className="account-card account-card-signup">
@@ -297,7 +433,7 @@ function SignupPage({ onBack }) {
         <label>Cargo ou vínculo <span aria-hidden="true">*</span><input required value={form.cargoVinculo} onChange={e => setForm({ ...form, cargoVinculo: e.target.value })} /></label>
         <label>Senha <span aria-hidden="true">*</span><input required minLength={8} maxLength={64} type="password" autoComplete="new-password" value={form.senha} onChange={e => setForm({ ...form, senha: e.target.value })} /></label>
         <label>Confirmar senha <span aria-hidden="true">*</span><input required minLength={8} maxLength={64} type="password" autoComplete="new-password" value={form.confirmarSenha} onChange={e => setForm({ ...form, confirmarSenha: e.target.value })} /></label>
-        {status && <p className={`account-notice ${status.startsWith('Cadastro criado') ? 'account-notice-success' : 'account-notice-error'}`} role="status">{status}</p>}
+        {status && <p className={`account-notice ${status.startsWith('Se o e-mail for válido') ? 'account-notice-success' : 'account-notice-error'}`} role="status">{status}</p>}
         <Button type="submit">Criar conta <ArrowRight size={16} /></Button>
       </form>
       <p className="account-signup"><button type="button" onClick={onBack}>Voltar para o acesso</button></p>
@@ -347,14 +483,13 @@ function HelpPage() {
   const [file, setFile] = useState(null)
   const [status, setStatus] = useState('')
   const [progress, setProgress] = useState(0)
-  async function submit(event) { event.preventDefault(); setStatus(''); if (file && (!['application/pdf', 'image/png', 'image/jpeg'].includes(file.type) || file.size > 10 * 1024 * 1024)) return setStatus('Anexe PDF, PNG ou JPG de até 10 MB.'); try { if (file) { setProgress(35); } await request('/duvidas', { method: 'POST', body: JSON.stringify(form) }); setProgress(100); setStatus('Mensagem enviada. A equipe InPETU responderá pelo e-mail informado.'); setForm({ emailContato: '', telefoneContato: '', mensagemDuvida: '' }); setFile(null) } catch (error) { setStatus(error.message); setProgress(0) } }
   async function submit(event) { event.preventDefault(); setStatus(''); if (file && (!['application/pdf', 'image/png', 'image/jpeg'].includes(file.type) || file.size > 10 * 1024 * 1024)) return setStatus('Anexe PDF, PNG ou JPG de até 10 MB.'); try { if (file) await uploadQuestion(form, file, setProgress); else await request('/duvidas', { method: 'POST', body: JSON.stringify(form) }); setProgress(100); setStatus('Mensagem enviada. A equipe InPETU responderá pelo e-mail informado.'); setForm({ emailContato: '', telefoneContato: '', mensagemDuvida: '' }); setFile(null) } catch (error) { setStatus(error.message); setProgress(0) } }
   return <main className="inner-page help-page"><div className="help-intro"><div className="eyebrow">ESTAMOS POR PERTO</div><h1>Vamos conversar<br /><em>sobre sua ideia?</em></h1><p>Tem dúvidas sobre os espaços, eventos ou quer descobrir como fazer parte do ecossistema? Escreva para a gente.</p><div className="help-contact"><span><Mail size={17} /></span><div><small>FALE DIRETAMENTE</small><strong>inpetu@contato.ufsc.br</strong></div></div><div className="help-contact"><span><MapPin size={17} /></span><div><small>VENHA NOS VISITAR</small><strong>Lote 73 · Sapiens Parque, Florianópolis</strong></div></div></div><form className="help-form" onSubmit={submit}><div className="form-heading"><MessageCircle size={20} /><div><strong>Fale com a equipe</strong><small>Retornamos em até dois dias úteis.</small></div></div><label>Seu e-mail<input required type="email" value={form.emailContato} onChange={e => setForm({ ...form, emailContato: e.target.value })} /></label><label>Telefone <span>(opcional)</span><input type="tel" value={form.telefoneContato} onChange={e => setForm({ ...form, telefoneContato: e.target.value })} /></label><label>Sua mensagem<textarea required rows="5" maxLength="5000" value={form.mensagemDuvida} onChange={e => setForm({ ...form, mensagemDuvida: e.target.value })} placeholder="Como podemos ajudar?" /></label><label className="upload-box"><input type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" onChange={e => setFile(e.target.files?.[0] || null)} /><span className="upload-icon"><Plus size={19} /></span><span><strong>{file ? file.name : 'Adicionar anexo'}</strong><small>PDF, PNG ou JPG · até 10 MB</small></span><span className="upload-action">Escolher arquivo</span></label>{progress > 0 && <div className="progress-track"><span style={{ width: `${progress}%` }} /></div>}{status && <p className={status.startsWith('Mensagem') ? 'success-note' : 'form-message'}>{status}</p>}<Button type="submit">Enviar mensagem <ArrowRight size={16} /></Button><p className="form-footnote"><ShieldCheck size={14} /> Seus dados são protegidos pela política de privacidade UFSC.</p></form></main>
 }
-function CalendarPage({ spaces, onReserve, initialDate, initialKind, initialSpaceId, availabilityVersion }) {
+function CalendarPage({ spaces, spacesLoaded, onReserve, initialDate, initialKind, initialSpaceId, availabilityVersion }) {
   const [date, setDate] = useState(initialDate)
-  const [kind, setKind] = useState(initialKind)
   const [monthCursor, setMonthCursor] = useState(() => new Date(`${initialDate}T12:00:00`))
+  const [monthCalendarOpen, setMonthCalendarOpen] = useState(false)
   const [availability, setAvailability] = useState([])
   const [availabilityLoading, setAvailabilityLoading] = useState(false)
   const [availabilityError, setAvailabilityError] = useState('')
@@ -366,15 +501,22 @@ function CalendarPage({ spaces, onReserve, initialDate, initialKind, initialSpac
     return (leftIndex < 0 ? typeOrder.length : leftIndex) - (rightIndex < 0 ? typeOrder.length : rightIndex) ||
       left.nomeEspaco.localeCompare(right.nomeEspaco, 'pt-BR')
   })
-  const filtered = orderedSpaces.filter(space => !kind || space.tipoEspaco === kind)
   const [selectedSpaceId, setSelectedSpaceId] = useState(initialSpaceId || '')
-  const [calendarView, setCalendarView] = useState('Mensal')
   const [startTime, setStartTime] = useState('')
   const [endTime, setEndTime] = useState('')
   const [nextSlotSelection, setNextSlotSelection] = useState('start')
-  const selectedSpace = filtered.find(space => String(space.idEspaco) === selectedSpaceId) || filtered[0]
-  const spaceUnavailable = selectedSpace?.ativo === false
+  const [saoPauloNow, setSaoPauloNow] = useState(saoPauloDateTime)
+  const selectedSpace = orderedSpaces.find(space => String(space.idEspaco) === selectedSpaceId && space.ativo !== false)
   const guidedTour = isGuidedTour(selectedSpace?.tipoEspaco)
+  useEffect(() => {
+    const interval = window.setInterval(() => setSaoPauloNow(saoPauloDateTime()), 30_000)
+    return () => window.clearInterval(interval)
+  }, [])
+  useEffect(() => {
+    if (selectedSpaceId || !spacesLoaded) return
+    const suggestedSpace = spaces.find(space => space.tipoEspaco === initialKind && space.ativo !== false)
+    if (suggestedSpace) setSelectedSpaceId(String(suggestedSpace.idEspaco))
+  }, [initialKind, selectedSpaceId, spaces, spacesLoaded])
   useEffect(() => {
     setStartTime('')
     setEndTime('')
@@ -398,16 +540,16 @@ function CalendarPage({ spaces, onReserve, initialDate, initialKind, initialSpac
     return () => { active = false }
   }, [selectedSpace?.idEspaco, selectedSpace?.ativo, date, availabilityReload, availabilityVersion])
   const selectedDay = new Date(`${date}T12:00:00`)
+  const today = new Date(`${saoPauloNow.date}T12:00:00`)
+  today.setHours(12, 0, 0, 0)
+  const upcomingDays = Array.from({ length: 14 }, (_, index) => {
+    const day = new Date(today)
+    day.setDate(today.getDate() + index)
+    return day
+  })
   const slots = Array.from({ length: 28 }, (_, index) => {
     const totalMinutes = 8 * 60 + index * 30
     return `${String(Math.floor(totalMinutes / 60)).padStart(2, '0')}:${String(totalMinutes % 60).padStart(2, '0')}`
-  })
-  const monday = new Date(selectedDay)
-  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7))
-  const weekDates = Array.from({ length: 7 }, (_, index) => {
-    const day = new Date(monday)
-    day.setDate(monday.getDate() + index)
-    return day
   })
   const monthStart = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), 1, 12)
   const monthDays = Array.from({ length: new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 0).getDate() }, (_, index) => {
@@ -416,7 +558,11 @@ function CalendarPage({ spaces, onReserve, initialDate, initialKind, initialSpac
     return day
   })
   const displayDate = selectedDay.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-  const typeLabels = { 'Todos os espaços': 'Todos', 'Sala de aula': 'Salas de Aula', 'Sala de reunião': 'Salas de Reunião', 'Visita guiada': 'Visitas Guiadas' }
+  const slotGroups = [
+    { label: 'Manhã', times: slots.filter(time => time < '12:00') },
+    { label: 'Tarde', times: slots.filter(time => time >= '12:00' && time < '18:00') },
+    { label: 'Noite', times: slots.filter(time => time >= '18:00') },
+  ]
   function reservationAt(time) {
     const end = addMinutesToTime(time, 30)
     return availability.find(reservation => {
@@ -432,8 +578,14 @@ function CalendarPage({ spaces, onReserve, initialDate, initialKind, initialSpac
     }
     return true
   }
-  const canRequestReservation = !spaceUnavailable && date >= localDateValue() && !availabilityLoading && !availabilityError &&
-    (guidedTour || isRangeAvailable(startTime, endTime))
+  const canRequestReservation = Boolean(selectedSpace) && date >= saoPauloNow.date && !availabilityLoading && !availabilityError &&
+    isRangeAvailable(startTime, endTime)
+  const reservationDurationMinutes = startTime && endTime
+    ? (Number(endTime.slice(0, 2)) * 60 + Number(endTime.slice(3, 5))) - (Number(startTime.slice(0, 2)) * 60 + Number(startTime.slice(3, 5)))
+    : 0
+  const reservationDurationLabel = reservationDurationMinutes
+    ? `${Math.floor(reservationDurationMinutes / 60) ? `${Math.floor(reservationDurationMinutes / 60)}h` : ''}${reservationDurationMinutes % 60 ? `${Math.floor(reservationDurationMinutes / 60) ? ' ' : ''}${reservationDurationMinutes % 60}min` : ''}`
+    : ''
   function selectStartTime(time) {
     setStartTime(time)
     setEndTime('')
@@ -444,84 +596,125 @@ function CalendarPage({ spaces, onReserve, initialDate, initialKind, initialSpac
       selectStartTime(time)
       return
     }
-    if (time > startTime) {
-      setEndTime(time)
+    if (time >= startTime) {
+      setEndTime(addMinutesToTime(time, 30))
       setNextSlotSelection('start')
       return
     }
     if (time < startTime) selectStartTime(time)
   }
-  function updateStartTime(time) {
-    setStartTime(time)
-    setNextSlotSelection('end')
-  }
-  function updateEndTime(time) {
-    setEndTime(time)
-    setNextSlotSelection('start')
-  }
   function selectDate(day) {
-    const value = localDateValue(day)
+    const value = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`
     setDate(value)
     setMonthCursor(new Date(`${value}T12:00:00`))
-  }
-  function changeDate(value) {
-    setDate(value)
-    if (value) setMonthCursor(new Date(`${value}T12:00:00`))
   }
   function moveMonth(offset) {
     setMonthCursor(current => new Date(current.getFullYear(), current.getMonth() + offset, 1, 12))
   }
   function goToToday() {
-    const today = new Date()
-    const value = localDateValue(today)
+    const value = saoPauloNow.date
     setDate(value)
-    setMonthCursor(new Date(today.getFullYear(), today.getMonth(), 1, 12))
+    const [year, month] = value.split('-').map(Number)
+    setMonthCursor(new Date(year, month - 1, 1, 12))
   }
-  function dateButton(day, compact = false) {
+  function dateButton(day) {
     const value = localDateValue(day)
     const isSelected = value === date
-    const isToday = value === localDateValue()
-    return <button key={value} type="button" disabled={value < localDateValue()} className={`calendar-date-option ${isSelected ? 'calendar-date-selected' : ''} ${isToday ? 'calendar-date-today' : ''} ${compact ? 'calendar-date-compact' : ''}`} onClick={() => selectDate(day)} aria-current={isToday ? 'date' : undefined} aria-pressed={isSelected}>
-      {compact ? <><small>{day.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')}</small><strong>{day.getDate()}</strong></> : day.getDate()}
+    const isToday = value === saoPauloNow.date
+    return <button key={value} type="button" disabled={value < saoPauloNow.date} className={`calendar-date-option ${isSelected ? 'calendar-date-selected' : ''} ${isToday ? 'calendar-date-today' : ''}`} onClick={() => selectDate(day)} aria-current={isToday ? 'date' : undefined} aria-pressed={isSelected}>
+      {day.getDate()}
     </button>
   }
-  const orderedTypes = [...new Set(orderedSpaces.map(space => space.tipoEspaco))]
-  return <main className="inner-page catalog-page">
-    <div className="catalog-heading"><h1>Catálogo de Espaços e Disponibilidade</h1><p>{guidedTour ? 'Escolha a data e solicite uma visita guiada. A equipe confirmará o horário e a disponibilidade do guia.' : 'Consulte os horários livres do Lote 73 e solicite sua reserva em poucos cliques.'}</p></div>
-    <section className={`catalog-controls ${guidedTour ? 'catalog-controls-guided' : ''}`} aria-label="Filtros de disponibilidade">
-      <div className="catalog-categories">{['Todos os espaços', ...orderedTypes].map(type => <button key={type} type="button" className={`catalog-category ${kind === (type === 'Todos os espaços' ? '' : type) ? 'catalog-category-active' : ''}`} onClick={() => setKind(type === 'Todos os espaços' ? '' : type)}>{typeLabels[type] || type}</button>)}</div>
-      <div className="catalog-fields">
-        <label><span>Espaço</span><select value={selectedSpace ? String(selectedSpace.idEspaco) : ''} onChange={event => setSelectedSpaceId(event.target.value)}>{filtered.map(space => <option key={space.idEspaco} value={space.idEspaco}>{space.nomeEspaco}</option>)}</select></label>
-        {!guidedTour && <><label><span>Início</span><input type="time" min="08:00" max="21:30" step="1800" value={startTime} onChange={event => updateStartTime(event.target.value)} /></label>
-          <label><span>Término</span><input type="time" min={startTime ? addMinutesToTime(startTime, 30) : '08:30'} max="22:00" step="1800" value={endTime} onChange={event => updateEndTime(event.target.value)} /></label></>}
-        <label><span>Data</span><input type="date" min={localDateValue()} value={date} onChange={event => changeDate(event.target.value)} /></label>
+  return <main className="inner-page catalog-page booking-page">
+    <header className="catalog-heading booking-heading">
+      <span className="booking-eyebrow">INPETU CONNECT · LOTE 73</span>
+      <h1>Agende um espaço</h1>
+      <p>Escolha o ambiente, defina o dia e horário e envie sua solicitação.</p>
+    </header>
+    <ol className="booking-steps" aria-label="Etapas da reserva">
+      <li className={selectedSpace ? 'booking-step-complete' : 'booking-step-current'}><span>1</span> Espaço</li>
+      <li className={startTime && endTime ? 'booking-step-complete' : selectedSpace ? 'booking-step-current' : ''}><span>2</span> Dia e horário</li>
+      <li className={canRequestReservation ? 'booking-step-current' : ''}><span>3</span> Confirmar</li>
+    </ol>
+
+    <div className="booking-layout">
+      <div className="booking-main">
+        <section className="booking-section" aria-labelledby="booking-space-title">
+          <div className="booking-section-heading"><span className="booking-section-number">01</span><div><h2 id="booking-space-title">Escolha o espaço</h2><p>Selecione um ambiente para ver a agenda.</p></div></div>
+          {!spacesLoaded ? <p className="booking-state" role="status">Carregando espaços...</p> : orderedSpaces.length === 0 ? <p className="booking-state">Nenhum espaço cadastrado no momento.</p> : <div className="booking-space-grid">
+            {orderedSpaces.map(space => {
+              const unavailable = space.ativo === false
+              const selected = selectedSpace?.idEspaco === space.idEspaco
+              const needsManualReview = space.exigeAprovacaoManual
+              return <button key={space.idEspaco} type="button" className={`booking-space-card ${selected ? 'booking-space-selected' : ''} ${unavailable ? 'booking-space-unavailable' : ''}`} disabled={unavailable} onClick={() => setSelectedSpaceId(String(space.idEspaco))} aria-pressed={selected} aria-label={`${space.nomeEspaco}, até ${space.capacidadePessoas || 20} pessoas${unavailable ? `, indisponível: ${space.motivoIndisponibilidade || 'temporariamente indisponível'}` : ''}`}>
+                <RoomPhoto space={space} alt="" className="booking-space-photo" />
+                {unavailable && <span className="booking-unavailable-label">INDISPONÍVEL</span>}
+                {selected && <span className="booking-selected-check"><Check size={15} /></span>}
+                <span className="booking-space-copy"><strong>{space.nomeEspaco}</strong><span className="booking-space-capacity"><Users size={14} /> Até {space.capacidadePessoas || 20} pessoas</span>
+                  {needsManualReview && <span className="booking-manual-badge">Requer análise manual</span>}
+                  {unavailable && <span className="booking-unavailable-reason">{space.motivoIndisponibilidade || 'Este espaço está temporariamente indisponível.'}</span>}
+                </span>
+              </button>
+            })}
+          </div>}
+        </section>
+
+        <section className="booking-section" aria-labelledby="booking-date-title">
+          <div className="booking-section-heading"><span className="booking-section-number">02</span><div><h2 id="booking-date-title">Escolha dia e horário</h2><p>Selecione uma data e um intervalo disponível.</p></div></div>
+          <div className="booking-date-toolbar"><h3>Próximos 14 dias</h3><button type="button" className="booking-calendar-toggle" aria-expanded={monthCalendarOpen} aria-controls="booking-month-calendar" onClick={() => setMonthCalendarOpen(open => !open)}><CalendarDays size={15} /> {monthCalendarOpen ? 'Fechar calendário' : 'Abrir calendário'}</button></div>
+          <div className="booking-date-rail" role="group" aria-label="Selecione um dos próximos 14 dias">
+            {upcomingDays.map(day => {
+              const value = localDateValue(day)
+              const selected = date === value
+              const isToday = value === localDateValue()
+              return <button key={value} type="button" className={`booking-date-card ${selected ? 'booking-date-selected' : ''}`} onClick={() => selectDate(day)} aria-pressed={selected} aria-current={isToday ? 'date' : undefined}>
+                <span>{isToday ? 'Hoje' : day.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')}</span><strong>{day.getDate()}</strong><small>{day.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}</small>
+              </button>
+            })}
+          </div>
+          {monthCalendarOpen && <div id="booking-month-calendar" className="booking-month-calendar">
+            <div className="calendar-month-heading"><button type="button" aria-label="Mês anterior" disabled={monthCursor.getFullYear() === new Date().getFullYear() && monthCursor.getMonth() <= new Date().getMonth()} onClick={() => moveMonth(-1)}><ChevronLeft size={17} /></button><strong className="calendar-month-label">{monthCursor.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</strong><button type="button" aria-label="Próximo mês" onClick={() => moveMonth(1)}><ChevronRight size={17} /></button><button type="button" className="calendar-today-button" onClick={goToToday}>Hoje</button></div>
+            {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day, index) => <span key={`${day}-${index}`} className="calendar-weekday">{day}</span>)}
+            {Array.from({ length: monthStart.getDay() }, (_, index) => <span key={`empty-${index}`} className="calendar-date-empty" />)}
+            {monthDays.map(day => dateButton(day))}
+          </div>}
+          <div className="booking-legend" aria-label="Legenda de disponibilidade"><span><i className="booking-legend-free" /> Livre</span><span><i className="booking-legend-busy" /> Ocupado</span><span><i className="booking-legend-pending" /> Em análise</span></div>
+          {guidedTour && <p className="booking-guided-note" role="note">Visitas guiadas exigem análise da equipe. O horário solicitado fica reservado enquanto aguarda a avaliação.</p>}
+          {!selectedSpace ? <p className="booking-state">Escolha um espaço para consultar os horários.</p> : availabilityLoading ? <p className="booking-state" role="status">Consultando disponibilidade...</p> : availabilityError ? <div className="booking-error" role="alert"><span>Não foi possível consultar a disponibilidade: {availabilityError}</span><button type="button" onClick={() => setAvailabilityReload(value => value + 1)}>Tentar novamente</button></div> : <div className="booking-time-groups">
+            <p className="catalog-time-help">Clique no primeiro e no último horário que você quer reservar.</p>
+            {slotGroups.map(group => <section className="booking-time-group" key={group.label} aria-label={group.label}>
+              <h3>{group.label}</h3><div className="booking-time-grid">{group.times.map(time => {
+                const reservation = reservationAt(time)
+                const status = reservation ? (reservation.statusReserva === 'Pendente' ? 'pending' : 'busy') : 'free'
+                const statusLabel = reservation ? (reservation.statusReserva === 'Pendente' ? 'Em análise' : 'Ocupado') : 'Livre'
+                const slotEndTime = addMinutesToTime(time, 30)
+                const isSelectedStart = time === startTime
+                const isSelectedRange = startTime && endTime && time >= startTime && time < endTime
+                const isSelectedEnd = endTime && time === addMinutesToTime(endTime, -30)
+                const isPastToday = date === saoPauloNow.date && time < saoPauloNow.time
+                const rangeWouldConflict = nextSlotSelection === 'end' && startTime && time >= startTime &&
+                  !isRangeAvailable(startTime, addMinutesToTime(time, 30))
+                const disabled = isPastToday || Boolean(reservation) || Boolean(rangeWouldConflict)
+                const unavailableReason = isPastToday ? 'horário já passado' : reservation ? statusLabel : rangeWouldConflict ? 'o intervalo inclui um horário ocupado ou em análise' : statusLabel
+                return <button key={time} type="button" className={`booking-time-option booking-time-${status} ${isSelectedRange && !reservation ? 'booking-time-in-range' : ''} ${isSelectedStart ? 'booking-time-start' : ''} ${isSelectedEnd ? 'booking-time-end' : ''}`} disabled={disabled} onClick={() => selectSlotTime(time)} aria-label={`${time}–${slotEndTime}, ${disabled ? unavailableReason : statusLabel}${isSelectedStart ? ', início selecionado' : ''}${isSelectedEnd ? ', fim selecionado' : ''}`}>
+                  <span className="booking-time-dot" aria-hidden="true" /><strong>{time}</strong>
+                </button>
+              })}</div>
+            </section>)}
+          </div>}
+          {startTime && endTime > startTime && !availabilityLoading && !availabilityError && !isRangeAvailable(startTime, endTime) && <p className="booking-validation-error" role="alert">O período escolhido inclui um horário ocupado ou em análise.</p>}
+          <p className="booking-hours-note">Funcionamento: 08h–22h. Horários ocupados ou em análise não podem ser reservados.</p>
+        </section>
       </div>
-      {guidedTour && <div className="catalog-guided-notice" role="note">A visita exige aprovação da equipe; o primeiro pedido, porém, reserva o horário enquanto aguarda análise.</div>}
-      {!guidedTour && <div className="catalog-view-row">
-        <div className="catalog-view-tabs" role="group" aria-label="Visualização do calendário">{['Mensal', 'Semanal', 'Diário'].map(view => <button key={view} type="button" className={calendarView === view ? 'catalog-view-active' : ''} onClick={() => setCalendarView(view)} aria-pressed={calendarView === view}>{view}</button>)}</div>
-        <div className="catalog-legend"><span><i className="legend-free" /> Livre</span><span><i className="legend-busy" /> Ocupado</span><span><i className="legend-pending" /> Em análise</span></div>
-      </div>}
-      {!guidedTour && calendarView === 'Semanal' && <div className="calendar-date-picker calendar-week-picker" aria-label="Escolha um dia da semana">{weekDates.map(day => dateButton(day, true))}</div>}
-      {!guidedTour && calendarView === 'Mensal' && <div className="calendar-date-picker calendar-month-picker" aria-label="Escolha um dia do mês"><div className="calendar-month-heading"><button type="button" aria-label="Mês anterior" disabled={monthCursor.getFullYear() === new Date().getFullYear() && monthCursor.getMonth() <= new Date().getMonth()} onClick={() => moveMonth(-1)}><ChevronLeft size={17} /></button><strong className="calendar-month-label">{monthCursor.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</strong><button type="button" aria-label="Próximo mês" onClick={() => moveMonth(1)}><ChevronRight size={17} /></button><button type="button" className="calendar-today-button" onClick={goToToday}>Hoje</button></div>{['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day, index) => <span key={`${day}-${index}`} className="calendar-weekday">{day}</span>)}{Array.from({ length: monthStart.getDay() }, (_, index) => <span key={`empty-${index}`} className="calendar-date-empty" />)}{monthDays.map(day => dateButton(day))}</div>}
-    </section>
-    {selectedSpace ? <>
-      <article className="catalog-space-card">
-        <div className="catalog-space-photo"><img src={selectedSpace.arquivoImagem ? `${API}/espacos/${selectedSpace.idEspaco}/imagem` : images[selectedSpace.tipoEspaco] || images.Coworking} alt="" />{spaceUnavailable && <span className="space-unavailable-overlay">INDISPONÍVEL</span>}</div>
-        <div className="catalog-space-info"><small>{selectedSpace.tipoEspaco}</small><h2>{selectedSpace.nomeEspaco}</h2><span><Users size={15} /> Até {selectedSpace.capacidadePessoas || 20} pessoas</span>{selectedSpace.exigeAprovacaoManual && <em>{guidedTour ? 'Confirmação pela equipe' : 'Requer análise manual'}</em>}{spaceUnavailable && <p className="space-unavailable-reason"><strong>Motivo:</strong> {selectedSpace.motivoIndisponibilidade || 'Este espaço está temporariamente indisponível.'}<small className="unavailable-deadline">{unavailableDeadlineLabel(selectedSpace.dataPrevisaoRetorno)}</small></p>}</div>
-        <Button icon={CalendarDays} disabled={!canRequestReservation} onClick={() => onReserve(selectedSpace, date, guidedTour ? '' : startTime, guidedTour ? '' : endTime)}>{guidedTour ? 'Solicitar visita guiada' : 'Solicitar Reserva'}</Button>
-      </article>
-      <section className="catalog-slots"><h2>{guidedTour ? 'Disponibilidade da visita' : `Horários de ${displayDate}`}</h2>{spaceUnavailable ? <div className="catalog-space-unavailable-message" role="alert"><strong>Espaço indisponível</strong><span>{selectedSpace.motivoIndisponibilidade || 'Este espaço está temporariamente indisponível.'}</span></div> : guidedTour ? <div className="catalog-guided-detail"><p>Informe data, horário e tamanho do grupo no pedido. O horário fica reservado pela ordem de solicitação, mesmo enquanto a equipe analisa a visita.</p>{availabilityLoading ? <p className="catalog-availability-message" role="status">Consultando disponibilidade...</p> : availabilityError ? <div className="catalog-availability-error" role="alert"><span>Não foi possível consultar os horários ocupados: {availabilityError}</span><button type="button" onClick={() => setAvailabilityReload(value => value + 1)}>Tentar novamente</button></div> : availability.length ? <p><strong>Horários já reservados ou em análise:</strong> {availability.map(reservation => `${String(reservation.inicio).slice(0, 5)}–${String(reservation.fim).slice(0, 5)}`).join(', ')}</p> : <p>Nenhum horário reservado nesta data.</p>}</div> : <><p className="catalog-time-help">{nextSlotSelection === 'end' && startTime ? `Início às ${startTime} selecionado. Agora clique em outro horário livre para definir o término.` : 'Clique em um horário livre para definir o início e, em seguida, em outro para definir o término. Também pode preencher os campos acima.'}</p>{availabilityLoading ? <p className="catalog-availability-message" role="status">Consultando disponibilidade...</p> : availabilityError ? <div className="catalog-availability-error" role="alert"><span>Não foi possível consultar a disponibilidade: {availabilityError}</span><button type="button" onClick={() => setAvailabilityReload(value => value + 1)}>Tentar novamente</button></div> : <div className="catalog-slot-grid">{slots.map(time => {
-        const reservation = reservationAt(time)
-        const status = reservation ? (reservation.statusReserva === 'Pendente' ? 'slot-pending' : 'slot-busy') : 'slot-free'
-        const statusLabel = reservation ? (reservation.statusReserva === 'Pendente' ? 'Em análise' : 'Ocupado') : 'Livre'
-        const isSelectedStart = time === startTime
-        const isSelectedRange = startTime && endTime && time >= startTime && time < endTime
-        const canSelectAsEnd = nextSlotSelection === 'end' && startTime && time > startTime
-        return <button key={time} type="button" className={`time-slot ${status} ${isSelectedRange && !reservation ? 'slot-selected-range' : ''} ${isSelectedStart ? 'slot-selected-start' : ''} ${time === endTime ? 'slot-selected-end' : ''}`} disabled={Boolean(reservation) && !canSelectAsEnd} onClick={() => selectSlotTime(time)} aria-label={`${time}, ${statusLabel}${isSelectedStart ? ', início selecionado' : ''}${time === endTime ? ', término selecionado' : ''}`}>
-          <strong>{time}</strong><span>{statusLabel}</span>
-        </button>
-      })}</div>}{!availabilityLoading && !availabilityError && <>{startTime && endTime && endTime <= startTime && <p className="catalog-time-error" role="alert">O término deve ser depois do horário de início.</p>}{startTime && endTime > startTime && !canRequestReservation && <p className="catalog-time-error" role="alert">O período escolhido inclui um horário ocupado ou em análise.</p>}<p className="calendar-note">Funcionamento: 08h–22h. Horários ocupados ou em análise não podem ser reservados.</p></>}</>}</section>
-    </> : <div className="catalog-empty">Nenhum espaço disponível para esse tipo.</div>}
+
+      <aside className="booking-summary" aria-labelledby="booking-summary-title">
+        <span className="booking-summary-eyebrow">ETAPA 03</span><h2 id="booking-summary-title">Resumo da solicitação</h2>
+        <dl><div><dt>Espaço</dt><dd>{selectedSpace?.nomeEspaco || 'Não selecionado'}</dd></div><div><dt>Data</dt><dd>{date ? displayDate : 'Não selecionada'}</dd></div><div><dt>Horário</dt><dd>{startTime && endTime ? `${startTime}–${endTime} · ${reservationDurationLabel}` : 'Não selecionado'}</dd></div></dl>
+        {selectedSpace?.exigeAprovacaoManual && <p className="booking-summary-review">Este pedido requer análise manual.</p>}
+        {availabilityLoading ? <p className="booking-summary-hint" role="status">Consultando horários disponíveis...</p> : availabilityError ? <p className="booking-summary-hint booking-summary-hint-error">Não foi possível validar os horários. Tente novamente.</p> : !canRequestReservation && <p className="booking-summary-hint">{!selectedSpace ? 'Escolha um espaço.' : date < localDateValue() ? 'Escolha uma data de hoje em diante.' : !startTime ? 'Escolha um horário de início.' : !endTime ? 'Escolha um horário de término.' : 'Escolha um intervalo disponível.'}</p>}
+        <Button icon={CalendarDays} disabled={!canRequestReservation} onClick={() => onReserve(selectedSpace, date, startTime, endTime)}>{guidedTour ? 'Solicitar visita guiada' : 'Solicitar reserva'}</Button>
+      </aside>
+    </div>
   </main>
 }
 function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, setReservations }) {
@@ -532,13 +725,6 @@ function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, set
   const [partners, setPartners] = useState([])
   const [clientUsers, setClientUsers] = useState([])
   const [clientProfile, setClientProfile] = useState(null)
-  const [clientTab, setClientTab] = useState('Dados gerais')
-  const [drawer, setDrawer] = useState(null)
-  const [level, setLevel] = useState('')
-  const [reason, setReason] = useState('')
-  const [registrationToRemove, setRegistrationToRemove] = useState(null)
-  const [organizationActionError, setOrganizationActionError] = useState('')
-  const [organizationActionBusy, setOrganizationActionBusy] = useState(false)
   const [registrationCreateOpen, setRegistrationCreateOpen] = useState(false)
   const [registrationCreateBusy, setRegistrationCreateBusy] = useState(false)
   const [registrationCreateError, setRegistrationCreateError] = useState('')
@@ -589,7 +775,7 @@ function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, set
   const nav = [{ name: 'Visão geral', icon: LayoutDashboard }, { name: 'Reservas', icon: CalendarDays }, { name: 'Cadastros', icon: Users }, { name: 'Espaços', icon: DoorOpen }, { name: 'Atendimento', icon: CircleHelp }, { name: 'Auditoria', icon: ListChecks }, ...(user?.perfil === 1 ? [{ name: 'Equipe', icon: ShieldCheck }] : [])]
   const notify = text => { setToast(text); window.setTimeout(() => setToast(''), 3200) }
   useEffect(() => {
-    if (!localStorage.getItem('inpetu-token')) return
+    if (!user) return
     Promise.all([request('/reservas'), request('/usuarios'), request('/organizacoes'), request('/duvidas'), request('/auditoria')]).then(([bookings, users, organizations, questions, logs]) => {
       const orgById = new Map(organizations.map(org => [org.idOrganizacao, org]))
       const userById = new Map(users.map(person => [person.idUsuario, person]))
@@ -604,7 +790,7 @@ function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, set
       setSelectedTicket(current => questions.find(question => question.idDuvida === current?.idDuvida) || questions[0] || null)
       setAuditItems(logs.map(log => {
         const affectedUser = log.tabelaAfetada === 'usuario' ? userById.get(log.idRegistroAfetado) : null
-        const actionLabels = { CADASTRO_CRIADO: 'Criação de cadastro', CLASSIFICACAO: 'Classificação', PERSONA_USO: 'Alteração de persona', ALTERACAO_PERFIL: 'Alteração de perfil', ALTERACAO_STATUS: 'Alteração de status', EXCLUSAO_CADASTRO: 'Exclusão de cadastro', DESCREDENCIAMENTO: 'Descredenciamento', CRIACAO: 'Criação de reserva', EDICAO: 'Edição de reserva', NEGOCIACAO_COTA: 'Negociação de cota', APROVACAO: 'Aprovação', CANCELAMENTO: 'Cancelamento' }
+        const actionLabels = { CADASTRO_CRIADO: 'Criação de cadastro', ALTERACAO_CADASTRO: 'Alteração de cadastro', CLASSIFICACAO: 'Classificação', PERSONA_USO: 'Alteração de persona', ALTERACAO_PERFIL: 'Alteração de perfil', ALTERACAO_STATUS: 'Alteração de status', EXCLUSAO_CADASTRO: 'Exclusão de cadastro', DESCREDENCIAMENTO: 'Descredenciamento', CRIACAO: 'Criação de reserva', EDICAO: 'Edição de reserva', NEGOCIACAO_COTA: 'Negociação de cota', APROVACAO: 'Aprovação', CANCELAMENTO: 'Cancelamento' }
         const detail = log.detalhesAlteracao || ''
         return {
           time: new Date(log.dataHora).toLocaleString('pt-BR'),
@@ -619,9 +805,13 @@ function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, set
       setCrmDataError(`Não foi possível carregar os dados do painel. ${error.message}`)
     })
   }, [user, spaces])
-  function logout() {
-    localStorage.removeItem('inpetu-token')
-    localStorage.removeItem('inpetu-user')
+  async function logout() {
+    try {
+      await request('/auth/logout', { method: 'POST' })
+    } catch (error) {
+      notify(`Não foi possível confirmar o encerramento da sessão no servidor. ${error.message}`)
+    }
+    clearStoredUser()
     setUser(null)
     onReturnHome()
   }
@@ -738,22 +928,22 @@ function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, set
       setReservationCancelBusy(false)
     }
   }
-  async function removeRegistration() {
-    const target = registrationToRemove
-    if (!target || !reason.trim() || organizationActionBusy) return
-    setOrganizationActionBusy(true)
-    setOrganizationActionError('')
-    try {
-      await request(`/usuarios/${target.userId}/cadastro`, { method: 'DELETE', body: JSON.stringify({ motivo: reason.trim() }) })
-      setPartners(items => items.filter(partner => partner.userId !== target.userId))
-      setRegistrationToRemove(null)
-      setReason('')
-      notify('Cadastro e acesso desativados. Motivo registrado na auditoria.')
-    } catch (error) {
-      setOrganizationActionError(error.message)
-    } finally {
-      setOrganizationActionBusy(false)
-    }
+  async function deactivateClient(client, motivo) {
+    const updated = await request(`/usuarios/${client.idUsuario}/cadastro`, {
+      method: 'DELETE',
+      body: JSON.stringify({ motivo: motivo.trim() }),
+    })
+    setPartners(items => items.filter(partner => partner.userId !== updated.idUsuario))
+    setClientUsers(items => items.map(person => person.idUsuario === updated.idUsuario ? updated : person))
+    setClientProfile(null)
+    setAuditItems(items => [{
+      time: new Date().toLocaleString('pt-BR'),
+      user: user.nome || 'Equipe InPETU',
+      action: 'Desativação de cadastro',
+      target: `${client.nomeCompleto} · cadastro #${client.idUsuario}`,
+      detail: motivo.trim(),
+    }, ...items])
+    notify('Cadastro desativado. O histórico foi preservado.')
   }
   async function createRegistration(event) {
     event.preventDefault()
@@ -782,7 +972,7 @@ function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, set
         persona: created.idPersona,
         status: 'Aguardando persona',
       }, ...items])
-      setClientUsers(items => [created, ...items])
+      setClientUsers(items => [{ ...created, organizacao: newRegistration.organizacao.trim() }, ...items])
       setNewRegistration({ nomeCompleto: '', email: '', telefone: '', organizacao: '', cargoVinculo: '', senha: '' })
       setRegistrationCreateOpen(false)
       notify('Cadastro criado e registrado na auditoria.')
@@ -792,21 +982,71 @@ function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, set
       setRegistrationCreateBusy(false)
     }
   }
-  async function classify() {
-    if (!level || !drawer) return
-    try {
-      const updated = await request(`/usuarios/${drawer.userId || drawer.id}/persona`, { method: 'PUT', body: JSON.stringify({ idPersona: Number(level) }) })
-      setPartners(items => items.map(person => person.userId === updated.idUsuario
-        ? { ...person, status: 'Persona definida', persona: updated.idPersona }
-        : person))
-      setClientUsers(items => items.map(person => person.idUsuario === updated.idUsuario ? updated : person))
-      setReservations(items => items.map(item => item.idSolicitante === updated.idUsuario ? { ...item, persona: updated.idPersona } : item))
-      setDrawer(null)
-      setLevel('')
-      notify('Persona de uso atualizada e registrada na auditoria.')
-    } catch (error) {
-      notify(error.message)
-    }
+  async function saveClientPersona(client, persona) {
+    const updated = await request(`/usuarios/${client.idUsuario}/persona`, {
+      method: 'PUT',
+      body: JSON.stringify({ idPersona: Number(persona) }),
+    })
+    const normalized = { ...client, ...updated, organizacao: client.organizacao }
+    setPartners(items => items.map(person => person.userId === updated.idUsuario
+      ? { ...person, status: 'Persona definida', persona: updated.idPersona }
+      : person))
+    setClientUsers(items => items.map(person => person.idUsuario === updated.idUsuario ? normalized : person))
+    setClientProfile(normalized)
+    setReservations(items => items.map(item => item.idSolicitante === updated.idUsuario
+      ? { ...item, persona: updated.idPersona }
+      : item))
+    setAuditItems(items => [{
+      time: new Date().toLocaleString('pt-BR'),
+      user: user.nome || 'Equipe InPETU',
+      action: 'Alteração de persona',
+      target: `${client.nomeCompleto} · cadastro #${client.idUsuario}`,
+      detail: `Persona alterada para P${updated.idPersona}.`,
+    }, ...items])
+    notify('Persona de uso atualizada e registrada na auditoria.')
+    return normalized
+  }
+  async function saveClientProfile(client, form) {
+    const updated = await request(`/usuarios/${client.idUsuario}/cadastro`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        ...form,
+        nomeCompleto: form.nomeCompleto.trim(),
+        email: form.email.trim(),
+        telefone: form.telefone.trim(),
+        organizacao: form.organizacao.trim(),
+        cargoVinculo: form.cargoVinculo.trim(),
+      }),
+    })
+    const normalized = { ...updated, organizacao: form.organizacao.trim() }
+    setClientUsers(items => items.map(person => person.idUsuario === updated.idUsuario
+      ? normalized
+      : person.idOrganizacao === updated.idOrganizacao
+        ? { ...person, organizacao: normalized.organizacao }
+      : person))
+    setClientProfile(normalized)
+    setPartners(items => items.map(person => ({
+      ...person,
+      ...(person.id === updated.idOrganizacao ? { name: normalized.organizacao } : {}),
+      ...(person.userId === updated.idUsuario
+        ? { contact: updated.nomeCompleto, email: updated.email, phone: updated.telefone }
+        : {}),
+    })))
+    setReservations(items => items.map(item => item.idSolicitante === updated.idUsuario
+      ? { ...item, solicitante: updated.nomeCompleto }
+      : item))
+    setTickets(items => items.map(ticket => ticket.emailContato?.toLowerCase() === client.email?.toLowerCase()
+      ? { ...ticket, emailContato: updated.email }
+      : ticket))
+    setAuditItems(items => [{
+      time: new Date().toLocaleString('pt-BR'),
+      user: user.nome || 'Equipe InPETU',
+      action: 'Alteração de cadastro',
+      target: `${updated.nomeCompleto} · cadastro #${updated.idUsuario}`,
+      detail: 'Dados cadastrais e organização compartilhada atualizados.',
+    }, ...items])
+    notify('Dados do cadastro atualizados e registrados na auditoria.')
+    return normalized
   }
   function resetSpaceForm() {
     if (spaceImagePreview) URL.revokeObjectURL(spaceImagePreview)
@@ -960,7 +1200,7 @@ function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, set
     <main className="crm-main"><header className="crm-topbar"><div className="breadcrumbs"><span>InPETU Connect</span><span>/</span><strong>{section}</strong></div><label className="global-search"><Search size={16} /><input placeholder="Buscar em tudo" value={search} onChange={e => setSearch(e.target.value)} /><kbd>⌘ K</kbd></label><NotificationCenter user={user} /><button type="button" className="crm-icon" aria-label="Ajuda" onClick={() => setHelpOpen(true)}><CircleHelp size={18} /></button><Menu as="div" className="crm-topbar-profile"><MenuButton type="button" className="crm-avatar" aria-label={`Perfil de ${user.nome || 'usuário'}`}>{(user.nome || 'E').slice(0, 1)}</MenuButton><MenuItems className="crm-profile-menu-items crm-topbar-profile-items"><MenuItem><button type="button" onClick={() => setProfileDetailsOpen(true)}>Meu perfil</button></MenuItem><MenuItem><button type="button" onClick={onReturnHome}><HomeIcon size={15} /> Voltar ao site</button></MenuItem><MenuItem><button type="button" onClick={logout}><DoorOpen size={15} /> Sair da conta</button></MenuItem></MenuItems></Menu></header>
       <Modal open={helpOpen} close={() => setHelpOpen(false)} title="Ajuda do painel"><p className="access-intro">Use o menu lateral para acessar visão geral, reservas, cadastros, espaços, atendimento e auditoria.</p><p className="access-intro">Para consultar dúvidas enviadas pelos usuários e responder chamados, abra a área de Atendimento.</p><Button onClick={() => { setSection('Atendimento'); setHelpOpen(false) }}>Abrir atendimento <ArrowRight size={16} /></Button></Modal>
       <Modal open={profileDetailsOpen} close={() => setProfileDetailsOpen(false)} title="Meu perfil"><dl className="profile-details"><div><dt>Nome</dt><dd>{user.nome || 'Não informado'}</dd></div><div><dt>E-mail</dt><dd>{user.email || 'Não informado'}</dd></div><div><dt>Perfil de acesso</dt><dd>{user.perfil === 1 ? 'Coordenador / Admin' : user.perfil === 2 ? 'Gestor de espaços' : 'Atendente / Staff'}</dd></div></dl></Modal>
-      <div className="crm-content">{crmDataError && <div className="form-message" role="alert">{crmDataError}</div>}{section === 'Visão geral' && <><div className="crm-greeting"><div><div className="eyebrow">{selectedDateLabel}</div><h1>Bom dia, {user.nome?.split(' ')[0] || 'equipe'} {isDashboardToday && <span>☀</span>}</h1><p>{isDashboardToday ? 'O Lote 73 está em movimento. Veja o que precisa de atenção.' : 'Visualizando reservas e ocupação desta data.'}</p></div><div className="date-navigation" aria-label="Navegação da agenda"><button type="button" className="date-step" aria-label="Dia anterior" onClick={() => shiftDashboardDate(-1)}><ChevronLeft size={16} /></button><label className="date-button"><CalendarDays size={16} /><span>{isDashboardToday ? 'Hoje · ' : ''}{selectedDay.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}</span><input aria-label="Selecionar data da agenda" type="date" value={dashboardDate} onChange={event => setDashboardDate(event.target.value)} /></label><button type="button" className="date-step" aria-label="Próximo dia" onClick={() => shiftDashboardDate(1)}><ChevronRight size={16} /></button>{!isDashboardToday && <button type="button" className="date-today" onClick={() => setDashboardDate(todayKey)}>Hoje</button>}</div></div><div className="kpi-grid"><Kpi icon={CalendarDays} label="Reservas no dia" value={String(selectedReservations.length).padStart(2, '0')} change={`${occupiedSpaces.size} espaços com agenda nesta data`} accent="mint" /><Kpi icon={Clock3} label="Aguardando aprovação" value={String(pending.length).padStart(2, '0')} change="Precisam da sua atenção" accent="yellow" /><Kpi icon={DoorOpen} label="Ocupação do Lote 73" value={`${occupancyRate}%`} change={`${occupiedSpaces.size} de ${activeSpaces.length} espaços ocupados nesta data`} accent="blue" /><Kpi icon={MessageCircle} label="Dúvidas em aberto" value={String(pendingQuestions.length).padStart(2, '0')} change={`${tickets.length} chamados recebidos`} accent="coral" /></div><div className="dashboard-columns"><section className="crm-panel conflict-panel"><div className="panel-heading"><div><div className="eyebrow">DECISÃO NECESSÁRIA · {selectedDay.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '').toUpperCase()}</div><h2>Solicitações pendentes <span className="heading-count">{selectedPending.length}</span></h2></div><button className="subtle-action" onClick={() => setSection('Reservas')}>Ver todas <ArrowRight size={15} /></button></div>{selectedPending.length ? selectedPending.map(item => <div className="conflict-card" key={item.idReserva}><div className="conflict-card-top"><span className="conflict-icon"><CalendarDays size={16} /></span><span className="conflict-date">{new Date(`${item.dataReserva}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '').toUpperCase()} · {item.horarioInicio}–{item.horarioFim}</span><span className="pending-indicator">EM ANÁLISE</span></div><strong>{item.tituloEvento}</strong><div className="conflict-meta"><span>{item.espaco}</span><span className="meta-dot" />{item.solicitante}<Badge level={item.persona} /></div><div className="conflict-actions"><button className="decision-button" onClick={() => approve(item)}><Check size={15} /> Aprovar solicitação</button><button className="decision-secondary" onClick={() => notify('Solicite um motivo antes de recusar esta reserva.')}>Recusar</button></div></div>) : <div className="empty-inline"><Check size={18} />Nenhuma solicitação pendente nesta data.</div>}</section><section className="crm-panel today-panel"><div className="panel-heading"><div><div className="eyebrow">{isDashboardToday ? 'HOJE NO HUB' : selectedDay.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '').toUpperCase()}</div><h2>Agenda do dia</h2></div><button className="icon-button" onClick={() => setSection('Reservas')} aria-label="Abrir agenda"><ArrowUpRight size={18} /></button></div>  <div className="day-timeline">{selectedReservations.map(item => <div className="timeline-event" key={item.idReserva}><span>{item.horarioInicio}</span><i className={`timeline-mark ${item.statusReserva === 'Pendente' ? 'pendente' : ''}`} /><div><strong>{item.tituloEvento}</strong><small>{item.espaco || 'Espaço InPETU'} · {item.statusReserva}</small></div></div>)}{selectedReservations.length === 0 && <div className="empty-inline">Nenhuma reserva nesta data.</div>}</div><button className="full-width-link" onClick={() => setSection('Reservas')}>Abrir agenda completa <ArrowRight size={15} /></button></section></div><section className="crm-panel recent-panel"><div className="panel-heading"><div><div className="eyebrow">VISÃO DO ECOSSISTEMA</div><h2>Cadastros recentes</h2></div><button className="subtle-action" onClick={() => setSection('Cadastros')}>Gerenciar cadastros <ArrowRight size={15} /></button></div><table className="data-table"><thead><tr><th>Organização</th><th>Contato principal</th><th>Cadastro</th><th>Classificação</th><th /></tr></thead><tbody>{partners.slice(0, 3).map(p => <tr key={p.id}><td><strong>{p.name}</strong><small>{p.email}</small></td><td>{p.contact}</td><td>Hoje · 09:42</td><td>{p.persona ? <Badge level={p.persona} /> : <span className="awaiting-label">Aguardando</span>}</td><td><button className="table-more" onClick={() => { setDrawer(p); setLevel(String(p.persona || '')) }}><MoreHorizontal size={19} /></button></td></tr>)}</tbody></table></section></>}
+      <div className="crm-content">{crmDataError && <div className="form-message" role="alert">{crmDataError}</div>}{section === 'Visão geral' && <><div className="crm-greeting"><div><div className="eyebrow">{selectedDateLabel}</div><h1>Bom dia, {user.nome?.split(' ')[0] || 'equipe'} {isDashboardToday && <span>☀</span>}</h1><p>{isDashboardToday ? 'O Lote 73 está em movimento. Veja o que precisa de atenção.' : 'Visualizando reservas e ocupação desta data.'}</p></div><div className="date-navigation" aria-label="Navegação da agenda"><button type="button" className="date-step" aria-label="Dia anterior" onClick={() => shiftDashboardDate(-1)}><ChevronLeft size={16} /></button><label className="date-button"><CalendarDays size={16} /><span>{isDashboardToday ? 'Hoje · ' : ''}{selectedDay.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}</span><input aria-label="Selecionar data da agenda" type="date" value={dashboardDate} onChange={event => setDashboardDate(event.target.value)} /></label><button type="button" className="date-step" aria-label="Próximo dia" onClick={() => shiftDashboardDate(1)}><ChevronRight size={16} /></button>{!isDashboardToday && <button type="button" className="date-today" onClick={() => setDashboardDate(todayKey)}>Hoje</button>}</div></div><div className="kpi-grid"><Kpi icon={CalendarDays} label="Reservas no dia" value={String(selectedReservations.length).padStart(2, '0')} change={`${occupiedSpaces.size} espaços com agenda nesta data`} accent="mint" /><Kpi icon={Clock3} label="Aguardando aprovação" value={String(pending.length).padStart(2, '0')} change="Precisam da sua atenção" accent="yellow" /><Kpi icon={DoorOpen} label="Ocupação do Lote 73" value={`${occupancyRate}%`} change={`${occupiedSpaces.size} de ${activeSpaces.length} espaços ocupados nesta data`} accent="blue" /><Kpi icon={MessageCircle} label="Dúvidas em aberto" value={String(pendingQuestions.length).padStart(2, '0')} change={`${tickets.length} chamados recebidos`} accent="coral" /></div><div className="dashboard-columns"><section className="crm-panel conflict-panel"><div className="panel-heading"><div><div className="eyebrow">DECISÃO NECESSÁRIA · {selectedDay.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '').toUpperCase()}</div><h2>Solicitações pendentes <span className="heading-count">{selectedPending.length}</span></h2></div><button className="subtle-action" onClick={() => setSection('Reservas')}>Ver todas <ArrowRight size={15} /></button></div>{selectedPending.length ? selectedPending.map(item => <div className="conflict-card" key={item.idReserva}><div className="conflict-card-top"><span className="conflict-icon"><CalendarDays size={16} /></span><span className="conflict-date">{new Date(`${item.dataReserva}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '').toUpperCase()} · {item.horarioInicio}–{item.horarioFim}</span><span className="pending-indicator">EM ANÁLISE</span></div><strong>{item.tituloEvento}</strong><div className="conflict-meta"><span>{item.espaco}</span><span className="meta-dot" />{item.solicitante}<Badge level={item.persona} /></div><div className="conflict-actions"><button className="decision-button" onClick={() => approve(item)}><Check size={15} /> Aprovar solicitação</button><button className="decision-secondary" onClick={() => notify('Solicite um motivo antes de recusar esta reserva.')}>Recusar</button></div></div>) : <div className="empty-inline"><Check size={18} />Nenhuma solicitação pendente nesta data.</div>}</section><section className="crm-panel today-panel"><div className="panel-heading"><div><div className="eyebrow">{isDashboardToday ? 'HOJE NO HUB' : selectedDay.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '').toUpperCase()}</div><h2>Agenda do dia</h2></div><button className="icon-button" onClick={() => setSection('Reservas')} aria-label="Abrir agenda"><ArrowUpRight size={18} /></button></div>  <div className="day-timeline">{selectedReservations.map(item => <div className="timeline-event" key={item.idReserva}><span>{item.horarioInicio}</span><i className={`timeline-mark ${item.statusReserva === 'Pendente' ? 'pendente' : ''}`} /><div><strong>{item.tituloEvento}</strong><small>{item.espaco || 'Espaço InPETU'} · {item.statusReserva}</small></div></div>)}{selectedReservations.length === 0 && <div className="empty-inline">Nenhuma reserva nesta data.</div>}</div><button className="full-width-link" onClick={() => setSection('Reservas')}>Abrir agenda completa <ArrowRight size={15} /></button></section></div><section className="crm-panel recent-panel"><div className="panel-heading"><div><div className="eyebrow">VISÃO DO ECOSSISTEMA</div><h2>Cadastros recentes</h2></div><button className="subtle-action" onClick={() => setSection('Cadastros')}>Gerenciar cadastros <ArrowRight size={15} /></button></div><table className="data-table"><thead><tr><th>Organização</th><th>Contato principal</th><th>Cadastro</th><th>Classificação</th><th /></tr></thead><tbody>{partners.slice(0, 3).map(p => <tr key={p.id}><td><strong>{p.name}</strong><small>{p.email}</small></td><td>{p.contact}</td><td>Hoje · 09:42</td><td>{p.persona ? <Badge level={p.persona} /> : <span className="awaiting-label">Aguardando</span>}</td><td><button className="table-more" onClick={() => setClientProfile(clientUsers.find(person => person.idUsuario === p.userId) || null)}><MoreHorizontal size={19} /></button></td></tr>)}</tbody></table></section></>}
         {section === 'Reservas' && <>
           <CrmTitle eyebrow="AGENDA DO HUB" title="Reservas" description="Revise solicitações e acompanhe a ocupação dos espaços." />
           <div className="crm-panel">
@@ -982,7 +1222,7 @@ function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, set
             })}</div>
           </div>
         </>}
-        {section === 'Cadastros' && <><CrmTitle eyebrow="REDE INPETU" title="Cadastros e ficha do cliente" description="Consulte a ficha técnica, o histórico de reservas e atribua uma persona P1–P6." action={<Button icon={Plus} onClick={() => { setRegistrationCreateError(''); setRegistrationCreateOpen(true) }}>Novo cadastro</Button>} /><div className="crm-panel"><div className="panel-heading"><div className="segmented-control"><button type="button" className={partnerScope === 'all' ? 'segment-active' : ''} aria-pressed={partnerScope === 'all'} onClick={() => setPartnerScope('all')}>Todos os cadastros</button><button type="button" className={partnerScope === 'pending' ? 'segment-active' : ''} aria-pressed={partnerScope === 'pending'} onClick={() => setPartnerScope('pending')}>Aguardando persona <span>{partners.filter(p => !p.persona).length}</span></button></div><button type="button" className="subtle-action" onClick={exportPartners}><Download size={15} /> Exportar CSV</button></div><table className="data-table"><thead><tr><th>Organização</th><th>Responsável</th><th>E-mail</th><th>Persona e cota mensal</th><th>Ações</th></tr></thead><tbody>{filteredPartners.map(p => { const persona = personas[p.persona]; const hours = monthlyQuotaUsed(reservations, p.userId); return <tr key={p.userId || p.id}><td><strong>{p.name}</strong><small>{p.dataCadastro ? new Date(p.dataCadastro).toLocaleDateString('pt-BR') : 'Cadastro sem data'}</small></td><td>{p.contact}</td><td>{p.email}</td><td>{persona ? <><Badge level={p.persona} /><small>{persona.quota == null ? 'Sem cota mensal definida' : `${hours.toFixed(1).replace('.', ',')} / ${persona.quota} horas neste mês`}</small></> : <span className="awaiting-label">Aguardando persona</span>}</td><td><button className="table-action" onClick={() => { const client = clientUsers.find(person => person.idUsuario === p.userId); setClientProfile(client || null); setClientTab('Dados gerais') }}>Abrir ficha</button><button className="table-action" onClick={() => { setDrawer(p); setLevel(String(p.persona || '')) }}>{p.persona ? 'Alterar persona' : 'Definir persona'}</button>{user.perfil === 1 && <button type="button" className="table-action table-action-danger" onClick={() => { setRegistrationToRemove(p); setReason(''); setOrganizationActionError('') }}>Desativar cadastro</button>}</td></tr> })}</tbody></table></div><div className="privacy-callout"><ShieldCheck size={18} /><span><strong>Dados internos</strong><small>A persona, o consumo de cota e os dados da ficha ficam disponíveis apenas para a equipe autorizada.</small></span></div></>}
+        {section === 'Cadastros' && <><CrmTitle eyebrow="REDE INPETU" title="Cadastros e ficha do cliente" description="Consulte dados, histórico, persona e ações de cada cadastro em uma ficha única." action={<Button icon={Plus} onClick={() => { setRegistrationCreateError(''); setRegistrationCreateOpen(true) }}>Novo cadastro</Button>} /><div className="crm-panel"><div className="panel-heading"><div className="segmented-control"><button type="button" className={partnerScope === 'all' ? 'segment-active' : ''} aria-pressed={partnerScope === 'all'} onClick={() => setPartnerScope('all')}>Todos os cadastros</button><button type="button" className={partnerScope === 'pending' ? 'segment-active' : ''} aria-pressed={partnerScope === 'pending'} onClick={() => setPartnerScope('pending')}>Aguardando persona <span>{partners.filter(p => !p.persona).length}</span></button></div><button type="button" className="subtle-action" onClick={exportPartners}><Download size={15} /> Exportar CSV</button></div><table className="data-table"><thead><tr><th>Organização</th><th>Responsável</th><th>E-mail</th><th>Persona e cota mensal</th><th>Ações</th></tr></thead><tbody>{filteredPartners.map(p => { const persona = personas[p.persona]; const hours = monthlyQuotaUsed(reservations, p.userId); return <tr key={p.userId || p.id}><td><strong>{p.name}</strong><small>{p.dataCadastro ? new Date(p.dataCadastro).toLocaleDateString('pt-BR') : 'Cadastro sem data'}</small></td><td>{p.contact}</td><td>{p.email}</td><td>{persona ? <><Badge level={p.persona} /><small>{persona.quota == null ? 'Sem cota mensal definida' : `${hours.toFixed(1).replace('.', ',')} / ${persona.quota} horas neste mês`}</small></> : <span className="awaiting-label">Aguardando persona</span>}</td><td><button type="button" className="table-action client-profile-open" onClick={() => setClientProfile(clientUsers.find(person => person.idUsuario === p.userId) || null)}>Abrir ficha <ArrowRight size={14} /></button></td></tr> })}</tbody></table></div><div className="privacy-callout"><ShieldCheck size={18} /><span><strong>Dados internos</strong><small>A persona, o consumo de cota e os dados da ficha ficam disponíveis apenas para a equipe autorizada.</small></span></div></>}
         {section === 'Espaços' && <><CrmTitle eyebrow="LOTE 73 · SAPIENS PARQUE" title="Gestão de espaços" description="Mantenha o catálogo de ambientes atualizado e disponível." action={<Button icon={Plus} onClick={() => setSpaceModal(true)}>Novo espaço</Button>} /><div className="crm-panel"><table className="data-table"><thead><tr><th>Espaço</th><th>Tipo</th><th>Capacidade</th><th>Disponibilidade</th><th>Ativo</th></tr></thead><tbody>{spaces.map(space => <tr key={space.idEspaco}><td><strong>{space.nomeEspaco}</strong><small>{space.equipamentosDisponiveis}</small></td><td>{space.tipoEspaco}</td><td>{space.capacidadePessoas} pessoas</td><td>{space.ativo !== false ? <span className="availability-text"><i /> Disponível</span> : <span className="availability-text availability-unavailable"><i /> Indisponível<small>{space.motivoIndisponibilidade}</small><small>{unavailableDeadlineLabel(space.dataPrevisaoRetorno)}</small></span>}</td><td><button className={`toggle ${space.ativo !== false ? 'toggle-on' : ''}`} aria-label={`${space.ativo !== false ? 'Inativar' : 'Reativar'} ${space.nomeEspaco}`} aria-pressed={space.ativo !== false} onClick={() => toggleSpace(space)}><span /></button></td></tr>)}</tbody></table></div></>}
         {section === 'Atendimento' && <><CrmTitle eyebrow="CENTRAL DE ATENDIMENTO" title="Dúvidas e mensagens" description="Acompanhe os contatos recebidos pelo portal público." /><div className="support-grid"><div className="crm-panel support-list"><div className="panel-heading"><div><div className="eyebrow">CAIXA DE ENTRADA</div><h2>{pendingQuestions.length} {pendingQuestions.length === 1 ? 'conversa aberta' : 'conversas abertas'}</h2></div><label className="ticket-filter">Status<select aria-label="Filtrar conversas por status" value={ticketStatusFilter} onChange={event => setTicketStatusFilter(event.target.value)}><option>Todas</option><option>Abertas</option><option>Respondidas</option></select></label></div>{filteredTickets.length ? filteredTickets.slice().sort((left, right) => new Date(right.dataEnvio).getTime() - new Date(left.dataEnvio).getTime()).map(ticket => <button className={`ticket-row ${selectedTicket?.idDuvida === ticket.idDuvida ? 'ticket-selected' : ''}`} key={ticket.idDuvida} onClick={() => setSelectedTicket(ticket)}><span className="ticket-avatar">{ticket.emailContato.split('@')[0].split(/[._-]/).map(part => part[0]).join('').slice(0, 2).toUpperCase()}</span><span><strong>{ticket.emailContato}</strong><small>{ticket.mensagemDuvida}</small><em>{new Date(ticket.dataEnvio).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</em></span></button>) : <div className="empty-state"><MessageCircle size={24} /><p>Nenhuma conversa recebida.</p></div>}</div><div className="crm-panel ticket-detail">{selectedTicket ? <><div className="ticket-detail-head"><div><span className={`status-pill ${selectedTicket.statusAtendimento === 'Respondida' ? 'status-confirmed' : 'status-pending'}`}><i />{selectedTicket.statusAtendimento}</span><small>{new Date(selectedTicket.dataEnvio).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</small></div>{selectedTicket.caminhoAnexo && <a className="table-action" href={`${API}/duvidas/${selectedTicket.idDuvida}/anexo`} target="_blank" rel="noreferrer"><Download size={15} /> Anexo</a>}</div><h2>{selectedTicket.emailContato}</h2><p>{selectedTicket.mensagemDuvida}</p>{selectedTicket.telefoneContato && <div className="ticket-sender"><span className="ticket-avatar">{selectedTicket.emailContato.split('@')[0].slice(0, 2).toUpperCase()}</span><span><strong>Telefone para retorno</strong><small>{selectedTicket.telefoneContato}</small></span></div>}<label>Sua resposta<textarea rows="5" value={answer} onChange={e => setAnswer(e.target.value)} placeholder="Escreva uma resposta para enviar por e-mail..." /></label><Button disabled={!answer.trim()} onClick={sendAnswer}><Mail size={16} /> Enviar resposta por e-mail</Button></> : <div className="empty-state"><MessageCircle size={24} /><p>Nenhuma dúvida recebida.</p></div>}</div></div></>
         }
@@ -1015,10 +1255,8 @@ function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, set
       {negotiationError && <p className="form-message" role="alert">{negotiationError}</p>}
       <Button disabled={!negotiationNote.trim() || negotiationBusy} onClick={recordNegotiationAndApprove}>{negotiationBusy ? 'Registrando...' : 'Registrar negociação e aprovar'} <Check size={16} /></Button>
     </Modal>
-    <ClientProfileDialog client={clientProfile} reservations={reservations} tickets={tickets} auditItems={auditItems} close={() => setClientProfile(null)} />
-    <Modal open={Boolean(drawer)} close={() => setDrawer(null)} title="Definir persona de uso"><p className="access-intro">A persona determina a cota mensal de horas. Essa classificação é interna e só fica visível para a equipe.</p><div className="classify-org"><span className="org-avatar">{drawer?.name?.slice(0, 1)}</span><span><strong>{drawer?.name}</strong><small>{drawer?.contact} · {drawer?.email}</small></span></div><label className="role-select-label">Persona do cliente<select value={level} onChange={event => setLevel(event.target.value)}><option value="">Selecione P1–P6</option>{Object.entries(personas).map(([id, item]) => <option key={id} value={id}>P{id} · {item.label}{item.quota == null ? ' · sem cota mensal' : ` · ${item.quota} h/mês`}</option>)}</select></label><Button disabled={!level} onClick={classify}>Salvar persona <Check size={16} /></Button></Modal>
+    <ClientProfileDialog key={clientProfile?.idUsuario || 'closed'} client={clientProfile} reservations={reservations} tickets={tickets} auditItems={auditItems} close={() => setClientProfile(null)} onSave={saveClientProfile} onPersona={saveClientPersona} onDeactivate={deactivateClient} canDeactivate={user.perfil === 1} />
     <Modal open={Boolean(roleTarget)} close={() => { if (!roleSaveBusy) { setRoleTarget(null); setRoleSaveError('') } }} title="Gerenciar papel">{roleTarget && <><div className="classify-org"><span className="org-avatar">{roleTarget.nomeCompleto?.slice(0, 1)}</span><span><strong>{roleTarget.nomeCompleto}</strong><small>{roleTarget.email}</small></span></div><label className="role-select-label">Perfil de acesso<select value={roleTarget.idPerfil} onChange={event => { setRoleTarget({ ...roleTarget, idPerfil: Number(event.target.value) }); setRoleSaveError('') }}><option value="1">Coordenador</option><option value="2">Gestor de Espaços</option><option value="3">Staff / Atendente</option></select></label>{roleSaveError && <p className="form-message" role="alert">{roleSaveError}</p>}<Button disabled={roleSaveBusy || Number(roleTarget.idPerfil) === staff.find(person => person.idUsuario === roleTarget.idUsuario)?.idPerfil} onClick={saveRole}>{roleSaveBusy ? 'Salvando...' : 'Salvar papel'} <Check size={16} /></Button></>}</Modal>
-    <Modal open={Boolean(registrationToRemove)} close={() => { if (!organizationActionBusy) { setRegistrationToRemove(null); setReason(''); setOrganizationActionError('') } }} title="Excluir cadastro"><div className="danger-callout"><ShieldCheck size={18} /><span><strong>Esta a&ccedil;&atilde;o ser&aacute; registrada</strong><small>Somente este cadastro e o acesso do respons&aacute;vel ser&atilde;o desativados. O hist&oacute;rico da organiza&ccedil;&atilde;o ser&aacute; preservado.</small></span></div><p className="access-intro">Respons&aacute;vel: <strong>{registrationToRemove?.contact}</strong><br />E-mail: {registrationToRemove?.email}</p><label className="reason-field">Motivo da exclus&atilde;o<textarea rows="4" maxLength={1000} required value={reason} onChange={event => { setReason(event.target.value); setOrganizationActionError('') }} placeholder="Descreva o motivo da exclus&atilde;o deste cadastro" /></label>{organizationActionError && <p className="form-message" role="alert">{organizationActionError}</p>}<Button variant="danger" disabled={!reason.trim() || organizationActionBusy} onClick={removeRegistration}>{organizationActionBusy ? 'Excluindo...' : 'Confirmar exclus\u00e3o'}</Button></Modal>
     <Modal open={registrationCreateOpen} close={() => { if (!registrationCreateBusy) { setRegistrationCreateOpen(false); setRegistrationCreateError('') } }} title="Criar cadastro para uma organização">
       <form className="form-stack" onSubmit={createRegistration}>
         <p className="access-intro">Cadastre a organização e uma pessoa responsável. A pessoa entrará usando e-mail e senha.</p>
@@ -1053,13 +1291,29 @@ function LoginInline({ onLogin }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  async function submit(event) { event.preventDefault(); setError(''); try { const result = await request('/auth/login', { method: 'POST', body: JSON.stringify({ email, senha: password }) }); localStorage.setItem('inpetu-token', result.token); localStorage.setItem('inpetu-user', JSON.stringify(result)); onLogin(result) } catch (e) { setError(e.message) } }
+  async function submit(event) { event.preventDefault(); setError(''); try { const result = await request('/auth/login', { method: 'POST', body: JSON.stringify({ email, senha: password }) }); const normalized = { ...result, perfil: Number(result.perfil ?? result.idPerfil ?? 4) }; storeUser(normalized); onLogin(normalized) } catch (e) { setError(e.message) } }
   return <form className="form-stack" onSubmit={submit}><label>E-mail corporativo<input required type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="nome@inpetuhub.ufsc.br" /></label><label>Senha<input required type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Sua senha" /></label>{error && <p className="form-message">{error}</p>}<Button type="submit">Acessar painel <ArrowRight size={16} /></Button><p className="form-footnote"><ShieldCheck size={14} /> Acesso protegido por autenticação segura.</p></form>
 }
 function Kpi({ icon: Icon, label, value, change, accent }) { return <article className="kpi-card"><div className={`kpi-icon kpi-${accent}`}><Icon size={18} /></div><span className="kpi-label">{label}</span><strong className="kpi-value">{value}</strong><small>{change}</small><ArrowUpRight className="kpi-trend" size={16} /></article> }
 function CrmTitle({ eyebrow, title, description, action }) { return <div className="crm-title-row"><div><div className="eyebrow">{eyebrow}</div><h1>{title}</h1><p>{description}</p></div>{action}</div> }
-function ClientProfileDialog({ client, reservations, tickets, auditItems, close }) {
+function ClientProfileDialog({ client, reservations, tickets, auditItems, close, onSave, onPersona, onDeactivate, canDeactivate }) {
   const [tab, setTab] = useState('Dados gerais')
+  const [editing, setEditing] = useState(false)
+  const [form, setForm] = useState({
+    nomeCompleto: client?.nomeCompleto || '',
+    email: client?.email || '',
+    telefone: client?.telefone || '',
+    organizacao: client?.organizacao || '',
+    cargoVinculo: client?.cargoVinculo || '',
+  })
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [personaValue, setPersonaValue] = useState(client?.idPersona ? String(client.idPersona) : '')
+  const [personaBusy, setPersonaBusy] = useState(false)
+  const [deactivationOpen, setDeactivationOpen] = useState(false)
+  const [deactivationReason, setDeactivationReason] = useState('')
+  const [deactivationBusy, setDeactivationBusy] = useState(false)
+  const [deactivationError, setDeactivationError] = useState('')
   if (!client) return null
   const persona = personas[client.idPersona]
   const clientReservations = reservations.filter(item => item.idSolicitante === client.idUsuario)
@@ -1068,15 +1322,54 @@ function ClientProfileDialog({ client, reservations, tickets, auditItems, close 
   const clientAudit = auditItems.filter(item => item.target.includes(`#${client.idUsuario}`))
   const hours = monthlyQuotaUsed(reservations, client.idUsuario)
   const fields = [
-    ['E-mail', client.email || '—'],
-    ['Telefone / WhatsApp', client.telefone || 'Não informado'],
-    ['Organização', client.organizacao || 'Não informada'],
-    ['Vínculo / cargo', client.cargoVinculo || 'Não informado'],
+    ['E-mail', form.email || '—'],
+    ['Telefone / WhatsApp', form.telefone || 'Não informado'],
+    ['Organização', form.organizacao || 'Não informada'],
+    ['Vínculo / cargo', form.cargoVinculo || 'Não informado'],
     ['Data de cadastro', client.dataCadastro ? new Date(client.dataCadastro).toLocaleString('pt-BR') : '—'],
     ['Status', client.ativo === false ? 'Inativo' : 'Ativo'],
   ]
+  async function save(event) {
+    event.preventDefault()
+    if (busy) return
+    setBusy(true)
+    setError('')
+    try {
+      await onSave(client, form)
+      setEditing(false)
+    } catch (saveError) {
+      setError(saveError.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+  async function savePersona() {
+    if (!personaValue || personaBusy) return
+    setPersonaBusy(true)
+    setError('')
+    try {
+      await onPersona(client, personaValue)
+    } catch (personaError) {
+      setError(personaError.message)
+    } finally {
+      setPersonaBusy(false)
+    }
+  }
+  async function deactivate(event) {
+    event.preventDefault()
+    if (!deactivationReason.trim() || deactivationBusy) return
+    setDeactivationBusy(true)
+    setDeactivationError('')
+    try {
+      await onDeactivate(client, deactivationReason)
+    } catch (deactivateError) {
+      setDeactivationError(deactivateError.message)
+    } finally {
+      setDeactivationBusy(false)
+    }
+  }
   return <Modal open={Boolean(client)} close={close} title={client.nomeCompleto} wide>
-    <p className="client-profile-intro">Ficha técnica unificada 360° — dados, histórico e trilha de auditoria LGPD.</p>
+    <div className="client-profile-heading"><span className="client-profile-avatar">{getRoomInitials({ nome: client.nomeCompleto })}</span><div><p className="client-profile-intro">Cadastro de solicitante · ficha e histórico</p><span className={`client-profile-status ${client.ativo === false ? 'client-profile-inactive' : ''}`}><i />{client.ativo === false ? 'Cadastro inativo' : 'Cadastro ativo'}</span></div></div>
     <div className="client-profile-tabs" role="tablist" aria-label="Seções da ficha do cliente">
       {['Dados gerais', `Reservas (${clientReservations.length})`, `Dúvidas (${clientTickets.length})`, 'Auditoria'].map(label => {
         const name = label.split(' (')[0]
@@ -1086,12 +1379,28 @@ function ClientProfileDialog({ client, reservations, tickets, auditItems, close 
     <div className="client-profile-content">
       {tab === 'Dados gerais' && <>
         <section className="client-persona-callout">
-          <strong><ShieldCheck size={16} /> PERSONA DE USO INTERNA</strong>
-          <span>{persona ? `P${client.idPersona} · ${persona.label}` : 'Persona ainda não definida'}</span>
-          <small>{!persona ? 'Defina a persona para calcular a cota e avaliar solicitações excedentes.' : persona.quota == null ? 'Sem cota mensal definida na tabela.' : `${hours.toFixed(1).replace('.', ',')} de ${persona.quota} horas utilizadas/reservadas neste mês.`}</small>
-          <small>Informação exclusiva da equipe; não é exibida ao solicitante.</small>
+          <div><strong><ShieldCheck size={16} /> Persona de uso</strong><span>{persona ? `P${client.idPersona} · ${persona.label}` : 'Persona ainda não definida'}</span><small>{!persona ? 'Defina a persona para calcular a cota mensal.' : persona.quota == null ? 'Sem cota mensal definida na tabela.' : `${hours.toFixed(1).replace('.', ',')} de ${persona.quota} horas utilizadas/reservadas neste mês.`}</small></div>
+          <div className="client-persona-edit"><label>Classificação<select aria-label="Persona de uso" value={personaValue} onChange={event => { setPersonaValue(event.target.value); setError('') }}><option value="">Selecione P1–P6</option>{Object.entries(personas).map(([id, item]) => <option key={id} value={id}>P{id} · {item.label}</option>)}</select></label><button type="button" className="client-profile-action" disabled={!personaValue || personaBusy || Number(personaValue) === client.idPersona} onClick={savePersona}>{personaBusy ? 'Salvando...' : 'Salvar persona'}</button></div>
+          <small className="client-profile-private-note">Visível somente para a equipe autorizada.</small>
         </section>
-        <div className="client-profile-grid">{fields.map(([label, value]) => <div className="client-profile-field" key={label}><span>{label}</span><strong>{value}</strong></div>)}</div>
+        <form className="client-profile-edit-form" onSubmit={save}>
+          {editing ? <div className="client-profile-grid client-profile-grid-edit">
+            <label>Nome completo<input required maxLength={100} value={form.nomeCompleto} onChange={event => setForm({ ...form, nomeCompleto: event.target.value })} /></label>
+            <label>E-mail<input required type="email" maxLength={100} value={form.email} onChange={event => setForm({ ...form, email: event.target.value })} /></label>
+            <label>Telefone / WhatsApp<input type="tel" maxLength={20} value={form.telefone} onChange={event => setForm({ ...form, telefone: event.target.value })} /></label>
+            <label>Organização<input required maxLength={100} value={form.organizacao} onChange={event => setForm({ ...form, organizacao: event.target.value })} /><small>A alteração do nome atualiza todos os cadastros vinculados à organização.</small></label>
+            <label>Vínculo / cargo<input required maxLength={100} value={form.cargoVinculo} onChange={event => setForm({ ...form, cargoVinculo: event.target.value })} /></label>
+            <div className="client-profile-field"><span>Data de cadastro</span><strong>{fields[4][1]}</strong></div>
+            <div className="client-profile-field"><span>Status</span><strong>{fields[5][1]}</strong></div>
+          </div> : <div className="client-profile-grid">{fields.map(([label, value]) => <div className="client-profile-field" key={label}><span>{label}</span><strong>{value}</strong></div>)}</div>}
+          {error && <p className="form-message" role="alert">{error}</p>}
+          <div className="client-profile-actions">
+            {editing ? <><button type="button" className="client-profile-action client-profile-action-muted" disabled={busy} onClick={() => { setEditing(false); setError(''); setForm({ nomeCompleto: client.nomeCompleto || '', email: client.email || '', telefone: client.telefone || '', organizacao: client.organizacao || '', cargoVinculo: client.cargoVinculo || '' }) }}>Cancelar edição</button><button type="submit" className="client-profile-action" disabled={busy}>{busy ? 'Salvando...' : 'Salvar alterações'}</button></> : <button type="button" className="client-profile-action" onClick={() => { setEditing(true); setError('') }}>Editar dados</button>}
+          </div>
+        </form>
+        {canDeactivate && client.ativo !== false && <section className="client-profile-deactivation">
+          {deactivationOpen ? <form onSubmit={deactivate}><div><strong>Desativar cadastro</strong><small>O acesso será desativado; reservas e histórico serão preservados.</small></div><label>Motivo<textarea required rows="3" maxLength={1000} value={deactivationReason} onChange={event => { setDeactivationReason(event.target.value); setDeactivationError('') }} /></label>{deactivationError && <p className="form-message" role="alert">{deactivationError}</p>}<div className="client-profile-actions"><button type="button" className="client-profile-action client-profile-action-muted" disabled={deactivationBusy} onClick={() => { setDeactivationOpen(false); setDeactivationError('') }}>Voltar</button><button type="submit" className="client-profile-action client-profile-action-danger" disabled={!deactivationReason.trim() || deactivationBusy}>{deactivationBusy ? 'Desativando...' : 'Confirmar desativação'}</button></div></form> : <button type="button" className="client-profile-action client-profile-action-danger" onClick={() => setDeactivationOpen(true)}>Desativar cadastro</button>}
+        </section>}
       </>}
       {tab === 'Reservas' && <div className="client-history-list">{clientReservations.length ? clientReservations.map(item => <article key={item.idReserva}><div><strong>{item.tituloEvento}</strong><small>{item.dataReserva} · {item.horarioInicio}–{item.horarioFim} · {item.espaco || 'Espaço InPETU'}</small></div><span className={`status-pill ${item.statusReserva === 'Confirmada' ? 'status-confirmed' : item.statusReserva === 'Cancelada' ? 'status-cancelled' : 'status-pending'}`}><i />{item.statusReserva}</span>{item.excedeCota && <span className="quota-exceeded-badge">Excede cota</span>}</article>) : <p className="empty-inline">Este cliente ainda não possui reservas.</p>}</div>}
       {tab === 'Dúvidas' && <div className="client-history-list">{clientTickets.length ? clientTickets.map(ticket => <article key={ticket.idDuvida}><div><strong>{ticket.statusAtendimento} · {new Date(ticket.dataEnvio).toLocaleDateString('pt-BR')}</strong><small>{ticket.mensagemDuvida}</small>{ticket.respostaEquipe && <small>Resposta da equipe: {ticket.respostaEquipe}</small>}</div></article>) : <p className="empty-inline">Nenhuma dúvida vinculada a este e-mail.</p>}</div>}
@@ -1128,9 +1437,13 @@ function AppInner() {
     setView('calendar')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
-  function logout() {
-    localStorage.removeItem('inpetu-token')
-    localStorage.removeItem('inpetu-user')
+  async function logout() {
+    try {
+      await request('/auth/logout', { method: 'POST' })
+    } catch (error) {
+      setDataError(`Não foi possível confirmar o encerramento da sessão no servidor. ${error.message}`)
+    }
+    clearStoredUser()
     setUser(null)
     setView('home')
   }
@@ -1141,11 +1454,35 @@ function AppInner() {
     }).catch(error => setDataError(error.message)).finally(() => setSpacesLoaded(true))
   }, [])
   useEffect(() => {
-    if (localStorage.getItem('inpetu-token')) {
-      request('/reservas/minhas').then(setMyReservations).catch(error => setDataError(error.message))
-    } else {
+    localStorage.removeItem('inpetu-token')
+  }, [])
+  useEffect(() => {
+    if (!user) {
       setMyReservations([])
+      return
     }
+    let active = true
+    request('/auth/session')
+      .then(session => {
+        if (!active) return null
+        const normalized = { ...session, perfil: Number(session.perfil ?? session.idPerfil ?? 4) }
+        storeUser(normalized)
+        setUser(current => current?.email === normalized.email && Number(current?.perfil) === normalized.perfil
+          ? current
+          : normalized)
+        return request('/reservas/minhas')
+      })
+      .then(items => { if (active && items) setMyReservations(items) })
+      .catch(error => {
+        if (!active) return
+        if (error.status === 401) {
+          clearStoredUser()
+          setUser(null)
+        } else {
+          setDataError(error.message)
+        }
+      })
+    return () => { active = false }
   }, [user])
   function updateCancel(item, reason) {
     const update = items => items.map(r => r.idReserva === item.idReserva ? { ...r, statusReserva: 'Cancelada', motivoCancelamento: reason } : r)
@@ -1162,7 +1499,7 @@ function AppInner() {
       <Header view={view} setView={setView} openLogin={() => setView('access')} onOpenCalendar={openCalendar} user={user} onLogout={logout} />
       {dataError && <p className="form-message" role="alert">{dataError} Atualize a página para tentar novamente.</p>}
       {view === 'home' && <Home spaces={spaces} spacesLoaded={spacesLoaded} onConsultSpace={showSpaceAvailability} setSignupOpen={() => setView('signup')} onOpenCalendar={openCalendar} onSearchAvailability={(date, kind) => { setCalendarQuery({ date, kind, spaceId: '' }); setView('calendar'); window.scrollTo({ top: 0, behavior: 'smooth' }) }} />}
-      {view === 'calendar' && <CalendarPage spaces={spaces} onReserve={openBooking} initialDate={calendarQuery.date || localDateValue()} initialKind={calendarQuery.kind} initialSpaceId={calendarQuery.spaceId} availabilityVersion={availabilityVersion} />}
+      {view === 'calendar' && <CalendarPage spaces={spaces} spacesLoaded={spacesLoaded} onReserve={openBooking} initialDate={calendarQuery.date || localDateValue()} initialKind={calendarQuery.kind} initialSpaceId={calendarQuery.spaceId} availabilityVersion={availabilityVersion} />}
       {view === 'reservations' && <ReservationsPage items={myReservations} onCancel={updateCancel} />}
       {view === 'help' && <HelpPage />}
       {view === 'access' && <AccessPage onLogin={result => { const perfil = Number(result?.perfil ?? result?.idPerfil ?? 4); const nextUser = { ...result, perfil }; setUser(nextUser); setView(perfil === 1 || perfil === 2 || perfil === 3 ? 'crm' : 'reservations') }} onSignup={() => setView('signup')} />}

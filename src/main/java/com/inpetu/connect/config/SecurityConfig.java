@@ -2,6 +2,7 @@ package com.inpetu.connect.config;
 
 import com.inpetu.connect.repository.UsuarioRepository;
 import com.inpetu.connect.security.JwtAuthenticationFilter;
+import com.inpetu.connect.security.TestDatabaseHeaderFilter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.*;
 import org.springframework.security.authentication.*;
@@ -18,6 +19,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.*;
 import org.springframework.http.HttpMethod;
+import java.util.Arrays;
 import java.util.List;
 
 @Configuration @EnableWebSecurity @EnableMethodSecurity
@@ -33,19 +35,29 @@ public class SecurityConfig {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider(users); provider.setPasswordEncoder(encoder); return provider;
     }
     @Bean AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception { return configuration.getAuthenticationManager(); }
-    @Bean SecurityFilterChain filterChain(HttpSecurity http, JwtAuthenticationFilter jwtFilter, AuthenticationProvider provider) throws Exception {
+    @Bean SecurityFilterChain filterChain(HttpSecurity http, JwtAuthenticationFilter jwtFilter,
+                                          AuthenticationProvider provider) throws Exception {
         return http.csrf(csrf -> csrf.disable()).cors(cors -> {}).sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authenticationProvider(provider).authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/v1/auth/**", "/api/v1/usuarios/cadastro-publico").permitAll()
+                .requestMatchers("/api/v1/auth/login", "/api/v1/auth/logout",
+                    "/api/v1/usuarios/cadastro-publico", "/api/v1/usuarios/confirmar-email",
+                    "/api/v1/usuarios/reenviar-confirmacao").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/auth/session").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/v1/espacos/**", "/api/v1/ecossistema", "/api/v1/ecossistema/*/logo").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/duvidas").permitAll()
                 .requestMatchers("/api/**").authenticated()
                 .anyRequest().permitAll())
-            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class).build();
+            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterAfter(new TestDatabaseHeaderFilter(), JwtAuthenticationFilter.class).build();
     }
-    @Bean CorsConfigurationSource corsConfigurationSource(@Value("${app.cors.allowed-origin}") String origin) {
-        CorsConfiguration config = new CorsConfiguration(); config.setAllowedOrigins(List.of(origin)); config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type")); config.setAllowCredentials(true);
+    @Bean CorsConfigurationSource corsConfigurationSource(@Value("${app.cors.allowed-origin}") String origins) {
+        List<String> allowedOrigins = Arrays.stream(origins.split(","))
+            .map(String::trim)
+            .filter(origin -> !origin.isEmpty())
+            .distinct()
+            .toList();
+        CorsConfiguration config = new CorsConfiguration(); config.setAllowedOrigins(allowedOrigins); config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Database")); config.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource(); source.registerCorsConfiguration("/**", config); return source;
     }
 }

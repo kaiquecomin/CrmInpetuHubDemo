@@ -1,5 +1,6 @@
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
+$localSecretsPath = Join-Path $PSScriptRoot 'local-secrets.ps1'
 $secretNames = @()
 $originalEnvironment = @{}
 $accounts = @(
@@ -17,6 +18,11 @@ $accounts = @(
     @{ Key = 'CUSTOMER_CIDADE_LABORATORIO'; Label = 'marina@cidade-laboratorio-demo.test' },
     @{ Key = 'CUSTOMER_IMPACTO'; Label = 'andre@impacto-ilha-demo.test' }
 )
+$managedSecretNames = @('DB_PASSWORD', 'DEMO_ADMIN_PASSWORD') + @($accounts | ForEach-Object { "INPETU_DEMO_PASSWORD_$($_.Key)" })
+foreach ($name in $managedSecretNames) {
+    $originalEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
+}
+$secretNames = $managedSecretNames
 $passwords = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
 
 function Read-LocalSecret([string] $prompt, [int] $minimumLength = 0, [int] $maximumLength = 256) {
@@ -47,21 +53,38 @@ function Set-TemporaryEnvironment([string] $name, [string] $value) {
 }
 
 try {
+    foreach ($name in $managedSecretNames) {
+        Remove-Item -Path "Env:$name" -ErrorAction SilentlyContinue
+    }
+    if (Test-Path -LiteralPath $localSecretsPath -PathType Leaf) {
+        $null = . $localSecretsPath
+    }
+
     Set-TemporaryEnvironment 'DB_URL' 'jdbc:mysql://localhost:3306/inpetu_connect?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8'
     if (-not $env:DB_USER) { Set-TemporaryEnvironment 'DB_USER' 'root' }
-    $dbPassword = Read-LocalSecret 'Senha do MySQL local (Enter se estiver vazia)'
+    $dbPassword = [Environment]::GetEnvironmentVariable('DB_PASSWORD', 'Process')
+    if ([string]::IsNullOrWhiteSpace($dbPassword)) {
+        $dbPassword = Read-LocalSecret 'Senha do MySQL local (Enter se estiver vazia)'
+    }
     Set-TemporaryEnvironment 'DB_PASSWORD' $dbPassword
     $dbPassword = $null
 
     foreach ($account in $accounts) {
-        $value = Read-LocalSecret "Senha Passbolt para $($account.Label)" 12 72
+        $name = "INPETU_DEMO_PASSWORD_$($account.Key)"
+        $value = [Environment]::GetEnvironmentVariable($name, 'Process')
+        if ([string]::IsNullOrWhiteSpace($value)) {
+            $value = Read-LocalSecret "Senha Passbolt para $($account.Label)" 12 72
+        }
+        elseif ($value.Length -lt 12 -or $value.Length -gt 72) {
+            throw "A senha configurada para $($account.Label) deve ter entre 12 e 72 caracteres."
+        }
         if (-not $passwords.Add($value)) {
             throw 'Use uma senha diferente para cada conta local.'
         }
-        $name = "INPETU_DEMO_PASSWORD_$($account.Key)"
         Set-TemporaryEnvironment $name $value
         $value = $null
     }
+    Set-TemporaryEnvironment 'DEMO_ADMIN_PASSWORD' ([Environment]::GetEnvironmentVariable('INPETU_DEMO_PASSWORD_ADMIN', 'Process'))
 
     $random = [byte[]]::new(48)
     $generator = [System.Security.Cryptography.RandomNumberGenerator]::Create()

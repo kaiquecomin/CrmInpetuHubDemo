@@ -71,20 +71,17 @@ class EspacoControllerTest {
     }
 
     @Test
-    void servesPackagedCatalogImageWithoutAnUploadVolume() throws IOException {
+    void rejectsLegacyCatalogImageReferenceThatIsNoLongerPackagedAtTheRoot() {
         Espaco espaco = new Espaco();
         espaco.setIdEspaco(91);
         espaco.setArquivoImagem("auditorio.jpg");
         espaco.setTipoImagem("image/jpeg");
         when(espacos.findById(91)).thenReturn(Optional.of(espaco));
 
-        var resposta = controller.obterImagem(91);
+        ResponseStatusException error = assertThrows(ResponseStatusException.class,
+            () -> controller.obterImagem(91));
 
-        assertEquals("image/jpeg", java.util.Objects.requireNonNull(resposta.getHeaders().getContentType()).toString());
-        assertTrue(java.util.Objects.requireNonNull(resposta.getBody()).isReadable());
-        try (var content = resposta.getBody().getInputStream()) {
-            assertTrue(content.read() >= 0);
-        }
+        assertEquals(HttpStatus.NOT_FOUND, error.getStatusCode());
     }
 
     @Test

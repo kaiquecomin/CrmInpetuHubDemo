@@ -3,12 +3,14 @@ package com.inpetu.connect.controller;
 import com.inpetu.connect.dto.UsuarioResumo;
 import com.inpetu.connect.dto.MotivoExclusaoCadastroRequest;
 import com.inpetu.connect.dto.CadastroPublicoRequest;
+import com.inpetu.connect.dto.CadastroEdicaoRequest;
 import com.inpetu.connect.model.LogAuditoria;
 import com.inpetu.connect.model.Organizacao;
 import com.inpetu.connect.model.Usuario;
 import com.inpetu.connect.repository.LogAuditoriaRepository;
 import com.inpetu.connect.repository.OrganizacaoRepository;
 import com.inpetu.connect.repository.UsuarioRepository;
+import com.inpetu.connect.repository.DuvidaAtendimentoRepository;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -27,12 +29,14 @@ public class UsuarioController {
     private final UsuarioRepository usuarios;
     private final LogAuditoriaRepository auditoria;
     private final OrganizacaoRepository organizacoes;
+    private final DuvidaAtendimentoRepository duvidas;
     private final PasswordEncoder passwordEncoder;
     public UsuarioController(UsuarioRepository usuarios, LogAuditoriaRepository auditoria,
-            OrganizacaoRepository organizacoes, PasswordEncoder passwordEncoder) {
+            OrganizacaoRepository organizacoes, DuvidaAtendimentoRepository duvidas, PasswordEncoder passwordEncoder) {
         this.usuarios = usuarios;
         this.auditoria = auditoria;
         this.organizacoes = organizacoes;
+        this.duvidas = duvidas;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -101,6 +105,56 @@ public class UsuarioController {
                 "Persona de uso alterada de " + (anterior == null ? "não definida" : "P" + anterior) + " para P" + persona,
                 auth.getName());
         return resumo(salvo);
+    }
+
+    @PutMapping("/{id}/cadastro")
+    @PreAuthorize("hasAnyRole('COORDENADOR','GESTOR_ESPACOS','STAFF')")
+    @Transactional
+    public UsuarioResumo editarCadastro(@PathVariable Integer id, @Valid @RequestBody CadastroEdicaoRequest request,
+            Authentication auth) {
+        Usuario usuario = usuarios.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cadastro não encontrado."));
+        if (!Integer.valueOf(4).equals(usuario.getIdPerfil()))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Somente cadastros públicos podem ser editados.");
+
+        String email = request.email().trim().toLowerCase();
+        usuarios.findByEmailIgnoreCase(email)
+                .filter(outro -> !outro.getIdUsuario().equals(id))
+                .ifPresent(outro -> {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Este e-mail já está cadastrado.");
+                });
+
+        String nomeOrganizacao = request.organizacao().trim();
+        if (usuario.getIdOrganizacao() == null)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Este cadastro não possui uma organização vinculada.");
+        Organizacao organizacao = organizacoes.findById(usuario.getIdOrganizacao())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT,
+                        "A organização deste cadastro não foi encontrada."));
+        organizacoes.findByNomeOrganizacaoIgnoreCase(nomeOrganizacao)
+                .filter(outra -> !outra.getIdOrganizacao().equals(organizacao.getIdOrganizacao()))
+                .ifPresent(outra -> {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Já existe outra organização com esse nome. Use o nome cadastrado.");
+                });
+
+        String emailAnterior = usuario.getEmail();
+        usuario.setNomeCompleto(request.nomeCompleto().trim());
+        usuario.setEmail(email);
+        usuario.setTelefone(request.telefone() == null || request.telefone().isBlank()
+                ? null : request.telefone().trim());
+        usuario.setCargoVinculo(request.cargoVinculo().trim());
+        organizacao.setNomeOrganizacao(nomeOrganizacao);
+        boolean emailAlterado = !emailAnterior.equalsIgnoreCase(email);
+        if (emailAlterado) {
+            duvidas.atualizarEmailContato(emailAnterior, email);
+        }
+        usuarios.save(usuario);
+        organizacoes.save(organizacao);
+        registrar("usuario", id, "ALTERACAO_CADASTRO",
+                "Dados cadastrais atualizados: nome, e-mail, telefone, organização e cargo/vínculo."
+                        + (emailAlterado ? " E-mails de contato do histórico de dúvidas vinculadas foram atualizados." : ""),
+                auth.getName());
+        return resumo(usuario);
     }
 
     @PatchMapping("/{id}/perfil") @PreAuthorize("hasRole('COORDENADOR')")

@@ -83,9 +83,15 @@ public class DemoDataSeed {
             LocalDemoDatabaseGuard.requireLocalMySql(datasourceUrl);
             String adminEmail = environment.getProperty("app.demo.admin.email", "admin@inpetu.test");
             var pessoas = pessoasDemo(adminEmail).stream()
-                .map(pessoa -> pessoa.withSenha(environment.getProperty(
-                    "INPETU_DEMO_PASSWORD_" + pessoa.passwordKey().replace('-', '_').toUpperCase(Locale.ROOT), "")))
+                .map(pessoa -> pessoa.withSenha("admin".equals(pessoa.passwordKey())
+                    ? environment.getProperty("app.demo.admin.password", "")
+                    : environment.getProperty(
+                        "INPETU_DEMO_PASSWORD_" + pessoa.passwordKey().replace('-', '_').toUpperCase(Locale.ROOT), "")))
                 .toList();
+            if (pessoas.stream().filter(pessoa -> "admin".equals(pessoa.passwordKey()))
+                    .anyMatch(pessoa -> pessoa.senhaDemo() == null || pessoa.senhaDemo().isBlank())) {
+                throw new IllegalStateException("Configure DEMO_ADMIN_PASSWORD para criar a conta administrativa de demonstração.");
+            }
             if (pessoas.stream().anyMatch(pessoa -> pessoa.senhaDemo() == null || pessoa.senhaDemo().length() < 12 || pessoa.senhaDemo().length() > 72)) {
                 throw new IllegalStateException("Informe senhas locais únicas de 12 a 72 caracteres solicitadas pelo script e guardadas no Passbolt.");
             }

@@ -32,4 +32,8 @@ public class JwtService {
         }
         catch (JwtException | IllegalArgumentException ex) { return false; }
     }
+
+    public long expirationMs() {
+        return expirationMs;
+    }
 }

@@ -26,7 +26,9 @@ class InitialAdminBootstrapTest {
         ApplicationRunner runner = new InitialAdminBootstrap().bootstrapAdmin(usuarios, organizacoes, encoder, "", "");
         runner.run(mock(ApplicationArguments.class));
 
-        verifyNoInteractions(usuarios, organizacoes, encoder);
+        verify(usuarios).existsByIdPerfil(1);
+        verifyNoMoreInteractions(usuarios);
+        verifyNoInteractions(organizacoes, encoder);
     }
 
     @Test
@@ -36,7 +38,7 @@ class InitialAdminBootstrapTest {
         PasswordEncoder encoder = mock(PasswordEncoder.class);
         Organizacao organizacao = new Organizacao();
         organizacao.setIdOrganizacao(3);
-        when(usuarios.findByEmailIgnoreCase("admin@example.test")).thenReturn(Optional.empty());
+        when(usuarios.existsByIdPerfil(1)).thenReturn(false);
         when(organizacoes.findByNomeOrganizacaoIgnoreCase("UFSC / InPETU Hub")).thenReturn(Optional.of(organizacao));
         when(encoder.encode("Local-Bootstrap-Only-Secret")).thenReturn("bcrypt-hash");
 
@@ -54,15 +56,33 @@ class InitialAdminBootstrapTest {
     }
 
     @Test
-    void rejectsPartialOrShortBootstrapCredentials() {
+    void doesNotCreateAnotherCoordinatorWhenOneAlreadyExists() throws Exception {
+        UsuarioRepository usuarios = mock(UsuarioRepository.class);
+        OrganizacaoRepository organizacoes = mock(OrganizacaoRepository.class);
+        PasswordEncoder encoder = mock(PasswordEncoder.class);
+        when(usuarios.existsByIdPerfil(1)).thenReturn(true);
+
+        ApplicationRunner runner = new InitialAdminBootstrap().bootstrapAdmin(
+            usuarios, organizacoes, encoder, "admin@example.test", "configured-value-long-enough");
+        runner.run(mock(ApplicationArguments.class));
+
+        verify(usuarios).existsByIdPerfil(1);
+        verifyNoMoreInteractions(usuarios);
+        verifyNoInteractions(organizacoes, encoder);
+    }
+
+    @Test
+    void rejectsShortBootstrapPassword() {
         InitialAdminBootstrap bootstrap = new InitialAdminBootstrap();
         UsuarioRepository usuarios = mock(UsuarioRepository.class);
         OrganizacaoRepository organizacoes = mock(OrganizacaoRepository.class);
         PasswordEncoder encoder = mock(PasswordEncoder.class);
 
-        ApplicationRunner runner = bootstrap.bootstrapAdmin(usuarios, organizacoes, encoder, "admin@example.test", "");
+        ApplicationRunner runner = bootstrap.bootstrapAdmin(usuarios, organizacoes, encoder, "admin@example.test", "short");
 
         assertThrows(IllegalStateException.class, () -> runner.run(mock(ApplicationArguments.class)));
-        verifyNoInteractions(usuarios, organizacoes, encoder);
+        verify(usuarios).existsByIdPerfil(1);
+        verifyNoMoreInteractions(usuarios);
+        verifyNoInteractions(organizacoes, encoder);
     }
 }

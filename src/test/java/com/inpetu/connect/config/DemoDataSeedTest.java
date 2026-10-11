@@ -33,6 +33,28 @@ import static org.mockito.Mockito.*;
 
 class DemoDataSeedTest {
     @Test
+    void requiresAnExplicitDemoAdminPassword() {
+        UsuarioRepository usuarios = mock(UsuarioRepository.class);
+        OrganizacaoRepository organizacoes = mock(OrganizacaoRepository.class);
+        EspacoRepository espacos = mock(EspacoRepository.class);
+        ReservaRepository reservas = mock(ReservaRepository.class);
+        DuvidaAtendimentoRepository duvidas = mock(DuvidaAtendimentoRepository.class);
+        PasswordEncoder encoder = mock(PasswordEncoder.class);
+        MockEnvironment environment = new MockEnvironment()
+            .withProperty("app.demo.admin.email", "admin@inpetu.test");
+
+        ApplicationRunner runner = new DemoDataSeed().seedDemoData(
+            usuarios, organizacoes, espacos, reservas, duvidas, encoder,
+            "jdbc:mysql://localhost:3306/inpetu_connect", environment);
+
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+            () -> runner.run(mock(ApplicationArguments.class)));
+
+        assertTrue(error.getMessage().contains("DEMO_ADMIN_PASSWORD"));
+        verifyNoInteractions(usuarios, organizacoes, espacos, reservas, duvidas, encoder);
+    }
+
+    @Test
     void seedsSyntheticAccountsBookingsAndTicketsOnlyOnce() throws Exception {
         UsuarioRepository usuarios = mock(UsuarioRepository.class);
         OrganizacaoRepository organizacoes = mock(OrganizacaoRepository.class);
@@ -121,7 +143,7 @@ class DemoDataSeedTest {
         assertEquals(1, pessoas.get("demo.coordenacao@inpetu.test").getIdPerfil());
         assertEquals(3, pessoas.get("demo.atendimento@inpetu.test").getIdPerfil());
         assertEquals(4, pessoas.get("ana@laboratorio-lagoa.test").getIdPerfil());
-        assertEquals("encoded-Local-Only-manager-2026!", pessoas.get("demo.gestor@inpetu.test").getSenhaHash());
+        assertEquals("encoded-test-only-manager-distinct-value", pessoas.get("demo.gestor@inpetu.test").getSenhaHash());
         ArgumentCaptor<String> passwordCaptor = ArgumentCaptor.forClass(String.class);
         verify(encoder, times(13)).encode(passwordCaptor.capture());
         assertEquals(13, passwordCaptor.getAllValues().stream().distinct().count());
@@ -157,9 +179,13 @@ class DemoDataSeedTest {
             "customer-ponte", "customer-cidade-laboratorio", "customer-impacto"
         };
         MockEnvironment environment = new MockEnvironment()
-            .withProperty("app.demo.admin.email", "admin@inpetu.test");
+            .withProperty("app.demo.admin.email", "admin@inpetu.test")
+            .withProperty("app.demo.admin.password", "test-only-admin-distinct-value");
         for (String key : keys) {
-            environment.setProperty("INPETU_DEMO_PASSWORD_" + key.replace('-', '_').toUpperCase(Locale.ROOT), "Local-Only-" + key + "-2026!");
+            if ("admin".equals(key)) continue;
+            environment.setProperty(
+                "INPETU_DEMO_PASSWORD_" + key.replace('-', '_').toUpperCase(Locale.ROOT),
+                "test-only-" + key + "-distinct-value");
         }
         return environment;
     }
