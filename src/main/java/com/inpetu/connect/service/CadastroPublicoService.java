@@ -23,8 +23,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.security.MessageDigest;
 import java.security.SecureRandom;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Base64;
+import java.util.HexFormat;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -37,6 +39,7 @@ public class CadastroPublicoService {
     private static final int MAX_REENVIO_POR_PENDENTE = 5;
     private static final int MAX_EMAILS_POR_DIA = 3;
     private static final long REENVIO_INTERVALO_SEGUNDOS = 60L;
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final UsuarioRepository usuarios;
     private final OrganizacaoRepository organizacoes;
@@ -56,7 +59,7 @@ public class CadastroPublicoService {
                                  EmailDomainValidator emailDomainValidator,
                                  EmailSender emailSender,
                                  @Value("${app.security.trusted-proxies:}") String trustedProxyConfig,
-                                 @Value("${APP_RATE_LIMIT_SECRET:inpetu-dev-rate-limit-secret}") String rateLimitSecret) {
+                                 @Value("${APP_RATE_LIMIT_SECRET:}") String rateLimitSecret) {
         this.usuarios = usuarios;
         this.organizacoes = organizacoes;
         this.pendentes = pendentes;
@@ -89,13 +92,14 @@ public class CadastroPublicoService {
 
         Optional<CadastroPendente> existing = pendentes.findByEmailIgnoreCase(email);
         CadastroPendente pendente = existing.orElseGet(CadastroPendente::new);
+        String rawToken = newToken();
         if (existing.isPresent()) {
             pendente.setNomeCompleto(request.nomeCompleto().trim());
             pendente.setTelefone(request.telefone());
             pendente.setCargoVinculo(request.cargoVinculo().trim());
             pendente.setNomeOrganizacao(request.organizacao().trim());
             pendente.setSenhaHash(passwordEncoder.encode(request.senha()));
-            pendente.setTokenHash(hashToken(newToken()));
+            pendente.setTokenHash(hashToken(rawToken));
             pendente.setExpiraEm(LocalDateTime.now().plusMinutes(20));
             pendente.setUltimoEnvioEm(LocalDateTime.now());
             pendente.setTotalEnvios(pendente.getTotalEnvios() == null ? 1 : pendente.getTotalEnvios() + 1);
@@ -106,7 +110,7 @@ public class CadastroPublicoService {
             pendente.setCargoVinculo(request.cargoVinculo().trim());
             pendente.setNomeOrganizacao(request.organizacao().trim());
             pendente.setSenhaHash(passwordEncoder.encode(request.senha()));
-            pendente.setTokenHash(hashToken(newToken()));
+            pendente.setTokenHash(hashToken(rawToken));
             pendente.setExpiraEm(LocalDateTime.now().plusMinutes(20));
             pendente.setCriadoEm(LocalDateTime.now());
             pendente.setUltimoEnvioEm(LocalDateTime.now());
@@ -115,7 +119,7 @@ public class CadastroPublicoService {
 
         pendentes.save(pendente);
         recordEvent(EventoCadastro.TipoEvento.CADASTRO, ip, email);
-        scheduleEmail(pendente);
+        scheduleEmail(pendente, rawToken);
         return pendingAccepted();
     }
 
@@ -124,7 +128,8 @@ public class CadastroPublicoService {
         String tokenHash = hashToken(rawToken);
         CadastroPendente pendente = pendentes.findByTokenHash(tokenHash)
             .orElse(null);
-        if (pendente == null || pendente.getExpiraEm().isBefore(LocalDateTime.now())) {
+        if (pendente == null || !constantTimeEquals(pendente.getTokenHash(), tokenHash)
+            || pendente.getExpiraEm().isBefore(LocalDateTime.now())) {
             return ResponseEntity.badRequest().body(Map.of("mensagem", "Link inválido ou expirado"));
         }
 
@@ -170,14 +175,15 @@ public class CadastroPublicoService {
         if (isRateLimitedByEmail(normalized)) {
             return pendingAccepted();
         }
-        pendente.setTokenHash(hashToken(newToken()));
+        String rawToken = newToken();
+        pendente.setTokenHash(hashToken(rawToken));
         pendente.setExpiraEm(agora.plusMinutes(20));
         pendente.setUltimoEnvioEm(agora);
         pendente.setTotalEnvios(pendente.getTotalEnvios() == null ? 1 : pendente.getTotalEnvios() + 1);
         pendentes.save(pendente);
 
         recordEvent(EventoCadastro.TipoEvento.ENVIO, null, normalized);
-        scheduleEmail(pendente);
+        scheduleEmail(pendente, rawToken);
         return pendingAccepted();
     }
 
@@ -212,11 +218,12 @@ public class CadastroPublicoService {
     }
 
     @Async
-    public void scheduleEmail(CadastroPendente pendente) {
+    public void scheduleEmail(CadastroPendente pendente, String rawToken) {
         try {
-            emailSender.sendConfirmation(pendente);
+            emailSender.sendConfirmation(pendente, rawToken);
         } catch (RuntimeException e) {
-            logger.warn("Cadastro pendente salvo, mas envio de confirmação falhou para {}.", pendente.getEmail(), e);
+            logger.warn("Cadastro pendente salvo, mas envio de confirmação falhou para {} ({}).",
+                maskedEmail(pendente.getEmail()), e.getClass().getSimpleName());
         }
     }
 
@@ -230,18 +237,49 @@ public class CadastroPublicoService {
 
     private String newToken() {
         byte[] tokenBytes = new byte[32];
-        new SecureRandom().nextBytes(tokenBytes);
+        SECURE_RANDOM.nextBytes(tokenBytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(tokenBytes);
     }
 
     private String hashToken(String rawToken) {
-        return hashValue(rawToken);
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(digest.digest(rawToken.getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception e) {
+            throw new IllegalStateException("Falha ao gerar hash do token.", e);
+        }
+    }
+
+    private boolean constantTimeEquals(String storedHash, String calculatedHash) {
+        if (storedHash == null || calculatedHash == null) {
+            return false;
+        }
+        return MessageDigest.isEqual(
+            storedHash.getBytes(StandardCharsets.US_ASCII),
+            calculatedHash.getBytes(StandardCharsets.US_ASCII));
+    }
+
+    private String maskedEmail(String email) {
+        int separator = email == null ? -1 : email.indexOf('@');
+        if (separator <= 0 || separator != email.lastIndexOf('@')
+            || !email.matches("^[^\\s@]+@[^\\s@.]+(?:\\.[^\\s@.]+)*\\.[A-Za-z0-9-]{2,}$")) {
+            return "***";
+        }
+        int topLevelDomainSeparator = email.lastIndexOf('.');
+        if (topLevelDomainSeparator <= separator || topLevelDomainSeparator == email.length() - 1) {
+            return "***";
+        }
+        String topLevelDomain = email.substring(topLevelDomainSeparator + 1);
+        if (topLevelDomain.chars().anyMatch(Character::isWhitespace)) {
+            return "***";
+        }
+        return email.charAt(0) + "***@***." + topLevelDomain;
     }
 
     private String hashValue(String value) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] bytes = digest.digest((rateLimitSecret + value).getBytes());
+            byte[] bytes = digest.digest((rateLimitSecret + value).getBytes(StandardCharsets.UTF_8));
             return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         } catch (Exception e) {
             throw new IllegalStateException("Falha ao gerar hash do valor.", e);
