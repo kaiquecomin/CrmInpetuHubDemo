@@ -1,41 +1,70 @@
 package com.inpetu.connect.service;
 
 import com.inpetu.connect.model.CadastroPendente;
-import jakarta.mail.internet.InternetAddress;
-import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
-import org.springframework.mail.MailSendException;
-import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.Map;
+import java.time.Duration;
+import java.util.List;
 
 @Service
 @Profile("!test")
 public class SmtpEmailSender implements EmailSender {
     private static final Logger logger = LoggerFactory.getLogger(SmtpEmailSender.class);
+    private static final String BREVO_API_URL = "https://api.brevo.com";
+    private static final String BREVO_EMAIL_PATH = "/v3/smtp/email";
 
-    private final JavaMailSender mailSender;
+    private final RestClient restClient;
     private final boolean mailEnabled;
     private final String appPublicUrl;
+    private final String apiKey;
     private final String mailFrom;
     private final String mailReplyTo;
 
-    public SmtpEmailSender(JavaMailSender mailSender,
+    public SmtpEmailSender(RestClient.Builder restClientBuilder,
                            @Value("${app.mail.enabled:false}") boolean mailEnabled,
                            @Value("${APP_PUBLIC_URL:}") String appPublicUrl,
-                           @Value("${app.mail.from:}") String mailFrom,
+                           @Value("${BREVO_API_KEY:}") String apiKey,
+                           @Value("${MAIL_FROM:}") String mailFrom,
                            @Value("${MAIL_REPLY_TO:}") String mailReplyTo) {
-        this.mailSender = mailSender;
+        this(buildRestClient(restClientBuilder, mailEnabled, apiKey), mailEnabled, appPublicUrl,
+            apiKey, mailFrom, mailReplyTo);
+    }
+
+    SmtpEmailSender(RestClient restClient, boolean mailEnabled, String appPublicUrl,
+                    String apiKey, String mailFrom, String mailReplyTo) {
+        if (mailEnabled && (apiKey == null || apiKey.isBlank())) {
+            throw new IllegalStateException("BREVO_API_KEY é obrigatório quando app.mail.enabled=true.");
+        }
+        this.restClient = restClient;
         this.mailEnabled = mailEnabled;
         this.appPublicUrl = appPublicUrl;
+        this.apiKey = apiKey;
         this.mailFrom = mailFrom;
         this.mailReplyTo = mailReplyTo;
+    }
+
+    private static RestClient buildRestClient(RestClient.Builder builder, boolean mailEnabled, String apiKey) {
+        if (mailEnabled && (apiKey == null || apiKey.isBlank())) {
+            throw new IllegalStateException("BREVO_API_KEY é obrigatório quando app.mail.enabled=true.");
+        }
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(Duration.ofSeconds(10));
+        requestFactory.setReadTimeout(Duration.ofSeconds(10));
+        return builder
+            .baseUrl(BREVO_API_URL)
+            .requestFactory(requestFactory)
+            .build();
     }
 
     @Override
@@ -44,9 +73,6 @@ public class SmtpEmailSender implements EmailSender {
             logger.warn("E-mail de confirmação não enviado para {} porque app.mail.enabled=false.",
                 maskedEmail(pendente.getEmail()));
             return;
-        }
-        if (mailSender == null) {
-            throw new IllegalStateException("JavaMailSender não está configurado.");
         }
         if (appPublicUrl == null || appPublicUrl.isBlank()) {
             logger.error("E-mail de confirmação não enviado para {}: APP_PUBLIC_URL está vazio.",
@@ -58,55 +84,60 @@ public class SmtpEmailSender implements EmailSender {
         String link = (publicUrl.endsWith("/") ? publicUrl : publicUrl + "/") +
             "confirmar?token=" + URLEncoder.encode(rawToken, StandardCharsets.UTF_8);
 
+        String text = "Confirme seu cadastro no InPETU Connect\n\n" +
+            "Clique no link abaixo para ativar sua conta:\n" + link + "\n\n" +
+            "Este link expira em 20 minutos.\n\n" +
+            "Se você não solicitou este cadastro, ignore esta mensagem.";
+        BrevoEmail request = new BrevoEmail(
+            new Sender("InPETU Connect", mailFrom),
+            new ReplyTo(mailReplyTo),
+            List.of(new Recipient(pendente.getEmail())),
+            "Confirme seu cadastro no InPETU Connect",
+            text);
+
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            message.setFrom(new InternetAddress(mailFrom));
-            if (mailReplyTo != null && !mailReplyTo.isBlank()) {
-                message.setReplyTo(new jakarta.mail.Address[] { new InternetAddress(mailReplyTo) });
+            ResponseEntity<Void> response = restClient.post()
+                .uri(BREVO_EMAIL_PATH)
+                .header("api-key", apiKey)
+                .accept(MediaType.APPLICATION_JSON)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(request)
+                .retrieve()
+                .toBodilessEntity();
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new UnexpectedHttpStatusException(response.getStatusCode().value());
             }
-            message.setRecipients(MimeMessage.RecipientType.TO, InternetAddress.parse(pendente.getEmail(), false));
-            message.setSubject("Confirme seu cadastro no InPETU Connect", StandardCharsets.UTF_8.name());
-            String text = "Confirme seu cadastro no InPETU Connect\n\n" +
-                "Clique no link abaixo para ativar sua conta:\n" + link + "\n\n" +
-                "Este link expira em 20 minutos.\n\n" +
-                "Se você não solicitou este cadastro, ignore esta mensagem.";
-            message.setText(text, StandardCharsets.UTF_8.name(), "plain");
-            mailSender.send(message);
             logger.info("E-mail de confirmação enviado para {}", maskedEmail(pendente.getEmail()));
+        } catch (RestClientResponseException e) {
+            logger.error("Falha ao enviar e-mail de confirmação para {} (HTTP {}, causa: {}).",
+                maskedEmail(pendente.getEmail()), e.getStatusCode().value(), e.getClass().getSimpleName());
+            throw new IllegalStateException("Não foi possível enviar o e-mail de confirmação.");
+        } catch (UnexpectedHttpStatusException e) {
+            logger.error("Falha ao enviar e-mail de confirmação para {} (HTTP {}, causa: {}).",
+                maskedEmail(pendente.getEmail()), e.status, e.getClass().getSimpleName());
+            throw new IllegalStateException("Não foi possível enviar o e-mail de confirmação.");
         } catch (Exception e) {
-            logger.error("Falha ao enviar e-mail de confirmação para {} ({}).",
-                maskedEmail(pendente.getEmail()), causeChain(e));
+            logger.error("Falha ao enviar e-mail de confirmação para {} (HTTP indisponível, causa: {}).",
+                maskedEmail(pendente.getEmail()), e.getClass().getSimpleName());
             throw new IllegalStateException("Não foi possível enviar o e-mail de confirmação.");
         }
     }
 
-    /**
-     * Monta a cadeia de causas apenas com nomes de classe, sem mensagens (que podem conter dados pessoais).
-     * Inclui as falhas por destinatário de MailSendException, que não ficam em getCause().
-     */
-    private static String causeChain(Throwable error) {
-        StringBuilder chain = new StringBuilder();
-        Throwable current = error;
-        int depth = 0;
-        while (current != null && depth < 6) {
-            if (depth > 0) {
-                chain.append(" -> ");
-            }
-            chain.append(current.getClass().getSimpleName());
-            current = current.getCause();
-            depth++;
+    private record Sender(String name, String email) {}
+
+    private record ReplyTo(String email) {}
+
+    private record Recipient(String email) {}
+
+    private record BrevoEmail(Sender sender, ReplyTo replyTo, List<Recipient> to,
+                              String subject, String textContent) {}
+
+    private static final class UnexpectedHttpStatusException extends RuntimeException {
+        private final int status;
+
+        private UnexpectedHttpStatusException(int status) {
+            this.status = status;
         }
-        if (error instanceof MailSendException mailError) {
-            Map<?, ?> failed = mailError.getFailedMessages();
-            if (failed != null) {
-                for (Object value : failed.values()) {
-                    if (value instanceof Throwable failure) {
-                        chain.append(" | envio: ").append(failure.getClass().getSimpleName());
-                    }
-                }
-            }
-        }
-        return chain.toString();
     }
 
     private String maskedEmail(String email) {
