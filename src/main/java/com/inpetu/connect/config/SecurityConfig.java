@@ -45,6 +45,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/v1/auth/session").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/v1/espacos/**", "/api/v1/ecossistema", "/api/v1/ecossistema/*/logo").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/duvidas").permitAll()
+                .requestMatchers("/confirmar").permitAll()
                 .requestMatchers("/api/**").authenticated()
                 .anyRequest().permitAll())
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)

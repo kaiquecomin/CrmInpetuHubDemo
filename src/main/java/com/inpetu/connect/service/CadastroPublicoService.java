@@ -34,7 +34,7 @@ import java.util.Set;
 @Service
 public class CadastroPublicoService {
     private static final Logger logger = LoggerFactory.getLogger(CadastroPublicoService.class);
-    public static final String SUCCESS_MESSAGE = "Enviamos um link de confirmação para o e-mail informado, se ele for válido.";
+    public static final String SUCCESS_MESSAGE = "Enviamos um e-mail com as instruções de acesso.";
     private static final int MAX_CADASTROS_POR_IP = 5;
     private static final int MAX_REENVIO_POR_PENDENTE = 5;
     private static final int MAX_EMAILS_POR_DIA = 3;

@@ -82,9 +82,9 @@ public class SmtpEmailSender implements EmailSender {
             throw new IllegalStateException("APP_PUBLIC_URL é obrigatório para enviar confirmações.");
         }
 
-        String publicUrl = appPublicUrl.trim();
-        String link = (publicUrl.endsWith("/") ? publicUrl : publicUrl + "/") +
-            "confirmar?token=" + URLEncoder.encode(rawToken, StandardCharsets.UTF_8);
+        String publicUrl = appPublicUrl.trim().replaceAll("/+$", "");
+        String link = publicUrl + "/confirmar?token=" +
+            URLEncoder.encode(rawToken, StandardCharsets.UTF_8);
 
         String text = "Confirme seu cadastro no InPETU Connect\n\n" +
             "Clique no link abaixo para ativar sua conta:\n" + link + "\n\n" +

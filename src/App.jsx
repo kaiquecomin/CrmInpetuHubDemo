@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Dialog, DialogPanel, DialogTitle, Menu, MenuButton, MenuItem, MenuItems, Tab, TabGroup, TabList, TabPanel, TabPanels, Transition, TransitionChild } from '@headlessui/react'
 import { ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, Bell, Building2, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, Clock3, DoorOpen, Download, ExternalLink, FileText, Filter, GraduationCap, Home as HomeIcon, LayoutDashboard, ListChecks, Mail, MapPin, Menu as MenuIcon, MessageCircle, MoreHorizontal, Plus, Search, ShieldCheck, SlidersHorizontal, Users, X } from 'lucide-react'
 
@@ -9,6 +9,21 @@ const getStoredUser = () => {
 const storeUser = user => localStorage.setItem('inpetu-user', JSON.stringify(user))
 const clearStoredUser = () => localStorage.removeItem('inpetu-user')
 const isCrmUser = user => [1, 2, 3].includes(Number(user?.perfil ?? user?.idPerfil))
+const phoneDigits = value => {
+  let digits = String(value || '').replace(/\D/g, '')
+  if (digits.length > 11 && digits.startsWith('55')) digits = digits.slice(2)
+  return digits.slice(0, 11)
+}
+const formatBrazilianPhone = value => {
+  const digits = phoneDigits(value)
+  if (digits.length < 2) return digits
+  const areaCode = digits.slice(0, 2)
+  const subscriber = digits.slice(2)
+  if (!subscriber) return `(${areaCode})`
+  const prefixLength = digits.length > 10 ? 5 : 4
+  if (subscriber.length <= prefixLength) return `(${areaCode}) ${subscriber}`
+  return `(${areaCode}) ${subscriber.slice(0, prefixLength)}-${subscriber.slice(prefixLength)}`
+}
 const isGuidedTour = type => type?.trim().toLocaleLowerCase('pt-BR') === 'visita guiada'
 const normalizeRoomName = value => value?.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLocaleLowerCase('pt-BR') || ''
 const roomPhotoSets = {
@@ -150,7 +165,7 @@ async function request(path, options = {}) {
     throw new Error('A API bloqueou o login (HTTP 403). Atualize o site e a API para a mesma versão e verifique as permissões da conta.')
   }
   if (!response.ok) {
-    const error = new Error(body?.detail || body?.message || body?.title || body?.error || `Falha na solicitação (HTTP ${response.status}).`)
+    const error = new Error(body?.detail || body?.message || body?.mensagem || body?.title || body?.error || `Falha na solicitação (HTTP ${response.status}).`)
     error.status = response.status
     throw error
   }
@@ -179,6 +194,24 @@ function Logo({ inverse = false }) {
 }
 function Button({ children, variant = 'primary', icon: Icon, className = '', ...props }) {
   return <button className={`button button-${variant} ${className}`} {...props}>{Icon && <Icon size={17} strokeWidth={1.8} />}{children}</button>
+}
+function PhoneInput({ value, onChange, ...props }) {
+  function handleChange(event) {
+    const digits = phoneDigits(event.currentTarget.value)
+    event.currentTarget.value = formatBrazilianPhone(digits)
+    onChange(digits)
+  }
+
+  return <input
+    {...props}
+    type="tel"
+    inputMode="numeric"
+    autoComplete="tel"
+    maxLength={15}
+    placeholder="(48) 99999-9999"
+    value={formatBrazilianPhone(value)}
+    onChange={handleChange}
+  />
 }
 function Badge({ level }) {
   const item = personas[level]
@@ -420,7 +453,7 @@ function AccessPage({ onLogin, onSignup }) {
 function SignupPage({ onBack }) {
   const [form, setForm] = useState({ nomeCompleto: '', email: '', telefone: '', organizacao: '', cargoVinculo: '', senha: '', confirmarSenha: '' })
   const [status, setStatus] = useState('')
-  async function submit(event) { event.preventDefault(); setStatus(''); if (form.senha !== form.confirmarSenha) return setStatus('As senhas não coincidem.'); try { const { confirmarSenha, ...cadastro } = form; await request('/usuarios/cadastro-publico', { method: 'POST', body: JSON.stringify(cadastro) }); setStatus('Se o e-mail for válido, enviaremos as instruções de acesso.'); } catch (error) { setStatus(error.message) } }
+  async function submit(event) { event.preventDefault(); setStatus(''); if (form.senha !== form.confirmarSenha) return setStatus('As senhas não coincidem.'); try { const { confirmarSenha, ...cadastro } = form; const result = await request('/usuarios/cadastro-publico', { method: 'POST', body: JSON.stringify(cadastro) }); setStatus(result?.mensagem || 'Enviamos um e-mail com as instruções de acesso.'); } catch (error) { setStatus(error.message) } }
   return <main className="account-page account-page-signup">
     <div className="account-page-heading"><h1>Criar acesso público</h1><p>Cadastre-se para solicitar espaços e acompanhar seus agendamentos.</p></div>
     <section className="account-card account-card-signup">
@@ -428,15 +461,48 @@ function SignupPage({ onBack }) {
       <form className="form-stack account-form" onSubmit={submit}>
         <label>Nome completo <span aria-hidden="true">*</span><input required autoComplete="name" value={form.nomeCompleto} onChange={e => setForm({ ...form, nomeCompleto: e.target.value })} /></label>
         <label>E-mail <span aria-hidden="true">*</span><input required type="email" autoComplete="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></label>
-        <label>Telefone<input type="tel" autoComplete="tel" placeholder="(48) 99999-9999" value={form.telefone} onChange={e => setForm({ ...form, telefone: e.target.value })} /></label>
+        <label>Telefone<PhoneInput value={form.telefone} onChange={telefone => setForm({ ...form, telefone })} /></label>
         <label>Organização <span aria-hidden="true">*</span><input required value={form.organizacao} onChange={e => setForm({ ...form, organizacao: e.target.value })} /></label>
         <label>Cargo ou vínculo <span aria-hidden="true">*</span><input required value={form.cargoVinculo} onChange={e => setForm({ ...form, cargoVinculo: e.target.value })} /></label>
         <label>Senha <span aria-hidden="true">*</span><input required minLength={8} maxLength={64} type="password" autoComplete="new-password" value={form.senha} onChange={e => setForm({ ...form, senha: e.target.value })} /></label>
         <label>Confirmar senha <span aria-hidden="true">*</span><input required minLength={8} maxLength={64} type="password" autoComplete="new-password" value={form.confirmarSenha} onChange={e => setForm({ ...form, confirmarSenha: e.target.value })} /></label>
-        {status && <p className={`account-notice ${status.startsWith('Se o e-mail for válido') ? 'account-notice-success' : 'account-notice-error'}`} role="status">{status}</p>}
+        {status && <p className={`account-notice ${status.startsWith('Enviamos um e-mail') ? 'account-notice-success' : 'account-notice-error'}`} role="status">{status}</p>}
         <Button type="submit">Criar conta <ArrowRight size={16} /></Button>
       </form>
       <p className="account-signup"><button type="button" onClick={onBack}>Voltar para o acesso</button></p>
+    </section>
+  </main>
+}
+function EmailConfirmationPage() {
+  const [status, setStatus] = useState({ kind: 'loading', message: 'Confirmando seu cadastro...' })
+  const requestStarted = useRef(false)
+
+  useEffect(() => {
+    if (requestStarted.current) return
+    requestStarted.current = true
+    const token = new URLSearchParams(window.location.search).get('token')
+    if (!token) {
+      setStatus({ kind: 'error', message: 'O link de confirmação está incompleto.' })
+      return
+    }
+    request('/usuarios/confirmar-email', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    }).then(result => {
+      setStatus({
+        kind: 'success',
+        message: result?.mensagem || 'Cadastro confirmado. Entre com seu e-mail e senha.',
+      })
+    }).catch(error => {
+      setStatus({ kind: 'error', message: error.message })
+    })
+  }, [])
+
+  return <main className="account-page">
+    <div className="account-page-heading"><h1>Confirmação de cadastro</h1><p>Validação do seu acesso ao InPETU Connect.</p></div>
+    <section className="account-card" aria-live="polite">
+      <p className={`account-notice ${status.kind === 'success' ? 'account-notice-success' : status.kind === 'error' ? 'account-notice-error' : ''}`} role={status.kind === 'error' ? 'alert' : 'status'}>{status.message}</p>
+      {status.kind !== 'loading' && <p className="account-signup"><a href="/">Voltar ao InPETU Connect</a></p>}
     </section>
   </main>
 }
@@ -484,7 +550,7 @@ function HelpPage() {
   const [status, setStatus] = useState('')
   const [progress, setProgress] = useState(0)
   async function submit(event) { event.preventDefault(); setStatus(''); if (file && (!['application/pdf', 'image/png', 'image/jpeg'].includes(file.type) || file.size > 10 * 1024 * 1024)) return setStatus('Anexe PDF, PNG ou JPG de até 10 MB.'); try { if (file) await uploadQuestion(form, file, setProgress); else await request('/duvidas', { method: 'POST', body: JSON.stringify(form) }); setProgress(100); setStatus('Mensagem enviada. A equipe InPETU responderá pelo e-mail informado.'); setForm({ emailContato: '', telefoneContato: '', mensagemDuvida: '' }); setFile(null) } catch (error) { setStatus(error.message); setProgress(0) } }
-  return <main className="inner-page help-page"><div className="help-intro"><div className="eyebrow">ESTAMOS POR PERTO</div><h1>Vamos conversar<br /><em>sobre sua ideia?</em></h1><p>Tem dúvidas sobre os espaços, eventos ou quer descobrir como fazer parte do ecossistema? Escreva para a gente.</p><div className="help-contact"><span><Mail size={17} /></span><div><small>FALE DIRETAMENTE</small><strong>inpetu@contato.ufsc.br</strong></div></div><div className="help-contact"><span><MapPin size={17} /></span><div><small>VENHA NOS VISITAR</small><strong>Lote 73 · Sapiens Parque, Florianópolis</strong></div></div></div><form className="help-form" onSubmit={submit}><div className="form-heading"><MessageCircle size={20} /><div><strong>Fale com a equipe</strong><small>Retornamos em até dois dias úteis.</small></div></div><label>Seu e-mail<input required type="email" value={form.emailContato} onChange={e => setForm({ ...form, emailContato: e.target.value })} /></label><label>Telefone <span>(opcional)</span><input type="tel" value={form.telefoneContato} onChange={e => setForm({ ...form, telefoneContato: e.target.value })} /></label><label>Sua mensagem<textarea required rows="5" maxLength="5000" value={form.mensagemDuvida} onChange={e => setForm({ ...form, mensagemDuvida: e.target.value })} placeholder="Como podemos ajudar?" /></label><label className="upload-box"><input type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" onChange={e => setFile(e.target.files?.[0] || null)} /><span className="upload-icon"><Plus size={19} /></span><span><strong>{file ? file.name : 'Adicionar anexo'}</strong><small>PDF, PNG ou JPG · até 10 MB</small></span><span className="upload-action">Escolher arquivo</span></label>{progress > 0 && <div className="progress-track"><span style={{ width: `${progress}%` }} /></div>}{status && <p className={status.startsWith('Mensagem') ? 'success-note' : 'form-message'}>{status}</p>}<Button type="submit">Enviar mensagem <ArrowRight size={16} /></Button><p className="form-footnote"><ShieldCheck size={14} /> Seus dados são protegidos pela política de privacidade UFSC.</p></form></main>
+  return <main className="inner-page help-page"><div className="help-intro"><div className="eyebrow">ESTAMOS POR PERTO</div><h1>Vamos conversar<br /><em>sobre sua ideia?</em></h1><p>Tem dúvidas sobre os espaços, eventos ou quer descobrir como fazer parte do ecossistema? Escreva para a gente.</p><div className="help-contact"><span><Mail size={17} /></span><div><small>FALE DIRETAMENTE</small><strong>inpetu@contato.ufsc.br</strong></div></div><div className="help-contact"><span><MapPin size={17} /></span><div><small>VENHA NOS VISITAR</small><strong>Lote 73 · Sapiens Parque, Florianópolis</strong></div></div></div><form className="help-form" onSubmit={submit}><div className="form-heading"><MessageCircle size={20} /><div><strong>Fale com a equipe</strong><small>Retornamos em até dois dias úteis.</small></div></div><label>Seu e-mail<input required type="email" value={form.emailContato} onChange={e => setForm({ ...form, emailContato: e.target.value })} /></label><label>Telefone <span>(opcional)</span><PhoneInput value={form.telefoneContato} onChange={telefoneContato => setForm({ ...form, telefoneContato })} /></label><label>Sua mensagem<textarea required rows="5" maxLength="5000" value={form.mensagemDuvida} onChange={e => setForm({ ...form, mensagemDuvida: e.target.value })} placeholder="Como podemos ajudar?" /></label><label className="upload-box"><input type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" onChange={e => setFile(e.target.files?.[0] || null)} /><span className="upload-icon"><Plus size={19} /></span><span><strong>{file ? file.name : 'Adicionar anexo'}</strong><small>PDF, PNG ou JPG · até 10 MB</small></span><span className="upload-action">Escolher arquivo</span></label>{progress > 0 && <div className="progress-track"><span style={{ width: `${progress}%` }} /></div>}{status && <p className={status.startsWith('Mensagem') ? 'success-note' : 'form-message'}>{status}</p>}<Button type="submit">Enviar mensagem <ArrowRight size={16} /></Button><p className="form-footnote"><ShieldCheck size={14} /> Seus dados são protegidos pela política de privacidade UFSC.</p></form></main>
 }
 function CalendarPage({ spaces, spacesLoaded, onReserve, initialDate, initialKind, initialSpaceId, availabilityVersion }) {
   const [date, setDate] = useState(initialDate)
@@ -1264,7 +1330,7 @@ function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, set
         <label>Nome do responsável<input required maxLength={100} value={newRegistration.nomeCompleto} onChange={event => setNewRegistration({ ...newRegistration, nomeCompleto: event.target.value })} /></label>
         <label>E-mail<input required type="email" maxLength={100} value={newRegistration.email} onChange={event => setNewRegistration({ ...newRegistration, email: event.target.value })} /></label>
         <div className="form-row">
-          <label>Telefone (opcional)<input type="tel" maxLength={20} value={newRegistration.telefone} onChange={event => setNewRegistration({ ...newRegistration, telefone: event.target.value })} /></label>
+          <label>Telefone (opcional)<PhoneInput value={newRegistration.telefone} onChange={telefone => setNewRegistration({ ...newRegistration, telefone })} /></label>
           <label>Cargo ou vínculo<input required maxLength={100} value={newRegistration.cargoVinculo} onChange={event => setNewRegistration({ ...newRegistration, cargoVinculo: event.target.value })} /></label>
         </div>
         <label>Senha inicial<input required minLength={8} maxLength={64} type="password" autoComplete="new-password" value={newRegistration.senha} onChange={event => setNewRegistration({ ...newRegistration, senha: event.target.value })} /></label>
@@ -1387,7 +1453,7 @@ function ClientProfileDialog({ client, reservations, tickets, auditItems, close,
           {editing ? <div className="client-profile-grid client-profile-grid-edit">
             <label>Nome completo<input required maxLength={100} value={form.nomeCompleto} onChange={event => setForm({ ...form, nomeCompleto: event.target.value })} /></label>
             <label>E-mail<input required type="email" maxLength={100} value={form.email} onChange={event => setForm({ ...form, email: event.target.value })} /></label>
-            <label>Telefone / WhatsApp<input type="tel" maxLength={20} value={form.telefone} onChange={event => setForm({ ...form, telefone: event.target.value })} /></label>
+            <label>Telefone / WhatsApp<PhoneInput value={form.telefone} onChange={telefone => setForm({ ...form, telefone })} /></label>
             <label>Organização<input required maxLength={100} value={form.organizacao} onChange={event => setForm({ ...form, organizacao: event.target.value })} /><small>A alteração do nome atualiza todos os cadastros vinculados à organização.</small></label>
             <label>Vínculo / cargo<input required maxLength={100} value={form.cargoVinculo} onChange={event => setForm({ ...form, cargoVinculo: event.target.value })} /></label>
             <div className="client-profile-field"><span>Data de cadastro</span><strong>{fields[4][1]}</strong></div>
@@ -1511,5 +1577,8 @@ function AppInner() {
 }
 
 export default function App() {
+  if (window.location.pathname.replace(/\/+$/, '') === '/confirmar') {
+    return <EmailConfirmationPage />
+  }
   return <AppInner />
 }

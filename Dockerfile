@@ -15,7 +15,7 @@ WORKDIR /build
 COPY pom.xml ./
 RUN mvn -q -B dependency:go-offline
 COPY src ./src
-COPY --from=front /app/dist ./src/main/resources/static
+COPY --from=front /app/src/main/resources/static ./src/main/resources/static
 RUN mvn -q -B -DskipTests package
 
 # ---------- 3) Imagem final ----------

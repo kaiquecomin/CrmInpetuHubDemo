@@ -64,7 +64,7 @@ class SmtpEmailSenderTest {
             .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
 
         SmtpEmailSender sender = new SmtpEmailSender(
-            client.restClient(), true, "https://connect.example.test/", API_KEY, MAIL_FROM, MAIL_REPLY_TO);
+            client.restClient(), true, "https://connect.example.test///", API_KEY, MAIL_FROM, MAIL_REPLY_TO);
         sender.sendConfirmation(pending, rawToken);
 
         client.server().verify();

@@ -91,6 +91,8 @@ class AuthControllerTest {
         assertEquals(HttpStatus.ACCEPTED, duplicateResponse.getStatusCode());
         assertEquals(duplicateResponse.getStatusCode(), newResponse.getStatusCode());
         assertEquals(duplicateResponse.getBody(), newResponse.getBody());
+        assertEquals("Enviamos um e-mail com as instruções de acesso.",
+            CadastroPublicoService.SUCCESS_MESSAGE);
         assertEquals(CadastroPublicoService.SUCCESS_MESSAGE,
             ((java.util.Map<?, ?>) newResponse.getBody()).get("mensagem"));
         verify(usuarios, never()).save(any(Usuario.class));

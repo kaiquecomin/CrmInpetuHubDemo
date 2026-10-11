@@ -28,7 +28,7 @@ import java.util.Map;
 @RestController @RequestMapping("/api/v1")
 public class AuthController {
     private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
-    private static final String PUBLIC_SIGNUP_MESSAGE = "Se o e-mail for válido, enviaremos as instruções de acesso.";
+    private static final String PUBLIC_SIGNUP_MESSAGE = "Enviamos um e-mail com as instruções de acesso.";
 
     private final AuthenticationManager auth;
     private final JwtService jwt;

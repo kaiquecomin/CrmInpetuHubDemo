@@ -44,7 +44,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.forwardedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -84,6 +87,20 @@ class CadastroConfirmacaoFluxoTest {
         emailSender.clear();
         jdbcTemplate.update("DELETE FROM evento_cadastro");
         seedProfiles();
+    }
+
+    @Test
+    void confirmationLinkLoadsTheReactAppWithoutOpeningProtectedApiRoutes() throws Exception {
+        mvc.perform(get("/confirmar").queryParam("token", "teste"))
+            .andExpect(status().isOk())
+            .andExpect(forwardedUrl("/index.html"));
+
+        mvc.perform(get("/index.html"))
+            .andExpect(status().isOk())
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("id=\"root\"")));
+
+        mvc.perform(get("/api/v1/auth/session"))
+            .andExpect(status().isForbidden());
     }
 
     @Test
