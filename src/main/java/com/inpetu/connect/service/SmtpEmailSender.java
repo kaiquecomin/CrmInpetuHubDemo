@@ -3,8 +3,8 @@ package com.inpetu.connect.service;
 import com.inpetu.connect.model.CadastroPendente;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
@@ -12,7 +12,6 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
 @Service
-@Profile("!test")
 public class SmtpEmailSender implements EmailSender {
     private static final Logger logger = LoggerFactory.getLogger(SmtpEmailSender.class);
 
@@ -20,6 +19,7 @@ public class SmtpEmailSender implements EmailSender {
     private final EmailTemplateRenderer templates;
     private final String appPublicUrl;
 
+    @Autowired
     public SmtpEmailSender(BrevoEmailClient brevo, EmailTemplateRenderer templates,
                            @Value("${APP_PUBLIC_URL:}") String appPublicUrl) {
         this.brevo = brevo;
