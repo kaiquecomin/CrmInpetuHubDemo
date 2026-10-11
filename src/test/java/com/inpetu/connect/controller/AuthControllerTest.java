@@ -25,6 +25,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import java.util.Optional;
+import java.security.SecureRandom;
+import java.util.Base64;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,6 +34,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 class AuthControllerTest {
+    private static final SecureRandom RANDOM = new SecureRandom();
     private final AuthenticationManager authentication = mock(AuthenticationManager.class);
     private final JwtService jwt = mock(JwtService.class);
     private final UserDetailsService userDetails = mock(UserDetailsService.class);
@@ -53,11 +56,11 @@ class AuthControllerTest {
         },
         new com.inpetu.connect.service.EmailSender() {
             @Override
-            public void sendConfirmation(com.inpetu.connect.model.CadastroPendente pendente) {
+            public void sendConfirmation(com.inpetu.connect.model.CadastroPendente pendente, String rawToken) {
             }
         },
         "",
-        "test-secret");
+        randomSecret());
     private final AuthController controller = new AuthController(
         authentication,
         jwt,
@@ -120,20 +123,22 @@ class AuthControllerTest {
 
     @Test
     void loginSetsSecureHttpOnlyCookieAndDoesNotReturnTokenInBody() {
-        UserDetails principal = User.withUsername("coord@example.test").password("not-used").roles("COORDENADOR").build();
+        String password = randomSecret();
+        String jwtToken = randomSecret();
+        UserDetails principal = User.withUsername("coord@example.test").password(randomSecret()).roles("COORDENADOR").build();
         Usuario coordinator = new Usuario();
         coordinator.setNomeCompleto("Coordinator");
         coordinator.setEmail("coord@example.test");
         coordinator.setIdPerfil(1);
         when(userDetails.loadUserByUsername("coord@example.test")).thenReturn(principal);
-        when(jwt.gerar(principal)).thenReturn("jwt-for-test-only");
+        when(jwt.gerar(principal)).thenReturn(jwtToken);
         when(jwt.expirationMs()).thenReturn(3_600_000L);
         when(usuarios.findByEmail("coord@example.test")).thenReturn(Optional.of(coordinator));
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setRemoteAddr("10.0.0.1");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
-        var result = controller.login(new LoginRequest("coord@example.test", "test-only-password"),
+        var result = controller.login(new LoginRequest("coord@example.test", password),
             request, response);
 
         assertEquals(HttpStatus.OK, result.getStatusCode());
@@ -159,6 +164,12 @@ class AuthControllerTest {
     }
 
     private CadastroPublicoRequest signup(String email) {
-        return new CadastroPublicoRequest("Person Example", email, null, "Example Org", "Researcher", "test-only-value");
+        return new CadastroPublicoRequest("Person Example", email, null, "Example Org", "Researcher", randomSecret());
+    }
+
+    private static String randomSecret() {
+        byte[] value = new byte[32];
+        RANDOM.nextBytes(value);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(value);
     }
 }
