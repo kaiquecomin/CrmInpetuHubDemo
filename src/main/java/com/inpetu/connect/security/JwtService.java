@@ -1,7 +1,6 @@
 package com.inpetu.connect.security;
 
 import io.jsonwebtoken.*;
-import com.inpetu.connect.db.DbContext;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -19,18 +18,22 @@ public class JwtService {
     }
     public String gerar(UserDetails user) {
         Date now = new Date();
-        return Jwts.builder().subject(user.getUsername()).claim("db", DbContext.get()).issuedAt(now).expiration(new Date(now.getTime() + expirationMs)).signWith(key).compact();
+        return Jwts.builder().subject(user.getUsername()).claim("db", "main").issuedAt(now).expiration(new Date(now.getTime() + expirationMs)).signWith(key).compact();
     }
     public String extrairEmail(String token) {
         return Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload().getSubject();
     }
-    /** Banco em que o token foi emitido; tokens antigos, sem a claim, valem para o principal. */
-    public String extrairBanco(String token) {
-        String db = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload().get("db", String.class);
-        return DbContext.normalizar(db);
-    }
     public boolean valido(String token, UserDetails user) {
-        try { return extrairEmail(token).equals(user.getUsername()) && Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload().getExpiration().after(new Date()); }
+        try {
+            var claims = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
+            return "main".equals(claims.get("db", String.class))
+                && claims.getSubject().equals(user.getUsername())
+                && claims.getExpiration().after(new Date());
+        }
         catch (JwtException | IllegalArgumentException ex) { return false; }
+    }
+
+    public long expirationMs() {
+        return expirationMs;
     }
 }

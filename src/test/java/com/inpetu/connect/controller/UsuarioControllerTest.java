@@ -2,6 +2,7 @@ package com.inpetu.connect.controller;
 
 import com.inpetu.connect.dto.MotivoExclusaoCadastroRequest;
 import com.inpetu.connect.dto.CadastroPublicoRequest;
+import com.inpetu.connect.dto.CadastroEdicaoRequest;
 import com.inpetu.connect.dto.UsuarioResumo;
 import com.inpetu.connect.model.LogAuditoria;
 import com.inpetu.connect.model.Organizacao;
@@ -9,6 +10,7 @@ import com.inpetu.connect.model.Usuario;
 import com.inpetu.connect.repository.LogAuditoriaRepository;
 import com.inpetu.connect.repository.OrganizacaoRepository;
 import com.inpetu.connect.repository.UsuarioRepository;
+import com.inpetu.connect.repository.DuvidaAtendimentoRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -30,6 +32,7 @@ class UsuarioControllerTest {
     @Mock UsuarioRepository usuarios;
     @Mock LogAuditoriaRepository auditoria;
     @Mock OrganizacaoRepository organizacoes;
+    @Mock DuvidaAtendimentoRepository duvidas;
     @Mock PasswordEncoder passwordEncoder;
     @Mock Authentication authentication;
     @InjectMocks UsuarioController controller;
@@ -140,5 +143,62 @@ class UsuarioControllerTest {
         verify(organizacoes, never()).save(any());
         verify(usuarios, never()).save(any());
         verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    void editaCadastroEAtualizaOrganizacaoCompartilhadaEEmailHistorico() {
+        Usuario solicitante = new Usuario();
+        solicitante.setIdUsuario(9);
+        solicitante.setIdPerfil(4);
+        solicitante.setIdOrganizacao(12);
+        solicitante.setNomeCompleto("Joana Silva");
+        solicitante.setEmail("joana@exemplo.org");
+        Organizacao organizacao = new Organizacao();
+        organizacao.setIdOrganizacao(12);
+        organizacao.setNomeOrganizacao("InPETU Labs");
+        when(usuarios.findById(9)).thenReturn(Optional.of(solicitante));
+        when(usuarios.findByEmailIgnoreCase("joana.nova@exemplo.org")).thenReturn(Optional.empty());
+        when(organizacoes.findById(12)).thenReturn(Optional.of(organizacao));
+        when(organizacoes.findByNomeOrganizacaoIgnoreCase("InPETU Hub")).thenReturn(Optional.empty());
+        when(usuarios.save(solicitante)).thenReturn(solicitante);
+        when(organizacoes.save(organizacao)).thenReturn(organizacao);
+        when(authentication.getName()).thenReturn("staff@example.org");
+        when(usuarios.findByEmail("staff@example.org")).thenReturn(Optional.of(new Usuario()));
+
+        UsuarioResumo result = controller.editarCadastro(9,
+                new CadastroEdicaoRequest(" Joana Souza ", " JOANA.NOVA@EXEMPLO.ORG ",
+                        " (48) 99999-1111 ", " InPETU Hub ", " Pesquisadora "),
+                authentication);
+
+        assertEquals("Joana Souza", result.nomeCompleto());
+        assertEquals("joana.nova@exemplo.org", result.email());
+        assertEquals("InPETU Hub", organizacao.getNomeOrganizacao());
+        assertEquals("Pesquisadora", solicitante.getCargoVinculo());
+        verify(duvidas).atualizarEmailContato("joana@exemplo.org", "joana.nova@exemplo.org");
+        ArgumentCaptor<LogAuditoria> log = ArgumentCaptor.forClass(LogAuditoria.class);
+        verify(auditoria).save(log.capture());
+        assertEquals("ALTERACAO_CADASTRO", log.getValue().getAcao());
+    }
+
+    @Test
+    void naoPermiteEditarCadastroComEmailDeOutraConta() {
+        Usuario solicitante = new Usuario();
+        solicitante.setIdUsuario(9);
+        solicitante.setIdPerfil(4);
+        solicitante.setIdOrganizacao(12);
+        Usuario outraConta = new Usuario();
+        outraConta.setIdUsuario(10);
+        when(usuarios.findById(9)).thenReturn(Optional.of(solicitante));
+        when(usuarios.findByEmailIgnoreCase("usado@exemplo.org")).thenReturn(Optional.of(outraConta));
+
+        ResponseStatusException error = assertThrows(ResponseStatusException.class,
+                () -> controller.editarCadastro(9,
+                        new CadastroEdicaoRequest("Joana Souza", "usado@exemplo.org", null, "InPETU", "Pesquisadora"),
+                        authentication));
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatusCode());
+        verify(organizacoes, never()).findById(any());
+        verify(usuarios, never()).save(any());
+        verifyNoInteractions(duvidas, auditoria);
     }
 }

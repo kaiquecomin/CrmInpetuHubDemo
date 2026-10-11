@@ -7,8 +7,12 @@ dist/
 !.env.example
 uploads/
 *.log
+*.csv
+CREDENCIAIS-*
 
 # Credenciais e atalhos locais: NUNCA versionar
 private/
+/application-demo.properties
 iniciar-inpetu.bat
 iniciar-inpetu-demo.ps1
+/scripts/local-secrets.ps1

@@ -1,6 +1,5 @@
 package com.inpetu.connect.security;
 
-import com.inpetu.connect.db.DbContext;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
@@ -18,17 +17,29 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final UserDetailsService users;
     public JwtAuthenticationFilter(JwtService jwt, UserDetailsService users) { this.jwt = jwt; this.users = users; }
     @Override protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
-        String header = request.getHeader("Authorization");
-        if (header != null && header.startsWith("Bearer ") && SecurityContextHolder.getContext().getAuthentication() == null) {
+        String token = cookieToken(request);
+        if (token == null) {
+            String header = request.getHeader("Authorization");
+            if (header != null && header.startsWith("Bearer ")) token = header.substring(7);
+        }
+        if (token != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             try {
-                if (!jwt.extrairBanco(header.substring(7)).equals(DbContext.get())) { chain.doFilter(request, response); return; }
-                String email = jwt.extrairEmail(header.substring(7)); UserDetails user = users.loadUserByUsername(email);
-                if (jwt.valido(header.substring(7), user)) {
+                String email = jwt.extrairEmail(token); UserDetails user = users.loadUserByUsername(email);
+                if (jwt.valido(token, user)) {
                     var auth = new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
                     auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request)); SecurityContextHolder.getContext().setAuthentication(auth);
                 }
             } catch (JwtException | UsernameNotFoundException ignored) { SecurityContextHolder.clearContext(); }
         }
         chain.doFilter(request, response);
+    }
+
+    private String cookieToken(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) return null;
+        for (Cookie cookie : cookies) {
+            if ("inpetu-token".equals(cookie.getName()) && !cookie.getValue().isBlank()) return cookie.getValue();
+        }
+        return null;
     }
 }

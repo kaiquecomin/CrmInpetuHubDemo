@@ -5,6 +5,7 @@ import com.inpetu.connect.dto.EspacoStatusRequest;
 import com.inpetu.connect.repository.*;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -43,14 +44,22 @@ public class EspacoController {
         if (espaco.getArquivoImagem() == null || espaco.getTipoImagem() == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Este espaço não possui imagem.");
         }
-        Path arquivo = imageDirectory.resolve(espaco.getArquivoImagem()).normalize();
-        if (!arquivo.getParent().equals(imageDirectory) || !Files.isRegularFile(arquivo)) {
+        String nomeArquivo = espaco.getArquivoImagem();
+        Path caminhoNome = Path.of(nomeArquivo);
+        if (caminhoNome.getNameCount() != 1 || !caminhoNome.getFileName().toString().equals(nomeArquivo)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Imagem do espaço não encontrada.");
+        }
+        Path arquivo = imageDirectory.resolve(nomeArquivo).normalize();
+        Resource imagem = Files.isRegularFile(arquivo) && arquivo.getParent().equals(imageDirectory)
+            ? new FileSystemResource(arquivo)
+            : new ClassPathResource("static/images/rooms/" + nomeArquivo);
+        if (!imagem.isReadable()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Imagem do espaço não encontrada.");
         }
         return ResponseEntity.ok()
             .contentType(MediaType.parseMediaType(Objects.requireNonNull(espaco.getTipoImagem())))
             .header(HttpHeaders.CACHE_CONTROL, "public, max-age=3600")
-            .body(new FileSystemResource(arquivo));
+            .body(imagem);
     }
     @GetMapping("/{id}/agenda") public List<?> agenda(@PathVariable Integer id, @RequestParam LocalDate data) {
         return reservas.findByIdEspacoAndDataReservaOrderByHorarioInicio(id, data).stream()

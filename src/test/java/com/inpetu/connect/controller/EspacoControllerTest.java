@@ -71,6 +71,20 @@ class EspacoControllerTest {
     }
 
     @Test
+    void rejectsLegacyCatalogImageReferenceThatIsNoLongerPackagedAtTheRoot() {
+        Espaco espaco = new Espaco();
+        espaco.setIdEspaco(91);
+        espaco.setArquivoImagem("auditorio.jpg");
+        espaco.setTipoImagem("image/jpeg");
+        when(espacos.findById(91)).thenReturn(Optional.of(espaco));
+
+        ResponseStatusException error = assertThrows(ResponseStatusException.class,
+            () -> controller.obterImagem(91));
+
+        assertEquals(HttpStatus.NOT_FOUND, error.getStatusCode());
+    }
+
+    @Test
     void rejeitaImagemComTipoNaoPermitido() {
         MockMultipartFile imagem = new MockMultipartFile("imagem", "sala.gif", "image/gif", new byte[] {1, 2, 3});
 

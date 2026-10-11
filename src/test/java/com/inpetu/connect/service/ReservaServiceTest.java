@@ -116,6 +116,85 @@ class ReservaServiceTest {
     }
 
     @Test
+    void solicitanteP6RecebeReservaPendenteMesmoComEspacoSemAprovacaoManual() {
+        Espaco espaco = new Espaco();
+        espaco.setIdEspaco(2);
+        espaco.setAtivo(true);
+        espaco.setExigeAprovacaoManual(false);
+        Usuario usuario = new Usuario();
+        usuario.setIdUsuario(7);
+        usuario.setAtivo(true);
+        usuario.setIdPersona(6);
+        when(espacos.bloquearParaReserva(2)).thenReturn(Optional.of(espaco));
+        when(usuarios.findByEmail("visitante@exemplo.com")).thenReturn(Optional.of(usuario));
+        when(usuarios.bloquearParaCota(7)).thenReturn(Optional.of(usuario));
+        when(reservas.existeConflito(eq(2), any(LocalDate.class), any(LocalTime.class), any(LocalTime.class)))
+                .thenReturn(false);
+        when(reservas.save(any(Reserva.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        ReservaRequest request = new ReservaRequest("Oficina", "Encontro de teste", LocalDate.now().plusDays(1),
+                LocalTime.of(9, 0), LocalTime.of(10, 0), 2, null);
+
+        Reserva reserva = service.criar(request, "visitante@exemplo.com");
+
+        assertEquals("Pendente", reserva.getStatusReserva());
+        verify(reservas).save(reserva);
+    }
+
+    @Test
+    void personaNaoP6RecebeConfirmacaoAutomaticaQuandoNaoHaOutraExcecao() {
+        Espaco espaco = new Espaco();
+        espaco.setIdEspaco(2);
+        espaco.setAtivo(true);
+        espaco.setExigeAprovacaoManual(false);
+        Usuario usuario = new Usuario();
+        usuario.setIdUsuario(7);
+        usuario.setAtivo(true);
+        usuario.setIdPersona(2);
+        when(espacos.bloquearParaReserva(2)).thenReturn(Optional.of(espaco));
+        when(usuarios.findByEmail("visitante@exemplo.com")).thenReturn(Optional.of(usuario));
+        when(usuarios.bloquearParaCota(7)).thenReturn(Optional.of(usuario));
+        when(reservas.existeConflito(eq(2), any(LocalDate.class), any(LocalTime.class), any(LocalTime.class)))
+                .thenReturn(false);
+        when(reservas.findByIdSolicitanteAndDataReservaBetweenAndStatusReservaIn(
+                eq(7), any(LocalDate.class), any(LocalDate.class), anyList())).thenReturn(List.of());
+        when(reservas.save(any(Reserva.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        ReservaRequest request = new ReservaRequest("Oficina", "Encontro de teste", LocalDate.now().plusDays(1),
+                LocalTime.of(9, 0), LocalTime.of(10, 0), 2, null);
+
+        Reserva reserva = service.criar(request, "visitante@exemplo.com");
+
+        assertEquals("Confirmada", reserva.getStatusReserva());
+        verify(reservas).save(reserva);
+    }
+
+    @Test
+    void espacoComAprovacaoManualContinuaPendenteParaPersonaNaoP6() {
+        Espaco espaco = new Espaco();
+        espaco.setIdEspaco(2);
+        espaco.setAtivo(true);
+        espaco.setExigeAprovacaoManual(true);
+        Usuario usuario = new Usuario();
+        usuario.setIdUsuario(7);
+        usuario.setAtivo(true);
+        usuario.setIdPersona(2);
+        when(espacos.bloquearParaReserva(2)).thenReturn(Optional.of(espaco));
+        when(usuarios.findByEmail("visitante@exemplo.com")).thenReturn(Optional.of(usuario));
+        when(usuarios.bloquearParaCota(7)).thenReturn(Optional.of(usuario));
+        when(reservas.existeConflito(eq(2), any(LocalDate.class), any(LocalTime.class), any(LocalTime.class)))
+                .thenReturn(false);
+        when(reservas.findByIdSolicitanteAndDataReservaBetweenAndStatusReservaIn(
+                eq(7), any(LocalDate.class), any(LocalDate.class), anyList())).thenReturn(List.of());
+        when(reservas.save(any(Reserva.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        ReservaRequest request = new ReservaRequest("Oficina", "Encontro de teste", LocalDate.now().plusDays(1),
+                LocalTime.of(9, 0), LocalTime.of(10, 0), 2, null);
+
+        Reserva reserva = service.criar(request, "visitante@exemplo.com");
+
+        assertEquals("Pendente", reserva.getStatusReserva());
+        verify(reservas).save(reserva);
+    }
+
+    @Test
     void reservaQueExcedeCotaMensalFicaPendenteEAlertaEquipe() {
         Espaco espaco = new Espaco();
         espaco.setIdEspaco(2);

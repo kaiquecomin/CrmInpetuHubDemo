@@ -84,7 +84,7 @@ public class ReservaService {
         boolean excedeCota = limiteMensal != null
                 && horasReservadas(solicitante.getIdUsuario(), request.dataReserva(), null) + horasPedido > limiteMensal;
         boolean exigeAprovacao = visitaGuiada || Boolean.TRUE.equals(espaco.getExigeAprovacaoManual())
-                || solicitante.getIdPersona() == null || excedeCota;
+                || solicitante.getIdPersona() == null || solicitante.getIdPersona() == 6 || excedeCota;
         reserva.setStatusReserva(exigeAprovacao ? "Pendente" : "Confirmada");
         reserva.setExcedeCota(excedeCota);
         Reserva criada = reservas.save(reserva);
