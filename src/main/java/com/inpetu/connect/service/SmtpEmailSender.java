@@ -7,11 +7,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
+import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
-import java.nio.charset.StandardCharsets;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
 
 @Service
 @Profile("!test")
@@ -73,9 +75,38 @@ public class SmtpEmailSender implements EmailSender {
             logger.info("E-mail de confirmação enviado para {}", maskedEmail(pendente.getEmail()));
         } catch (Exception e) {
             logger.error("Falha ao enviar e-mail de confirmação para {} ({}).",
-                maskedEmail(pendente.getEmail()), e.getClass().getSimpleName());
+                maskedEmail(pendente.getEmail()), causeChain(e));
             throw new IllegalStateException("Não foi possível enviar o e-mail de confirmação.");
         }
+    }
+
+    /**
+     * Monta a cadeia de causas apenas com nomes de classe, sem mensagens (que podem conter dados pessoais).
+     * Inclui as falhas por destinatário de MailSendException, que não ficam em getCause().
+     */
+    private static String causeChain(Throwable error) {
+        StringBuilder chain = new StringBuilder();
+        Throwable current = error;
+        int depth = 0;
+        while (current != null && depth < 6) {
+            if (depth > 0) {
+                chain.append(" -> ");
+            }
+            chain.append(current.getClass().getSimpleName());
+            current = current.getCause();
+            depth++;
+        }
+        if (error instanceof MailSendException mailError) {
+            Map<?, ?> failed = mailError.getFailedMessages();
+            if (failed != null) {
+                for (Object value : failed.values()) {
+                    if (value instanceof Throwable failure) {
+                        chain.append(" | envio: ").append(failure.getClass().getSimpleName());
+                    }
+                }
+            }
+        }
+        return chain.toString();
     }
 
     private String maskedEmail(String email) {
