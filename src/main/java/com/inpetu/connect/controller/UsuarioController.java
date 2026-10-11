@@ -43,6 +43,7 @@ import java.security.MessageDigest;
 import java.util.Base64;
 import java.util.Iterator;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.security.SecureRandom;
@@ -80,6 +81,7 @@ public class UsuarioController {
         Usuario usuario = usuarioAutenticado(auth);
         Organizacao organizacao = usuario.getIdOrganizacao() == null ? null
                 : organizacoes.findById(usuario.getIdOrganizacao()).orElse(null);
+        UsuarioFoto foto = fotos.findById(usuario.getIdUsuario()).orElse(null);
         return Map.of(
                 "idUsuario", usuario.getIdUsuario(),
                 "nomeCompleto", usuario.getNomeCompleto(),
@@ -89,7 +91,8 @@ public class UsuarioController {
                 "organizacao", organizacao == null ? "" : organizacao.getNomeOrganizacao(),
                 "perfil", usuario.getIdPerfil(),
                 "senhaTemporaria", Boolean.TRUE.equals(usuario.getSenhaTemporaria()),
-                "idPersona", usuario.getIdPersona() == null ? 0 : usuario.getIdPersona());
+                "temFoto", foto != null,
+                "fotoVersao", foto == null ? 0L : foto.getAtualizadaEm().toInstant(ZoneOffset.UTC).toEpochMilli());
     }
 
     @PutMapping("/me")
@@ -99,7 +102,7 @@ public class UsuarioController {
         usuario.setNomeCompleto(request.nomeCompleto().trim());
         usuario.setTelefone(request.telefone() == null || request.telefone().isBlank() ? null : request.telefone().trim());
         usuario.setCargoVinculo(request.cargoVinculo().trim());
-        if (usuario.getIdOrganizacao() != null) {
+        if (Integer.valueOf(4).equals(usuario.getIdPerfil()) && usuario.getIdOrganizacao() != null) {
             Organizacao atual = organizacoes.findById(usuario.getIdOrganizacao())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT,
                             "A organização vinculada ao seu perfil não foi encontrada."));
@@ -126,7 +129,8 @@ public class UsuarioController {
 
     @PostMapping(value = "/me/foto", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Transactional
-    public ResponseEntity<Void> atualizarMinhaFoto(@RequestParam("foto") MultipartFile arquivo, Authentication auth) {
+    public ResponseEntity<Map<String, Object>> atualizarMinhaFoto(
+            @RequestParam("foto") MultipartFile arquivo, Authentication auth) {
         if (arquivo.isEmpty() || arquivo.getSize() > 2L * 1024 * 1024) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A foto deve ter conteúdo e até 2 MB.");
         }
@@ -157,7 +161,9 @@ public class UsuarioController {
         }
         registrar("usuario_foto", usuario.getIdUsuario(), "ATUALIZACAO_FOTO",
                 "Foto de perfil atualizada.", auth.getName());
-        return ResponseEntity.noContent().build();
+        UsuarioFoto salva = fotos.findById(usuario.getIdUsuario()).orElseThrow();
+        return ResponseEntity.ok(Map.of("temFoto", true,
+                "fotoVersao", salva.getAtualizadaEm().toInstant(ZoneOffset.UTC).toEpochMilli()));
     }
 
     @GetMapping("/me/foto")
@@ -165,7 +171,28 @@ public class UsuarioController {
     public ResponseEntity<byte[]> minhaFoto(Authentication auth,
             @RequestHeader(value = HttpHeaders.IF_NONE_MATCH, required = false) String ifNoneMatch) {
         Usuario usuario = usuarioAutenticado(auth);
-        UsuarioFoto foto = fotos.findById(usuario.getIdUsuario())
+        return respostaFoto(usuario.getIdUsuario(), ifNoneMatch);
+    }
+
+    @GetMapping("/{id}/foto")
+    @Transactional(readOnly = true)
+    public ResponseEntity<byte[]> fotoCadastro(@PathVariable Integer id, Authentication auth,
+            @RequestHeader(value = HttpHeaders.IF_NONE_MATCH, required = false) String ifNoneMatch) {
+        Usuario solicitante = usuarioAutenticado(auth);
+        if (!id.equals(solicitante.getIdUsuario())) {
+            Usuario cadastro = usuarios.findById(id)
+                    .filter(usuario -> Integer.valueOf(4).equals(usuario.getIdPerfil()))
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                            "Foto de perfil não encontrada."));
+            if (solicitante.getIdPerfil() == null || solicitante.getIdPerfil() >= 4) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Foto de perfil não encontrada.");
+            }
+        }
+        return respostaFoto(id, ifNoneMatch);
+    }
+
+    private ResponseEntity<byte[]> respostaFoto(Integer idUsuario, String ifNoneMatch) {
+        UsuarioFoto foto = fotos.findById(idUsuario)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Foto de perfil não encontrada."));
         String etag = "\"" + Base64.getUrlEncoder().withoutPadding().encodeToString(
                 digestSha256(foto.getConteudo())) + "\"";
@@ -182,14 +209,14 @@ public class UsuarioController {
 
     @DeleteMapping("/me/foto")
     @Transactional
-    public ResponseEntity<Void> removerMinhaFoto(Authentication auth) {
+    public ResponseEntity<Map<String, Object>> removerMinhaFoto(Authentication auth) {
         Usuario usuario = usuarioAutenticado(auth);
         if (fotos.existsById(usuario.getIdUsuario())) {
             fotos.deleteById(usuario.getIdUsuario());
             registrar("usuario_foto", usuario.getIdUsuario(), "REMOCAO_FOTO",
                     "Foto de perfil removida.", auth.getName());
         }
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(Map.of("temFoto", false, "fotoVersao", System.currentTimeMillis()));
     }
 
     @PutMapping("/me/senha")
@@ -404,9 +431,11 @@ public class UsuarioController {
     }
 
     private UsuarioResumo resumo(Usuario u) {
+        UsuarioFoto foto = fotos.findById(u.getIdUsuario()).orElse(null);
         return new UsuarioResumo(u.getIdUsuario(), u.getNomeCompleto(), u.getEmail(), u.getTelefone(),
                 u.getCargoVinculo(), u.getIdPerfil(), u.getIdOrganizacao(), u.getAtivo(),
-                u.getIdPersona(), u.getDataCadastro());
+                u.getIdPersona(), u.getDataCadastro(), foto != null,
+                foto == null ? 0L : foto.getAtualizadaEm().toInstant(ZoneOffset.UTC).toEpochMilli());
     }
     private Usuario usuarioAutenticado(Authentication auth) {
         return usuarios.findByEmailIgnoreCase(auth.getName())

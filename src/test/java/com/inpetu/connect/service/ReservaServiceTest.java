@@ -257,6 +257,41 @@ class ReservaServiceTest {
     }
 
     @Test
+    void aprovacaoNotificaSomenteSolicitante() {
+        Usuario equipe = new Usuario();
+        equipe.setIdUsuario(2);
+        equipe.setIdPerfil(1);
+        equipe.setAtivo(true);
+        Usuario solicitante = new Usuario();
+        solicitante.setIdUsuario(7);
+        solicitante.setEmail("solicitante@example.test");
+        solicitante.setAtivo(true);
+        Espaco espaco = new Espaco();
+        espaco.setIdEspaco(3);
+        Reserva reserva = new Reserva();
+        reserva.setIdReserva(22);
+        reserva.setIdSolicitante(7);
+        reserva.setIdEspaco(3);
+        reserva.setDataReserva(LocalDate.now().plusDays(3));
+        reserva.setHorarioInicio(LocalTime.of(10, 0));
+        reserva.setHorarioFim(LocalTime.of(11, 0));
+        reserva.setStatusReserva("Pendente");
+        when(usuarios.findByEmail("coord@example.test")).thenReturn(Optional.of(equipe));
+        when(reservas.findById(22)).thenReturn(Optional.of(reserva));
+        when(espacos.bloquearParaReserva(3)).thenReturn(Optional.of(espaco));
+        when(reservas.existeReservaAnteriorConflitante(anyInt(), anyInt(), any(), any(), any(), any()))
+                .thenReturn(false);
+        when(reservas.save(reserva)).thenReturn(reserva);
+        when(usuarios.findById(7)).thenReturn(Optional.of(solicitante));
+
+        service.aprovar(22, "coord@example.test");
+
+        verify(notificacoes).enviar(eq(List.of(solicitante)), eq("RESERVA_APROVADA"),
+                eq("Reserva aprovada"),
+                contains("foi aprovada"));
+    }
+
+    @Test
     void visitaGuiadaExigeQuantidadeEAnaliseManualMesmoParaCategoriaAutomatica() {
         Espaco espaco = new Espaco();
         espaco.setIdEspaco(6);

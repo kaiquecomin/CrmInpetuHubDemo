@@ -212,7 +212,7 @@ public class ReservaService {
                 aprovador.getIdUsuario(), aprovadaEm);
         Usuario solicitante = usuarios.findById(reserva.getIdSolicitante())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Solicitante da reserva não encontrado."));
-        notificacoes.enviar(destinatarios(solicitante), "RESERVA_APROVADA", "Reserva aprovada",
+        notificacoes.enviar(List.of(solicitante), "RESERVA_APROVADA", "Reserva aprovada",
                 "Sua reserva \"" + reserva.getTituloEvento() + "\" foi aprovada para " + reserva.getDataReserva()
                         + ", das " + reserva.getHorarioInicio() + " às " + reserva.getHorarioFim() + ".");
         return atualizada;

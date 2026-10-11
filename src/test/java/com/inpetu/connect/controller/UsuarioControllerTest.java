@@ -6,6 +6,7 @@ import com.inpetu.connect.dto.CadastroEdicaoRequest;
 import com.inpetu.connect.dto.UsuarioResumo;
 import com.inpetu.connect.model.LogAuditoria;
 import com.inpetu.connect.model.Organizacao;
+import com.inpetu.connect.model.UsuarioFoto;
 import com.inpetu.connect.model.Usuario;
 import com.inpetu.connect.repository.UsuarioFotoRepository;
 import com.inpetu.connect.security.JwtService;
@@ -29,6 +30,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Optional;
+import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -284,6 +286,28 @@ class UsuarioControllerTest {
     }
 
     @Test
+    void rejeitaConfirmacaoDeSenhaDiferenteAntesDeSalvar() {
+        Usuario solicitante = new Usuario();
+        solicitante.setIdUsuario(27);
+        solicitante.setEmail("joana@example.org");
+        solicitante.setSenhaHash("hash-antigo");
+        when(authentication.getName()).thenReturn("joana@example.org");
+        when(usuarios.findByEmailIgnoreCase("joana@example.org")).thenReturn(Optional.of(solicitante));
+        when(passwordEncoder.matches("SenhaAtual123!", "hash-antigo")).thenReturn(true);
+
+        ResponseStatusException error = assertThrows(ResponseStatusException.class, () ->
+                controller.alterarMinhaSenha(
+                        new com.inpetu.connect.dto.AlterarSenhaRequest(
+                                "SenhaAtual123!", "SenhaNova123!", "SenhaDiferente123!"),
+                        authentication, new MockHttpServletResponse()));
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatusCode());
+        assertTrue(error.getReason().contains("confirmação"));
+        verify(usuarios, never()).save(any());
+        verifyNoInteractions(auditoria);
+    }
+
+    @Test
     void redefineSenhaTemporariaApenasParaOutroUsuarioEAuditaSemSegredo() {
         Usuario admin = new Usuario();
         admin.setIdUsuario(1);
@@ -330,5 +354,73 @@ class UsuarioControllerTest {
         assertEquals(HttpStatus.FORBIDDEN, error.getStatusCode());
         verify(passwordEncoder, never()).encode(anyString());
         verifyNoInteractions(auditoria);
+    }
+
+    @Test
+    void respostaDoPerfilProprioNaoExpoePersonaEIncluiVersaoDaFoto() {
+        Usuario solicitante = new Usuario();
+        solicitante.setIdUsuario(27);
+        solicitante.setIdPerfil(4);
+        solicitante.setIdPersona(5);
+        solicitante.setNomeCompleto("Joana Silva");
+        solicitante.setEmail("joana@example.org");
+        UsuarioFoto foto = new UsuarioFoto();
+        foto.setIdUsuario(27);
+        foto.setConteudo(new byte[] { 1, 2, 3 });
+        foto.setAtualizadaEm(LocalDateTime.of(2026, 10, 12, 10, 30));
+        when(authentication.getName()).thenReturn("joana@example.org");
+        when(usuarios.findByEmailIgnoreCase("joana@example.org")).thenReturn(Optional.of(solicitante));
+        when(fotos.findById(27)).thenReturn(Optional.of(foto));
+
+        var result = controller.meuPerfil(authentication);
+
+        assertFalse(result.containsKey("idPersona"));
+        assertFalse(result.containsKey("persona"));
+        assertEquals(true, result.get("temFoto"));
+        assertEquals(foto.getAtualizadaEm().toInstant(java.time.ZoneOffset.UTC).toEpochMilli(),
+                result.get("fotoVersao"));
+    }
+
+    @Test
+    void solicitanteNaoPodeLerFotoDeOutroCadastro() {
+        Usuario solicitante = new Usuario();
+        solicitante.setIdUsuario(9);
+        solicitante.setIdPerfil(4);
+        Usuario alvo = new Usuario();
+        alvo.setIdUsuario(27);
+        alvo.setIdPerfil(4);
+        when(authentication.getName()).thenReturn("joana@example.org");
+        when(usuarios.findByEmailIgnoreCase("joana@example.org")).thenReturn(Optional.of(solicitante));
+        when(usuarios.findById(27)).thenReturn(Optional.of(alvo));
+
+        ResponseStatusException error = assertThrows(ResponseStatusException.class,
+                () -> controller.fotoCadastro(27, authentication, null));
+
+        assertEquals(HttpStatus.NOT_FOUND, error.getStatusCode());
+        verifyNoInteractions(fotos);
+    }
+
+    @Test
+    void equipePodeLerFotoDeCadastroComEtags() {
+        Usuario equipe = new Usuario();
+        equipe.setIdUsuario(1);
+        equipe.setIdPerfil(3);
+        Usuario alvo = new Usuario();
+        alvo.setIdUsuario(27);
+        alvo.setIdPerfil(4);
+        UsuarioFoto foto = new UsuarioFoto();
+        foto.setIdUsuario(27);
+        foto.setConteudo(new byte[] { 1, 2, 3 });
+        when(authentication.getName()).thenReturn("staff@example.org");
+        when(usuarios.findByEmailIgnoreCase("staff@example.org")).thenReturn(Optional.of(equipe));
+        when(usuarios.findById(27)).thenReturn(Optional.of(alvo));
+        when(fotos.findById(27)).thenReturn(Optional.of(foto));
+
+        var first = controller.fotoCadastro(27, authentication, null);
+        var cached = controller.fotoCadastro(27, authentication, first.getHeaders().getETag());
+
+        assertEquals(HttpStatus.OK, first.getStatusCode());
+        assertArrayEquals(new byte[] { 1, 2, 3 }, first.getBody());
+        assertEquals(HttpStatus.NOT_MODIFIED, cached.getStatusCode());
     }
 }

@@ -1,13 +1,18 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Combobox, ComboboxInput, ComboboxOption, ComboboxOptions, Dialog, DialogPanel, DialogTitle, Menu, MenuButton, MenuItem, MenuItems, Tab, TabGroup, TabList, TabPanel, TabPanels, Transition, TransitionChild } from '@headlessui/react'
-import { ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, Bell, Building2, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, Clock3, DoorOpen, Download, ExternalLink, FileText, Filter, GraduationCap, Home as HomeIcon, LayoutDashboard, ListChecks, Mail, MapPin, Menu as MenuIcon, MessageCircle, MoreHorizontal, Plus, Search, ShieldCheck, SlidersHorizontal, Users, X } from 'lucide-react'
+import { ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, Bell, Building2, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, Clock3, DoorOpen, Download, Eye, EyeOff, ExternalLink, FileText, Filter, GraduationCap, Home as HomeIcon, LayoutDashboard, ListChecks, LockKeyhole, Mail, MapPin, Menu as MenuIcon, MessageCircle, MoreHorizontal, Plus, Search, ShieldCheck, SlidersHorizontal, Users, X } from 'lucide-react'
 import { personas, personaQuotaLabel } from './personas.js'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1'
-const getStoredUser = () => {
-  try { return JSON.parse(localStorage.getItem('inpetu-user') || 'null') } catch { return null }
+const omitPersona = user => {
+  if (!user) return user
+  const { idPersona, persona, ...safeUser } = user
+  return safeUser
 }
-const storeUser = user => localStorage.setItem('inpetu-user', JSON.stringify(user))
+const getStoredUser = () => {
+  try { return omitPersona(JSON.parse(localStorage.getItem('inpetu-user') || 'null')) } catch { return null }
+}
+const storeUser = user => localStorage.setItem('inpetu-user', JSON.stringify(omitPersona(user)))
 const clearStoredUser = () => localStorage.removeItem('inpetu-user')
 const isCrmUser = user => [1, 2, 3].includes(Number(user?.perfil ?? user?.idPerfil))
 const LOGIN_RETURN_VIEW_KEY = 'inpetu-login-return-view'
@@ -35,6 +40,7 @@ const formatBrazilianPhone = value => {
   if (subscriber.length <= prefixLength) return `(${areaCode}) ${subscriber}`
   return `(${areaCode}) ${subscriber.slice(0, prefixLength)}-${subscriber.slice(prefixLength)}`
 }
+const isValidBrazilianMobile = value => /^\(\d{2}\) 9\d{4}-\d{4}$/.test(String(value || ''))
 const isGuidedTour = type => type?.trim().toLocaleLowerCase('pt-BR') === 'visita guiada'
 const normalizeRoomName = value => value?.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLocaleLowerCase('pt-BR') || ''
 const roomPhotoSets = {
@@ -216,11 +222,6 @@ function PhoneInput({ value, onChange, ...props }) {
     onChange={handleChange}
   />
 }
-function Badge({ level }) {
-  const item = personas[level]
-  if (!item) return <span className="awaiting-label">Persona pendente</span>
-  return <span className={`priority-badge ${item.badge}`}><i />P{level} · {item.label}</span>
-}
 function Modal({ open, close, title, children, wide = false }) {
   return <Transition appear show={open} as={Fragment}><Dialog as="div" className="dialog-root" onClose={close}>
     <TransitionChild as={Fragment} enter="ease-out duration-200" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-150" leaveFrom="opacity-100" leaveTo="opacity-0"><div className="dialog-backdrop" /></TransitionChild>
@@ -300,26 +301,140 @@ function NotificationCenter({ user }) {
     </section>}
   </div>
 }
-function ProfileAvatar({ user, className }) {
-  const [photoUrl, setPhotoUrl] = useState('')
+const avatarPhotoCache = new Map()
+const avatarPhotoLoads = new Map()
+const avatarPhotoFailures = new Set()
+
+function releaseAvatarPhoto(entry) {
+  entry.references = Math.max(0, entry.references - 1)
+  if (entry.references === 0 && entry.objectUrl) {
+    URL.revokeObjectURL(entry.objectUrl)
+    entry.objectUrl = ''
+  }
+}
+
+async function loadAvatarPhoto(userId, version) {
+  const cacheKey = String(userId)
+  const requestKey = `${cacheKey}:${version}`
+  const existingLoad = avatarPhotoLoads.get(requestKey)
+  if (existingLoad) return existingLoad
+
+  const previous = avatarPhotoCache.get(cacheKey)
+  const headers = previous?.etag ? { 'If-None-Match': previous.etag } : {}
+  const loading = fetch(`${API}/usuarios/${encodeURIComponent(userId)}/foto`, {
+    credentials: 'include',
+    headers,
+  }).then(async response => {
+    if (response.status === 304 && previous?.blob) {
+      previous.version = version
+      return previous
+    }
+    if (response.status === 404) {
+      avatarPhotoFailures.add(requestKey)
+      return null
+    }
+    if (!response.ok) throw new Error(`Falha ao carregar a foto (HTTP ${response.status}).`)
+    const entry = {
+      version,
+      etag: response.headers.get('ETag') || '',
+      blob: await response.blob(),
+      objectUrl: '',
+      references: 0,
+    }
+    avatarPhotoCache.set(cacheKey, entry)
+    avatarPhotoFailures.delete(requestKey)
+    return entry
+  }).finally(() => avatarPhotoLoads.delete(requestKey))
+  avatarPhotoLoads.set(requestKey, loading)
+  return loading
+}
+
+export function Avatar({ user, id, nome, tamanho = 40, className = '' }) {
+  const userId = id ?? user?.idUsuario
+  const name = nome || user?.nomeCompleto || user?.nome || user?.email || 'Usuário'
+  const hasPhoto = Boolean(user?.temFoto ?? user?.hasPhoto)
+  const version = String(user?.fotoVersao ?? user?.fotoAtualizadaEm ?? 0)
+  const [photo, setPhoto] = useState('')
+  const [failed, setFailed] = useState(false)
+
   useEffect(() => {
     let active = true
-    let objectUrl = ''
-    fetch(`${API}/usuarios/me/foto`, { credentials: 'include' }).then(response => response.ok ? response.blob() : null)
-      .then(blob => {
-        if (active && blob) {
-          objectUrl = URL.createObjectURL(blob)
-          setPhotoUrl(objectUrl)
-        } else if (active) setPhotoUrl('')
-      }).catch(() => { if (active) setPhotoUrl('') })
-    return () => { active = false; if (objectUrl) URL.revokeObjectURL(objectUrl) }
-  }, [user?.email, user?.fotoAtualizadaEm])
-  return <span className={className} aria-hidden="true">{getRoomInitials(user)}{photoUrl && <img src={photoUrl} alt="" />}</span>
+    let acquired = null
+    setFailed(false)
+    if (!userId || !hasPhoto) {
+      setPhoto('')
+      return undefined
+    }
+    const cacheKey = String(userId)
+    const requestKey = `${cacheKey}:${version}`
+    const cached = avatarPhotoCache.get(cacheKey)
+
+    function useEntry(entry) {
+      if (!active || !entry) return
+      if (!entry.objectUrl) entry.objectUrl = URL.createObjectURL(entry.blob)
+      entry.references++
+      acquired = entry
+      setPhoto(entry.objectUrl)
+    }
+
+    if (cached?.version === version) {
+      if (cached.invalid) {
+        setPhoto('')
+        setFailed(true)
+      }
+      else if (cached.blob) useEntry(cached)
+      else setPhoto('')
+    } else if (avatarPhotoFailures.has(requestKey)) {
+      setPhoto('')
+      setFailed(true)
+    } else {
+      setPhoto('')
+      loadAvatarPhoto(userId, version).then(entry => {
+        if (entry) useEntry(entry)
+        else if (active) {
+          setPhoto('')
+          setFailed(true)
+        }
+      }).catch(() => {
+        if (active) {
+          avatarPhotoFailures.add(requestKey)
+          setPhoto('')
+          setFailed(true)
+        }
+      })
+    }
+
+    return () => {
+      active = false
+      if (acquired) releaseAvatarPhoto(acquired)
+    }
+  }, [userId, hasPhoto, version])
+
+  function failPhoto() {
+    if (photo) {
+      avatarPhotoFailures.add(`${userId}:${version}`)
+      const entry = avatarPhotoCache.get(String(userId))
+      if (entry?.objectUrl === photo) entry.invalid = true
+      setPhoto('')
+      setFailed(true)
+    }
+  }
+
+  return <span
+    className={`avatar ${className} ${hasPhoto && !photo && !failed ? 'avatar-loading' : ''}`}
+    role="img"
+    aria-label={`Avatar de ${name}`}
+    aria-busy={hasPhoto && !photo && !failed}
+    style={{ width: tamanho, height: tamanho, fontSize: Math.max(10, tamanho * 0.34) }}
+  >
+    {photo ? <img src={photo} alt="" onError={failPhoto} /> : hasPhoto && !failed
+      ? <span className="avatar-skeleton" aria-hidden="true" />
+      : getRoomInitials({ nome: name })}
+  </span>
 }
 function ProfileDialog({ open, close, user, onUserUpdate }) {
   const [profile, setProfile] = useState(null)
   const [form, setForm] = useState({ nomeCompleto: '', telefone: '', organizacao: '', cargoVinculo: '' })
-  const [photoUrl, setPhotoUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -327,8 +442,22 @@ function ProfileDialog({ open, close, user, onUserUpdate }) {
   const [passwordForm, setPasswordForm] = useState({ senhaAtual: '', novaSenha: '', confirmarSenha: '' })
   const [passwordBusy, setPasswordBusy] = useState(false)
   const [passwordNotice, setPasswordNotice] = useState('')
+  const [visiblePasswords, setVisiblePasswords] = useState({})
   const photoInput = useRef(null)
   const perfilLabel = Number(user?.perfil) === 1 ? 'Coordenador / Admin' : Number(user?.perfil) === 2 ? 'Gestor de espaços' : Number(user?.perfil) === 3 ? 'Atendente / Staff' : 'Solicitante'
+  const isStaff = Number(user?.perfil) < 4
+  const profileChanged = Boolean(profile) && (
+    form.nomeCompleto !== (profile.nomeCompleto || '')
+    || form.telefone !== (profile.telefone || '')
+    || form.organizacao !== (profile.organizacao || '')
+    || form.cargoVinculo !== (profile.cargoVinculo || '')
+  )
+  const invalidPhone = Boolean(form.telefone) && !isValidBrazilianMobile(form.telefone)
+  const passwordMismatch = Boolean(passwordForm.confirmarSenha)
+    && passwordForm.novaSenha !== passwordForm.confirmarSenha
+  const invalidNewPassword = passwordForm.novaSenha.length < 8
+    || passwordForm.novaSenha.length > 64
+    || passwordForm.novaSenha === passwordForm.senhaAtual
 
   useEffect(() => {
     if (!open) return
@@ -338,42 +467,41 @@ function ProfileDialog({ open, close, user, onUserUpdate }) {
     setSuccess('')
     request('/usuarios/me').then(data => {
       if (!active) return
-      setProfile(data)
+      const normalizedProfile = { ...data, telefone: data.telefone ? formatBrazilianPhone(data.telefone) : '' }
+      setProfile(normalizedProfile)
       setForm({
-        nomeCompleto: data.nomeCompleto || '',
-        telefone: data.telefone || '',
-        organizacao: data.organizacao || '',
-        cargoVinculo: data.cargoVinculo || '',
+        nomeCompleto: normalizedProfile.nomeCompleto || '',
+        telefone: normalizedProfile.telefone,
+        organizacao: normalizedProfile.organizacao || '',
+        cargoVinculo: normalizedProfile.cargoVinculo || '',
+      })
+      onUserUpdate?.({
+        ...user,
+        idUsuario: normalizedProfile.idUsuario,
+        nome: normalizedProfile.nomeCompleto,
+        temFoto: normalizedProfile.temFoto,
+        fotoVersao: normalizedProfile.fotoVersao,
       })
     }).catch(loadError => { if (active) setError(loadError.message) })
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [open])
 
-  useEffect(() => {
-    if (!open) return
-    let active = true
-    let objectUrl = ''
-    fetch(`${API}/usuarios/me/foto`, { credentials: 'include' }).then(response => {
-      if (response.status === 404) return null
-      if (!response.ok) throw new Error(`Não foi possível carregar a foto (HTTP ${response.status}).`)
-      return response.blob()
-    }).then(blob => {
-      if (active && blob) {
-        objectUrl = URL.createObjectURL(blob)
-        setPhotoUrl(objectUrl)
-      } else if (active) setPhotoUrl('')
-    }).catch(loadError => { if (active) setError(loadError.message) })
-    return () => { active = false; if (objectUrl) URL.revokeObjectURL(objectUrl) }
-  }, [open])
+  function closeProfile() {
+    if (saving) return
+    if (profileChanged && !window.confirm('Há alterações de perfil não salvas. Deseja fechar mesmo assim?')) return
+    close()
+  }
 
   async function saveProfile(event) {
     event.preventDefault()
+    if (invalidPhone || !profileChanged) return
     setSaving(true); setError(''); setSuccess('')
     try {
       const updated = await request('/usuarios/me', { method: 'PUT', body: JSON.stringify(form) })
-      setProfile(updated)
-      onUserUpdate?.({ ...user, nome: updated.nomeCompleto, email: updated.email, idPersona: updated.idPersona || undefined })
+      const normalized = { ...updated, telefone: updated.telefone ? formatBrazilianPhone(updated.telefone) : '' }
+      setProfile(normalized)
+      onUserUpdate?.({ ...user, nome: updated.nomeCompleto, email: updated.email })
       setSuccess('Perfil atualizado.')
     } catch (saveError) { setError(saveError.message) } finally { setSaving(false) }
   }
@@ -381,8 +509,12 @@ function ProfileDialog({ open, close, user, onUserUpdate }) {
   async function uploadPhoto(file) {
     setError(''); setSuccess('')
     if (!file) return
-    if (file.size > 2 * 1024 * 1024 || !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      setError('Escolha uma foto JPG, PNG ou WebP de até 2 MB.')
+    if (file.size > 2 * 1024 * 1024) {
+      setError('A foto excede o limite de 2 MB.')
+      return
+    }
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setError('Formato inválido. Escolha uma foto JPG, PNG ou WebP.')
       return
     }
     try {
@@ -395,10 +527,9 @@ function ProfileDialog({ open, close, user, onUserUpdate }) {
       const blob = await new Promise((resolve, reject) => canvas.toBlob(result => result ? resolve(result) : reject(new Error('Não foi possível preparar a imagem.')), 'image/jpeg', 0.9))
       const data = new FormData()
       data.append('foto', blob, 'perfil.jpg')
-      await request('/usuarios/me/foto', { method: 'POST', body: data })
-      if (photoUrl) URL.revokeObjectURL(photoUrl)
-      setPhotoUrl(URL.createObjectURL(blob))
-      onUserUpdate?.({ ...user, fotoAtualizadaEm: Date.now() })
+      const photo = await request('/usuarios/me/foto', { method: 'POST', body: data })
+      setProfile(current => ({ ...current, ...photo }))
+      onUserUpdate?.({ ...user, ...photo })
       setSuccess('Foto atualizada.')
     } catch (photoError) { setError(photoError.message) }
   }
@@ -406,16 +537,16 @@ function ProfileDialog({ open, close, user, onUserUpdate }) {
   async function removePhoto() {
     setError(''); setSuccess('')
     try {
-      await request('/usuarios/me/foto', { method: 'DELETE' })
-      if (photoUrl) URL.revokeObjectURL(photoUrl)
-      setPhotoUrl('')
-      onUserUpdate?.({ ...user, fotoAtualizadaEm: Date.now() })
+      const photo = await request('/usuarios/me/foto', { method: 'DELETE' })
+      setProfile(current => ({ ...current, ...photo }))
+      onUserUpdate?.({ ...user, ...photo })
       setSuccess('Foto removida.')
     } catch (photoError) { setError(photoError.message) }
   }
 
   async function changePassword(event) {
     event.preventDefault()
+    if (invalidNewPassword || passwordMismatch) return
     setPasswordNotice('')
     setPasswordBusy(true)
     try {
@@ -425,28 +556,68 @@ function ProfileDialog({ open, close, user, onUserUpdate }) {
     } catch (passwordError) { setPasswordNotice(passwordError.message) } finally { setPasswordBusy(false) }
   }
 
-  return <Modal open={open} close={close} title="Meu perfil" wide>
+  function passwordField(field, label, autocomplete) {
+    const visible = Boolean(visiblePasswords[field])
+    return <label className="profile-password-label" key={field}>
+      {label}
+      <span className="profile-password-input">
+        <input
+          required
+          minLength={field === 'senhaAtual' ? undefined : 8}
+          maxLength={field === 'senhaAtual' ? undefined : 64}
+          type={visible ? 'text' : 'password'}
+          autoComplete={autocomplete}
+          value={passwordForm[field]}
+          onChange={event => setPasswordForm({ ...passwordForm, [field]: event.target.value })}
+          aria-invalid={field === 'confirmarSenha' && passwordMismatch}
+          aria-describedby={field === 'confirmarSenha' && passwordMismatch ? 'profile-password-mismatch' : undefined}
+        />
+        <button
+          type="button"
+          className="password-visibility"
+          aria-label={`${visible ? 'Ocultar' : 'Mostrar'} ${label.toLowerCase()}`}
+          aria-pressed={visible}
+          onClick={() => setVisiblePasswords(current => ({ ...current, [field]: !current[field] }))}
+        >{visible ? <EyeOff size={17} /> : <Eye size={17} />}</button>
+      </span>
+    </label>
+  }
+
+  return <Modal open={open} close={closeProfile} title="Meu perfil" wide>
     {loading ? <p className="portal-empty">Carregando seus dados...</p> : profile && <div className="profile-editor">
       <section className="profile-editor-heading">
-        <span className="profile-editor-avatar">{photoUrl ? <img src={photoUrl} alt="Foto do perfil" /> : getRoomInitials({ nome: profile.nomeCompleto })}</span>
-        <div><strong>{profile.nomeCompleto}</strong><small>{perfilLabel}</small><div className="profile-photo-actions"><button type="button" onClick={() => photoInput.current?.click()}>Alterar foto</button>{photoUrl && <button type="button" onClick={removePhoto}>Remover foto</button>}<input ref={photoInput} hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={event => { uploadPhoto(event.target.files?.[0]); event.target.value = '' }} /></div></div>
+        <Avatar user={{ ...user, ...profile, nomeCompleto: profile.nomeCompleto }} nome={profile.nomeCompleto} tamanho={74} className="profile-editor-avatar" />
+        <div><strong>{profile.nomeCompleto}</strong><small>{perfilLabel}</small><div className="profile-photo-actions">
+          <button type="button" className="profile-photo-button" onClick={() => photoInput.current?.click()}>Alterar foto</button>
+          {profile.temFoto && <button type="button" className="profile-photo-button profile-photo-remove" onClick={removePhoto}>Remover foto</button>}
+          <small>JPG, PNG ou WebP até 2 MB</small>
+          <input ref={photoInput} hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={event => { uploadPhoto(event.target.files?.[0]); event.target.value = '' }} />
+        </div></div>
       </section>
       <form className="profile-editor-form" onSubmit={saveProfile}>
-        <label>Nome<input required maxLength="100" value={form.nomeCompleto} onChange={event => setForm({ ...form, nomeCompleto: event.target.value })} /></label>
-        <label>Telefone<PhoneInput value={form.telefone} onChange={telefone => setForm({ ...form, telefone })} /></label>
-        <label>Organização<input required maxLength="100" value={form.organizacao} onChange={event => setForm({ ...form, organizacao: event.target.value })} /></label>
-        <label>Cargo ou vínculo<input required maxLength="100" value={form.cargoVinculo} onChange={event => setForm({ ...form, cargoVinculo: event.target.value })} /></label>
-        <div className="profile-readonly"><div><small>E-MAIL</small><strong>{profile.email}</strong></div><div><small>PERFIL DE ACESSO</small><strong>{perfilLabel}</strong></div><div><small>PERSONA</small><strong>{profile.idPersona ? `P${profile.idPersona}` : 'Aguardando classificação'}</strong></div></div>
+        <label htmlFor="profile-name">Nome<input id="profile-name" required maxLength="100" value={form.nomeCompleto} onChange={event => setForm({ ...form, nomeCompleto: event.target.value })} /></label>
+        <label htmlFor="profile-phone">Telefone<PhoneInput id="profile-phone" value={form.telefone} onChange={telefone => setForm({ ...form, telefone })} aria-invalid={invalidPhone} aria-describedby={invalidPhone ? 'profile-phone-error' : undefined} />{invalidPhone && <small id="profile-phone-error" className="profile-field-error">Informe um celular no formato (48) 99999-9999.</small>}</label>
+        <label htmlFor="profile-organization">Organização<input id="profile-organization" required maxLength="100" value={form.organizacao} readOnly={isStaff} onChange={event => setForm({ ...form, organizacao: event.target.value })} /></label>
+        <label htmlFor="profile-role">Cargo ou vínculo<input id="profile-role" required maxLength="100" value={form.cargoVinculo} onChange={event => setForm({ ...form, cargoVinculo: event.target.value })} /></label>
+        <div className="profile-readonly">
+          <div><small>E-MAIL</small><strong><LockKeyhole size={14} aria-hidden="true" />{profile.email}</strong><small>Para alterar o e-mail, fale com a equipe do InPETU</small></div>
+          <div><small>PERFIL DE ACESSO</small><strong>{perfilLabel}</strong></div>
+        </div>
         {error && <p className="form-message" role="alert">{error}</p>}{success && <p className="success-note" role="status">{success}</p>}
-        <Button type="submit" disabled={saving}>{saving ? 'Salvando...' : 'Salvar perfil'} <Check size={16} /></Button>
+        <Button className="profile-save-action" type="submit" disabled={saving || !profileChanged || invalidPhone}>{saving ? 'Salvando...' : 'Salvar perfil'}</Button>
       </form>
       <form className="profile-password-form" onSubmit={changePassword}>
         <h3>Alterar senha</h3>
-        <label>Senha atual<input required type="password" autoComplete="current-password" value={passwordForm.senhaAtual} onChange={event => setPasswordForm({ ...passwordForm, senhaAtual: event.target.value })} /></label>
-        <label>Nova senha<input required minLength="8" maxLength="64" type="password" autoComplete="new-password" value={passwordForm.novaSenha} onChange={event => setPasswordForm({ ...passwordForm, novaSenha: event.target.value })} /></label>
-        <label>Confirmar nova senha<input required minLength="8" maxLength="64" type="password" autoComplete="new-password" value={passwordForm.confirmarSenha} onChange={event => setPasswordForm({ ...passwordForm, confirmarSenha: event.target.value })} /></label>
+        {passwordField('senhaAtual', 'Senha atual', 'current-password')}
+        {passwordField('novaSenha', 'Nova senha', 'new-password')}
+        {passwordField('confirmarSenha', 'Confirmar nova senha', 'new-password')}
+        <small className="profile-password-rules">Use de 8 a 64 caracteres e uma senha diferente da atual.</small>
+        {passwordMismatch && <p id="profile-password-mismatch" className="form-message" role="alert">A confirmação da nova senha não coincide.</p>}
+        {passwordForm.novaSenha && passwordForm.novaSenha.length < 8 && <p className="form-message" role="alert">A nova senha deve ter pelo menos 8 caracteres.</p>}
+        {passwordForm.novaSenha.length > 64 && <p className="form-message" role="alert">A nova senha deve ter no máximo 64 caracteres.</p>}
+        {passwordForm.novaSenha && passwordForm.novaSenha === passwordForm.senhaAtual && <p className="form-message" role="alert">A nova senha deve ser diferente da senha atual.</p>}
         {passwordNotice && <p className={passwordNotice.includes('sucesso') ? 'success-note' : 'form-message'} role="status">{passwordNotice}</p>}
-        <Button type="submit" disabled={passwordBusy}>{passwordBusy ? 'Alterando...' : 'Alterar senha'}</Button>
+        <Button variant="outline" type="submit" disabled={passwordBusy || invalidNewPassword || passwordMismatch || !passwordForm.senhaAtual || !passwordForm.confirmarSenha}>{passwordBusy ? 'Alterando...' : 'Alterar senha'}</Button>
       </form>
     </div>}
   </Modal>
@@ -459,7 +630,7 @@ function Header({ view, setView, openLogin, onOpenCalendar, user, onLogout, onUs
   const perfilLabel = user?.perfil === 1 ? 'Coordenador / Admin' : user?.perfil === 2 ? 'Gestor de espaços' : user?.perfil === 3 ? 'Atendente / Staff' : 'Solicitante'
   return <header className="site-header reference-header"><div className="header-inner"><button className="logo-button" onClick={() => { setView(user && !isCrmUser(user) ? 'portal' : 'home'); window.scrollTo({ top: 0, behavior: 'smooth' }) }}><span className="reference-logo-icon"><Building2 size={20} /></span><span className="reference-brand-copy"><strong>InPETU Connect</strong><small>UFSC · LOTE 73</small></span></button>
     <nav className={`main-nav ${menuOpen ? 'nav-open' : ''}`}><button className={view === 'home' || view === 'portal' ? 'nav-active' : ''} onClick={() => { setView(user && !isCrmUser(user) ? 'portal' : 'home'); window.scrollTo({ top: 0, behavior: 'smooth' }); setMenuOpen(false) }}>{user && !isCrmUser(user) ? 'Meu portal' : 'Início'}</button><button onClick={() => goTo('spaces')}>Nossos Espaços</button><button onClick={() => goTo('about')}>Sobre o Hub</button><button className={view === 'help' ? 'nav-active' : ''} onClick={() => { setView('help'); setMenuOpen(false) }}>Fale Conosco</button></nav>
-    <div className="header-actions">{user ? <div className="profile-control"><NotificationCenter user={user} /><div className="profile-switcher"><button type="button" className="profile-trigger" aria-haspopup="menu" aria-expanded={profileOpen} onClick={() => setProfileOpen(value => !value)}><ProfileAvatar className="profile-avatar" user={user} /><span className="profile-meta"><strong>{user.nome || user.email || 'Perfil'}</strong><small>{perfilLabel}</small></span><ChevronDown className="profile-chevron" size={16} aria-hidden="true" /></button>{profileOpen && <div className="profile-menu" role="menu"><button type="button" role="menuitem" onClick={() => { setProfileDetailsOpen(true); setProfileOpen(false) }}>Meu perfil</button><button type="button" role="menuitem" onClick={() => { setView('reservations'); setProfileOpen(false) }}>Minhas reservas</button>{isCrmUser(user) && <button type="button" role="menuitem" onClick={() => { setView('crm'); setProfileOpen(false) }}>Painel administrativo</button>}<button type="button" role="menuitem" onClick={() => { onLogout?.(); setProfileOpen(false) }}>Sair da conta</button></div>}</div><ProfileDialog open={profileDetailsOpen} close={() => setProfileDetailsOpen(false)} user={user} onUserUpdate={onUserUpdate} /></div> : <button className="team-link reference-login" onClick={() => { openLogin(); setMenuOpen(false) }}>Entrar</button>}<Button icon={CalendarDays} className="reference-header-cta" onClick={() => { onOpenCalendar(); setMenuOpen(false) }}>Agendar Espaço</Button></div><button className="mobile-menu icon-button" onClick={() => setMenuOpen(!menuOpen)} aria-label="Abrir menu"><MenuIcon /></button>
+    <div className="header-actions">{user ? <div className="profile-control"><NotificationCenter user={user} /><div className="profile-switcher"><button type="button" className="profile-trigger" aria-haspopup="menu" aria-expanded={profileOpen} onClick={() => setProfileOpen(value => !value)}><Avatar user={user} tamanho={34} className="profile-avatar" /><span className="profile-meta"><strong>{user.nome || user.email || 'Perfil'}</strong><small>{perfilLabel}</small></span><ChevronDown className="profile-chevron" size={16} aria-hidden="true" /></button>{profileOpen && <div className="profile-menu" role="menu"><button type="button" role="menuitem" onClick={() => { setProfileDetailsOpen(true); setProfileOpen(false) }}>Meu perfil</button><button type="button" role="menuitem" onClick={() => { setView('reservations'); setProfileOpen(false) }}>Minhas reservas</button>{isCrmUser(user) && <button type="button" role="menuitem" onClick={() => { setView('crm'); setProfileOpen(false) }}>Painel administrativo</button>}<button type="button" role="menuitem" onClick={() => { onLogout?.(); setProfileOpen(false) }}>Sair da conta</button></div>}</div><ProfileDialog open={profileDetailsOpen} close={() => setProfileDetailsOpen(false)} user={user} onUserUpdate={onUserUpdate} /></div> : <button className="team-link reference-login" onClick={() => { openLogin(); setMenuOpen(false) }}>Entrar</button>}<Button icon={CalendarDays} className="reference-header-cta" onClick={() => { onOpenCalendar(); setMenuOpen(false) }}>Agendar Espaço</Button></div><button className="mobile-menu icon-button" onClick={() => setMenuOpen(!menuOpen)} aria-label="Abrir menu"><MenuIcon /></button>
   </div></header>
 }
 function RoomGallery({ space, onClose, onConsultSpace }) {
@@ -888,22 +1059,20 @@ function ReservationsPage({ items, onCancel }) {
   </main>
 }
 function PortalHome({ user, items, reservationsLoaded, onOpenCalendar, onOpenReservations }) {
-  const persona = personas[Number(user?.idPersona)]
-  const used = monthlyQuotaUsed(items, Number(user?.idUsuario))
+  const activeThisMonth = items.filter(item => ['Pendente', 'Confirmada'].includes(item.statusReserva)
+    && item.dataReserva?.slice(0, 7) === localDateValue().slice(0, 7)).length
   const upcoming = items
     .filter(item => ['Pendente', 'Confirmada'].includes(item.statusReserva)
       && new Date(`${item.dataReserva}T${item.horarioInicio || '00:00'}`) >= new Date())
     .sort((a, b) => `${a.dataReserva}T${a.horarioInicio}`.localeCompare(`${b.dataReserva}T${b.horarioInicio}`))
     .slice(0, 3)
-  const hours = value => value.toFixed(1).replace('.', ',')
   return <main className="inner-page portal-home">
     <section className="portal-welcome">
       <div><div className="eyebrow">PORTAL DO SOLICITANTE</div><h1>Olá, <em>{user?.nome?.split(' ')[0] || 'bem-vindo'}</em></h1><p>Acompanhe suas reservas e planeje o próximo encontro no InPETU Hub.</p></div>
-      <span className="portal-avatar" aria-hidden="true">{getRoomInitials(user)}</span>
+      <Avatar user={user} tamanho={64} className="portal-avatar" />
     </section>
-    {!persona && <p className="portal-classification-note"><ShieldCheck size={17} /> Seu cadastro está aguardando a classificação pela equipe do InPETU.</p>}
     <section className="portal-summary-grid" aria-label="Resumo da conta">
-      <article className="portal-summary-card portal-summary-quota"><span>COTA DE HORAS · ESTE MÊS</span><strong>{persona?.quota == null ? `${hours(used)} h` : `${hours(used)} de ${persona.quota} h`}</strong><small>{persona ? `Persona P${user.idPersona} · ${persona.label}` : 'A cota será exibida após sua classificação.'}</small></article>
+      <article className="portal-summary-card"><span>RESERVAS ATIVAS · ESTE MÊS</span><strong>{activeThisMonth}</strong><small>Solicitações pendentes ou confirmadas neste mês</small></article>
       <article className="portal-summary-card"><span>PRÓXIMAS RESERVAS</span><strong>{reservationsLoaded ? upcoming.length : '...'}</strong><small>Solicitações pendentes ou confirmadas</small></article>
     </section>
     <section className="portal-upcoming">
@@ -1584,8 +1753,8 @@ function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, set
     }
   }
   function exportPartners() {
-    const rows = [['Organização', 'Responsável', 'E-mail', 'Persona de uso']]
-    filteredPartners.forEach(person => rows.push([person.name, person.contact, person.email, person.persona ? `P${person.persona} · ${personas[person.persona]?.label || ''}` : 'Aguardando persona']))
+    const rows = [['Organização', 'Responsável', 'E-mail']]
+    filteredPartners.forEach(person => rows.push([person.name, person.contact, person.email]))
     const csv = `\uFEFF${rows.map(row => row.map(value => `"${String(value).replaceAll('"', '""')}"`).join(';')).join('\r\n')}`
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
     const link = document.createElement('a')
@@ -1631,11 +1800,11 @@ function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, set
   )
   const auditActions = [...new Set(auditItems.map(item => item.action))]
   if (!user) return <div className="crm-login"><div className="crm-login-visual"><Logo inverse /><div><div className="eyebrow">INPETU HUB · UFSC</div><h1>O ecossistema,<br /><em>em movimento.</em></h1><p>Gestão inteligente dos encontros e espaços do Lote 73.</p><div className="crm-location"><MapPin size={17} />Sapiens Parque · Florianópolis</div></div><small>AMBIENTE DE GESTÃO INTERNA</small></div><div className="crm-login-form"><button type="button" className="crm-return-home" onClick={onReturnHome}><ArrowLeft size={16} /> Voltar ao site inicial</button><div className="eyebrow">ACESSO RESTRITO · EQUIPE INPETU</div><h2>Acesso ao painel</h2><p>Entre com sua conta da equipe para gerenciar reservas, espaços e cadastros.</p><LoginInline onLogin={setUser} /></div></div>
-  return <div className="crm-layout"><aside className="crm-sidebar"><button className="crm-logo-button" onClick={() => setSection('Visão geral')}><Logo /></button><div className="workspace-label">ESPAÇO DE TRABALHO</div><nav className="crm-nav">{nav.map(({ name, icon: Icon }) => <button key={name} className={section === name ? 'crm-nav-active' : ''} onClick={() => setSection(name)}><Icon size={18} /><span>{name}</span>{name === 'Reservas' && pending.length > 0 && <b>{pending.length}</b>}</button>)}</nav><div className="sidebar-spacer" /><button type="button" className="crm-return-home crm-sidebar-return" onClick={onReturnHome}><HomeIcon size={16} /> Voltar ao site inicial</button><div className="sidebar-help"><span><CircleHelp size={17} /></span><strong>Chamados de usuários</strong><small>Acompanhe e responda pedidos de suporte.</small><button onClick={() => { setSection('Atendimento'); setSelectedTicket(pendingQuestions[0] || tickets[0] || null) }}>Abrir chamados <ArrowRight size={14} /></button></div><Menu as="div" className="crm-profile-menu"><MenuButton type="button" className="profile-button"><span className="avatar">{(user.nome || 'Equipe').slice(0, 1)}</span><span><strong>{user.nome || 'Equipe InPETU'}</strong><small>{user.perfil === 1 ? 'Coordenador' : user.perfil === 2 ? 'Gestor de espaços' : 'Atendimento'}</small></span><MoreHorizontal size={18} aria-hidden="true" /></MenuButton><MenuItems className="crm-profile-menu-items"><MenuItem><button type="button" onClick={onReturnHome}><HomeIcon size={15} /> Voltar ao site</button></MenuItem><MenuItem><button type="button" onClick={logout}><DoorOpen size={15} /> Sair da conta</button></MenuItem></MenuItems></Menu></aside>
-    <main className="crm-main"><header className="crm-topbar"><div className="breadcrumbs"><span>InPETU Connect</span><span>/</span><strong>{section}</strong></div><label className="global-search"><Search size={16} /><input placeholder="Buscar em tudo" value={search} onChange={e => setSearch(e.target.value)} /><kbd>⌘ K</kbd></label><NotificationCenter user={user} /><button type="button" className="crm-icon" aria-label="Ajuda" onClick={() => setHelpOpen(true)}><CircleHelp size={18} /></button><Menu as="div" className="crm-topbar-profile"><MenuButton type="button" className="crm-avatar" aria-label={`Perfil de ${user.nome || 'usuário'}`}>{(user.nome || 'E').slice(0, 1)}</MenuButton><MenuItems className="crm-profile-menu-items crm-topbar-profile-items"><MenuItem><button type="button" onClick={() => setProfileDetailsOpen(true)}>Meu perfil</button></MenuItem><MenuItem><button type="button" onClick={onReturnHome}><HomeIcon size={15} /> Voltar ao site</button></MenuItem><MenuItem><button type="button" onClick={logout}><DoorOpen size={15} /> Sair da conta</button></MenuItem></MenuItems></Menu></header>
+  return <div className="crm-layout"><aside className="crm-sidebar"><button className="crm-logo-button" onClick={() => setSection('Visão geral')}><Logo /></button><div className="workspace-label">ESPAÇO DE TRABALHO</div><nav className="crm-nav">{nav.map(({ name, icon: Icon }) => <button key={name} className={section === name ? 'crm-nav-active' : ''} onClick={() => setSection(name)}><Icon size={18} /><span>{name}</span>{name === 'Reservas' && pending.length > 0 && <b>{pending.length}</b>}</button>)}</nav><div className="sidebar-spacer" /><button type="button" className="crm-return-home crm-sidebar-return" onClick={onReturnHome}><HomeIcon size={16} /> Voltar ao site inicial</button><div className="sidebar-help"><span><CircleHelp size={17} /></span><strong>Chamados de usuários</strong><small>Acompanhe e responda pedidos de suporte.</small><button onClick={() => { setSection('Atendimento'); setSelectedTicket(pendingQuestions[0] || tickets[0] || null) }}>Abrir chamados <ArrowRight size={14} /></button></div><Menu as="div" className="crm-profile-menu"><MenuButton type="button" className="profile-button"><Avatar user={user} tamanho={38} /><span><strong>{user.nome || 'Equipe InPETU'}</strong><small>{user.perfil === 1 ? 'Coordenador' : user.perfil === 2 ? 'Gestor de espaços' : 'Atendimento'}</small></span><MoreHorizontal size={18} aria-hidden="true" /></MenuButton><MenuItems className="crm-profile-menu-items"><MenuItem><button type="button" onClick={onReturnHome}><HomeIcon size={15} /> Voltar ao site</button></MenuItem><MenuItem><button type="button" onClick={logout}><DoorOpen size={15} /> Sair da conta</button></MenuItem></MenuItems></Menu></aside>
+    <main className="crm-main"><header className="crm-topbar"><div className="breadcrumbs"><span>InPETU Connect</span><span>/</span><strong>{section}</strong></div><label className="global-search"><Search size={16} /><input placeholder="Buscar em tudo" value={search} onChange={e => setSearch(e.target.value)} /><kbd>⌘ K</kbd></label><NotificationCenter user={user} /><button type="button" className="crm-icon" aria-label="Ajuda" onClick={() => setHelpOpen(true)}><CircleHelp size={18} /></button><Menu as="div" className="crm-topbar-profile"><MenuButton type="button" className="crm-avatar" aria-label={`Perfil de ${user.nome || 'usuário'}`}><Avatar user={user} tamanho={36} /></MenuButton><MenuItems className="crm-profile-menu-items crm-topbar-profile-items"><MenuItem><button type="button" onClick={() => setProfileDetailsOpen(true)}>Meu perfil</button></MenuItem><MenuItem><button type="button" onClick={onReturnHome}><HomeIcon size={15} /> Voltar ao site</button></MenuItem><MenuItem><button type="button" onClick={logout}><DoorOpen size={15} /> Sair da conta</button></MenuItem></MenuItems></Menu></header>
       <Modal open={helpOpen} close={() => setHelpOpen(false)} title="Ajuda do painel"><p className="access-intro">Use o menu lateral para acessar visão geral, reservas, cadastros, espaços, atendimento e auditoria.</p><p className="access-intro">Para consultar dúvidas enviadas pelos usuários e responder chamados, abra a área de Atendimento.</p><Button onClick={() => { setSection('Atendimento'); setHelpOpen(false) }}>Abrir atendimento <ArrowRight size={16} /></Button></Modal>
-      <ProfileDialog open={profileDetailsOpen} close={() => setProfileDetailsOpen(false)} user={user} onUserUpdate={updated => setUser(current => ({ ...current, ...updated }))} />
-      <div className="crm-content">{crmDataError && <div className="form-message" role="alert">{crmDataError}</div>}{section === 'Visão geral' && <><div className="crm-greeting"><div><div className="eyebrow">{selectedDateLabel}</div><h1>Bom dia, {user.nome?.split(' ')[0] || 'equipe'} {isDashboardToday && <span>☀</span>}</h1><p>{isDashboardToday ? 'O Lote 73 está em movimento. Veja o que precisa de atenção.' : 'Visualizando reservas e ocupação desta data.'}</p></div><div className="date-navigation" aria-label="Navegação da agenda"><button type="button" className="date-step" aria-label="Dia anterior" onClick={() => shiftDashboardDate(-1)}><ChevronLeft size={16} /></button><label className="date-button"><CalendarDays size={16} /><span>{isDashboardToday ? 'Hoje · ' : ''}{selectedDay.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}</span><input aria-label="Selecionar data da agenda" type="date" value={dashboardDate} onChange={event => setDashboardDate(event.target.value)} /></label><button type="button" className="date-step" aria-label="Próximo dia" onClick={() => shiftDashboardDate(1)}><ChevronRight size={16} /></button>{!isDashboardToday && <button type="button" className="date-today" onClick={() => setDashboardDate(todayKey)}>Hoje</button>}</div></div><div className="kpi-grid"><Kpi icon={CalendarDays} label="Reservas no dia" value={String(selectedReservations.length).padStart(2, '0')} change={`${occupiedSpaces.size} espaços com agenda nesta data`} accent="mint" /><Kpi icon={Clock3} label="Aguardando aprovação" value={String(pending.length).padStart(2, '0')} change="Precisam da sua atenção" accent="yellow" /><Kpi icon={DoorOpen} label="Ocupação do Lote 73" value={`${occupancyRate}%`} change={`${occupiedSpaces.size} de ${activeSpaces.length} espaços ocupados nesta data`} accent="blue" /><Kpi icon={MessageCircle} label="Dúvidas em aberto" value={String(pendingQuestions.length).padStart(2, '0')} change={`${tickets.length} chamados recebidos`} accent="coral" /></div><div className="dashboard-columns"><section className="crm-panel conflict-panel"><div className="panel-heading"><div><div className="eyebrow">DECISÃO NECESSÁRIA · {selectedDay.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '').toUpperCase()}</div><h2>Solicitações pendentes <span className="heading-count">{selectedPending.length}</span></h2></div><button className="subtle-action" onClick={() => setSection('Reservas')}>Ver todas <ArrowRight size={15} /></button></div>{selectedPending.length ? selectedPending.map(item => <div className="conflict-card" key={item.idReserva}><div className="conflict-card-top"><span className="conflict-icon"><CalendarDays size={16} /></span><span className="conflict-date">{new Date(`${item.dataReserva}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '').toUpperCase()} · {item.horarioInicio}–{item.horarioFim}</span><span className="pending-indicator">EM ANÁLISE</span></div><strong>{item.tituloEvento}</strong><div className="conflict-meta"><span>{item.espaco}</span><span className="meta-dot" />{item.solicitante}<Badge level={item.persona} /></div><div className="conflict-actions"><button className="decision-button" onClick={() => approve(item)}><Check size={15} /> Aprovar solicitação</button><button className="decision-secondary" onClick={() => notify('Solicite um motivo antes de recusar esta reserva.')}>Recusar</button></div></div>) : <div className="empty-inline"><Check size={18} />Nenhuma solicitação pendente nesta data.</div>}</section><section className="crm-panel today-panel"><div className="panel-heading"><div><div className="eyebrow">{isDashboardToday ? 'HOJE NO HUB' : selectedDay.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '').toUpperCase()}</div><h2>Agenda do dia</h2></div><button className="icon-button" onClick={() => setSection('Reservas')} aria-label="Abrir agenda"><ArrowUpRight size={18} /></button></div>  <div className="day-timeline">{selectedReservations.map(item => <div className="timeline-event" key={item.idReserva}><span>{item.horarioInicio}</span><i className={`timeline-mark ${item.statusReserva === 'Pendente' ? 'pendente' : ''}`} /><div><strong>{item.tituloEvento}</strong><small>{item.espaco || 'Espaço InPETU'} · {item.statusReserva}</small></div></div>)}{selectedReservations.length === 0 && <div className="empty-inline">Nenhuma reserva nesta data.</div>}</div><button className="full-width-link" onClick={() => setSection('Reservas')}>Abrir agenda completa <ArrowRight size={15} /></button></section></div><section className="crm-panel recent-panel"><div className="panel-heading"><div><div className="eyebrow">VISÃO DO ECOSSISTEMA</div><h2>Cadastros recentes</h2></div><button className="subtle-action" onClick={() => setSection('Cadastros')}>Gerenciar cadastros <ArrowRight size={15} /></button></div><table className="data-table"><thead><tr><th>Organização</th><th>Contato principal</th><th>Cadastro</th><th>Classificação</th><th /></tr></thead><tbody>{partners.slice(0, 3).map(p => <tr key={p.id}><td><strong>{p.name}</strong><small>{p.email}</small></td><td>{p.contact}</td><td>Hoje · 09:42</td><td>{p.persona ? <Badge level={p.persona} /> : <span className="awaiting-label">Aguardando</span>}</td><td><button className="table-more" onClick={() => setClientProfile(clientUsers.find(person => person.idUsuario === p.userId) || null)}><MoreHorizontal size={19} /></button></td></tr>)}</tbody></table></section></>}
+      <ProfileDialog open={profileDetailsOpen} close={() => setProfileDetailsOpen(false)} user={user} onUserUpdate={updated => { const next = omitPersona({ ...user, ...updated }); storeUser(next); setUser(next); setStaff(items => items.map(person => person.idUsuario === next.idUsuario ? { ...person, ...updated } : person)); setClientUsers(items => items.map(person => person.idUsuario === next.idUsuario ? { ...person, ...updated } : person)) }} />
+      <div className="crm-content">{crmDataError && <div className="form-message" role="alert">{crmDataError}</div>}{section === 'Visão geral' && <><div className="crm-greeting"><div><div className="eyebrow">{selectedDateLabel}</div><h1>Bom dia, {user.nome?.split(' ')[0] || 'equipe'} {isDashboardToday && <span>☀</span>}</h1><p>{isDashboardToday ? 'O Lote 73 está em movimento. Veja o que precisa de atenção.' : 'Visualizando reservas e ocupação desta data.'}</p></div><div className="date-navigation" aria-label="Navegação da agenda"><button type="button" className="date-step" aria-label="Dia anterior" onClick={() => shiftDashboardDate(-1)}><ChevronLeft size={16} /></button><label className="date-button"><CalendarDays size={16} /><span>{isDashboardToday ? 'Hoje · ' : ''}{selectedDay.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}</span><input aria-label="Selecionar data da agenda" type="date" value={dashboardDate} onChange={event => setDashboardDate(event.target.value)} /></label><button type="button" className="date-step" aria-label="Próximo dia" onClick={() => shiftDashboardDate(1)}><ChevronRight size={16} /></button>{!isDashboardToday && <button type="button" className="date-today" onClick={() => setDashboardDate(todayKey)}>Hoje</button>}</div></div><div className="kpi-grid"><Kpi icon={CalendarDays} label="Reservas no dia" value={String(selectedReservations.length).padStart(2, '0')} change={`${occupiedSpaces.size} espaços com agenda nesta data`} accent="mint" /><Kpi icon={Clock3} label="Aguardando aprovação" value={String(pending.length).padStart(2, '0')} change="Precisam da sua atenção" accent="yellow" /><Kpi icon={DoorOpen} label="Ocupação do Lote 73" value={`${occupancyRate}%`} change={`${occupiedSpaces.size} de ${activeSpaces.length} espaços ocupados nesta data`} accent="blue" /><Kpi icon={MessageCircle} label="Dúvidas em aberto" value={String(pendingQuestions.length).padStart(2, '0')} change={`${tickets.length} chamados recebidos`} accent="coral" /></div><div className="dashboard-columns"><section className="crm-panel conflict-panel"><div className="panel-heading"><div><div className="eyebrow">DECISÃO NECESSÁRIA · {selectedDay.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '').toUpperCase()}</div><h2>Solicitações pendentes <span className="heading-count">{selectedPending.length}</span></h2></div><button className="subtle-action" onClick={() => setSection('Reservas')}>Ver todas <ArrowRight size={15} /></button></div>{selectedPending.length ? selectedPending.map(item => <div className="conflict-card" key={item.idReserva}><div className="conflict-card-top"><span className="conflict-icon"><CalendarDays size={16} /></span><span className="conflict-date">{new Date(`${item.dataReserva}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '').toUpperCase()} · {item.horarioInicio}–{item.horarioFim}</span><span className="pending-indicator">EM ANÁLISE</span></div><strong>{item.tituloEvento}</strong><div className="conflict-meta"><span>{item.espaco}</span><span className="meta-dot" />{item.solicitante}</div><div className="conflict-actions"><button className="decision-button" onClick={() => approve(item)}><Check size={15} /> Aprovar solicitação</button><button className="decision-secondary" onClick={() => notify('Solicite um motivo antes de recusar esta reserva.')}>Recusar</button></div></div>) : <div className="empty-inline"><Check size={18} />Nenhuma solicitação pendente nesta data.</div>}</section><section className="crm-panel today-panel"><div className="panel-heading"><div><div className="eyebrow">{isDashboardToday ? 'HOJE NO HUB' : selectedDay.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '').toUpperCase()}</div><h2>Agenda do dia</h2></div><button className="icon-button" onClick={() => setSection('Reservas')} aria-label="Abrir agenda"><ArrowUpRight size={18} /></button></div>  <div className="day-timeline">{selectedReservations.map(item => <div className="timeline-event" key={item.idReserva}><span>{item.horarioInicio}</span><i className={`timeline-mark ${item.statusReserva === 'Pendente' ? 'pendente' : ''}`} /><div><strong>{item.tituloEvento}</strong><small>{item.espaco || 'Espaço InPETU'} · {item.statusReserva}</small></div></div>)}{selectedReservations.length === 0 && <div className="empty-inline">Nenhuma reserva nesta data.</div>}</div><button className="full-width-link" onClick={() => setSection('Reservas')}>Abrir agenda completa <ArrowRight size={15} /></button></section></div><section className="crm-panel recent-panel"><div className="panel-heading"><div><div className="eyebrow">VISÃO DO ECOSSISTEMA</div><h2>Cadastros recentes</h2></div><button className="subtle-action" onClick={() => setSection('Cadastros')}>Gerenciar cadastros <ArrowRight size={15} /></button></div><table className="data-table"><thead><tr><th>Organização</th><th>Contato principal</th><th>Cadastro</th><th>Classificação</th><th /></tr></thead><tbody>{partners.slice(0, 3).map(p => <tr key={p.id}><td><strong>{p.name}</strong><small>{p.email}</small></td><td>{p.contact}</td><td>Hoje · 09:42</td><td>{p.persona ? 'Classificado' : 'Aguardando classificação'}</td><td><button className="table-more" onClick={() => setClientProfile(clientUsers.find(person => person.idUsuario === p.userId) || null)}><MoreHorizontal size={19} /></button></td></tr>)}</tbody></table></section></>}
         {section === 'Reservas' && <>
           <CrmTitle eyebrow="AGENDA DO HUB" title="Reservas" description="Revise solicitações e acompanhe a ocupação dos espaços." />
           <div className="crm-panel">
@@ -1647,7 +1816,6 @@ function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, set
               return <div className="crm-reservation" key={item.idReserva}>
                 <div className="res-date-block"><strong>{day?.toLocaleDateString('pt-BR', { day: '2-digit' }) || '--'}</strong><small>{day?.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase() || ''}</small></div>
                 <div className="crm-res-main"><strong>{item.tituloEvento}</strong><small>{item.espaco} · {item.horarioInicio}–{item.horarioFim} · {item.solicitante}{item.quantidadeParticipantes ? ` · ${item.quantidadeParticipantes} visitantes` : ''}</small></div>
-                <Badge level={item.persona} />
                 {item.excedeCota && <span className="quota-exceeded-badge">Excede cota · negociar</span>}
                 <span className={`status-pill ${item.statusReserva === 'Confirmada' ? 'status-confirmed' : item.statusReserva === 'Cancelada' ? 'status-cancelled' : 'status-pending'}`}><i />{item.statusReserva}</span>
                 {item.statusReserva === 'Pendente' && <button className="decision-button compact-decision" onClick={() => approve(item)}><Check size={14} /> {item.excedeCota && !item.dataNegociacao ? 'Negociar' : 'Aprovar'}</button>}
@@ -1657,12 +1825,12 @@ function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, set
             })}</div>
           </div>
         </>}
-        {section === 'Cadastros' && <><CrmTitle eyebrow="REDE INPETU" title="Cadastros e ficha do cliente" description="Consulte dados, histórico, persona e ações de cada cadastro em uma ficha única." action={<Button icon={Plus} onClick={() => { setRegistrationCreateError(''); setRegistrationCreateOpen(true) }}>Novo cadastro</Button>} /><div className="crm-panel"><div className="panel-heading"><div className="segmented-control"><button type="button" className={partnerScope === 'all' ? 'segment-active' : ''} aria-pressed={partnerScope === 'all'} onClick={() => setPartnerScope('all')}>Todos os cadastros</button><button type="button" className={partnerScope === 'pending' ? 'segment-active' : ''} aria-pressed={partnerScope === 'pending'} onClick={() => setPartnerScope('pending')}>Aguardando persona <span>{partners.filter(p => !p.persona).length}</span></button></div><button type="button" className="subtle-action" onClick={exportPartners}><Download size={15} /> Exportar CSV</button></div><table className="data-table"><thead><tr><th>Organização</th><th>Responsável</th><th>E-mail</th><th>Persona e cota mensal</th><th>Ações</th></tr></thead><tbody>{filteredPartners.map(p => { const persona = personas[p.persona]; const hours = monthlyQuotaUsed(reservations, p.userId); return <tr key={p.userId || p.id}><td><strong>{p.name}</strong><small>{p.dataCadastro ? new Date(p.dataCadastro).toLocaleDateString('pt-BR') : 'Cadastro sem data'}</small></td><td>{p.contact}</td><td>{p.email}</td><td>{persona ? <><Badge level={p.persona} /><small>{persona.quota == null ? 'Sem cota mensal definida' : `${hours.toFixed(1).replace('.', ',')} / ${persona.quota} horas neste mês`}</small></> : <span className="awaiting-label">Aguardando persona</span>}</td><td><button type="button" className="table-action client-profile-open" onClick={() => setClientProfile(clientUsers.find(person => person.idUsuario === p.userId) || null)}>Abrir ficha <ArrowRight size={14} /></button></td></tr> })}</tbody></table></div><div className="privacy-callout"><ShieldCheck size={18} /><span><strong>Dados internos</strong><small>A persona, o consumo de cota e os dados da ficha ficam disponíveis apenas para a equipe autorizada.</small></span></div></>}
+        {section === 'Cadastros' && <><CrmTitle eyebrow="REDE INPETU" title="Cadastros e ficha do cliente" description="Consulte dados, histórico e ações de cada cadastro em uma ficha única." action={<Button icon={Plus} onClick={() => { setRegistrationCreateError(''); setRegistrationCreateOpen(true) }}>Novo cadastro</Button>} /><div className="crm-panel"><div className="panel-heading"><div className="segmented-control"><button type="button" className={partnerScope === 'all' ? 'segment-active' : ''} aria-pressed={partnerScope === 'all'} onClick={() => setPartnerScope('all')}>Todos os cadastros</button><button type="button" className={partnerScope === 'pending' ? 'segment-active' : ''} aria-pressed={partnerScope === 'pending'} onClick={() => setPartnerScope('pending')}>Aguardando classificação <span>{partners.filter(p => !p.persona).length}</span></button></div><button type="button" className="subtle-action" onClick={exportPartners}><Download size={15} /> Exportar CSV</button></div><table className="data-table"><thead><tr><th>Organização</th><th>Responsável</th><th>E-mail</th><th>Ações</th></tr></thead><tbody>{filteredPartners.map(p => { return <tr key={p.userId || p.id}><td><strong>{p.name}</strong><small>{p.dataCadastro ? new Date(p.dataCadastro).toLocaleDateString('pt-BR') : 'Cadastro sem data'}</small></td><td><div className="team-person-cell"><Avatar user={clientUsers.find(person => person.idUsuario === p.userId) || { idUsuario: p.userId, nomeCompleto: p.contact }} tamanho={34} /><span>{p.contact}</span></div></td><td>{p.email}</td><td>{p.persona ? 'Classificado' : 'Aguardando classificação'}</td><td><button type="button" className="table-action client-profile-open" onClick={() => setClientProfile(clientUsers.find(person => person.idUsuario === p.userId) || null)}>Abrir ficha <ArrowRight size={14} /></button></td></tr> })}</tbody></table></div><div className="privacy-callout"><ShieldCheck size={18} /><span><strong>Dados internos</strong><small>Os dados detalhados do cadastro ficam disponíveis apenas para a equipe autorizada na ficha do solicitante.</small></span></div></>}
         {section === 'Espaços' && <><CrmTitle eyebrow="LOTE 73 · SAPIENS PARQUE" title="Gestão de espaços" description="Mantenha o catálogo de ambientes atualizado e disponível." action={<Button icon={Plus} onClick={() => setSpaceModal(true)}>Novo espaço</Button>} /><div className="crm-panel"><table className="data-table"><thead><tr><th>Espaço</th><th>Tipo</th><th>Capacidade</th><th>Disponibilidade</th><th>Ativo</th></tr></thead><tbody>{spaces.map(space => <tr key={space.idEspaco}><td><strong>{space.nomeEspaco}</strong><small>{space.equipamentosDisponiveis}</small></td><td>{space.tipoEspaco}</td><td>{space.capacidadePessoas} pessoas</td><td>{space.ativo !== false ? <span className="availability-text"><i /> Disponível</span> : <span className="availability-text availability-unavailable"><i /> Indisponível<small>{space.motivoIndisponibilidade}</small><small>{unavailableDeadlineLabel(space.dataPrevisaoRetorno)}</small></span>}</td><td><button className={`toggle ${space.ativo !== false ? 'toggle-on' : ''}`} aria-label={`${space.ativo !== false ? 'Inativar' : 'Reativar'} ${space.nomeEspaco}`} aria-pressed={space.ativo !== false} onClick={() => toggleSpace(space)}><span /></button></td></tr>)}</tbody></table></div></>}
         {section === 'Atendimento' && <><CrmTitle eyebrow="CENTRAL DE ATENDIMENTO" title="Dúvidas e mensagens" description="Acompanhe os contatos recebidos pelo portal público." /><div className="support-grid"><div className="crm-panel support-list"><div className="panel-heading"><div><div className="eyebrow">CAIXA DE ENTRADA</div><h2>{pendingQuestions.length} {pendingQuestions.length === 1 ? 'conversa aberta' : 'conversas abertas'}</h2></div><label className="ticket-filter">Status<select aria-label="Filtrar conversas por status" value={ticketStatusFilter} onChange={event => setTicketStatusFilter(event.target.value)}><option>Todas</option><option>Abertas</option><option>Respondidas</option></select></label></div>{filteredTickets.length ? filteredTickets.slice().sort((left, right) => new Date(right.dataEnvio).getTime() - new Date(left.dataEnvio).getTime()).map(ticket => <button className={`ticket-row ${selectedTicket?.idDuvida === ticket.idDuvida ? 'ticket-selected' : ''}`} key={ticket.idDuvida} onClick={() => setSelectedTicket(ticket)}><span className="ticket-avatar">{ticket.emailContato.split('@')[0].split(/[._-]/).map(part => part[0]).join('').slice(0, 2).toUpperCase()}</span><span><strong>{ticket.emailContato}</strong><small>{ticket.mensagemDuvida}</small><em>{new Date(ticket.dataEnvio).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</em></span></button>) : <div className="empty-state"><MessageCircle size={24} /><p>Nenhuma conversa recebida.</p></div>}</div><div className="crm-panel ticket-detail">{selectedTicket ? <><div className="ticket-detail-head"><div><span className={`status-pill ${selectedTicket.statusAtendimento === 'Respondida' ? 'status-confirmed' : 'status-pending'}`}><i />{selectedTicket.statusAtendimento}</span><small>{new Date(selectedTicket.dataEnvio).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</small></div>{selectedTicket.caminhoAnexo && <a className="table-action" href={`${API}/duvidas/${selectedTicket.idDuvida}/anexo`} target="_blank" rel="noreferrer"><Download size={15} /> Anexo</a>}</div><h2>{selectedTicket.emailContato}</h2><p>{selectedTicket.mensagemDuvida}</p>{selectedTicket.telefoneContato && <div className="ticket-sender"><span className="ticket-avatar">{selectedTicket.emailContato.split('@')[0].slice(0, 2).toUpperCase()}</span><span><strong>Telefone para retorno</strong><small>{selectedTicket.telefoneContato}</small></span></div>}<label>Sua resposta<textarea rows="5" value={answer} onChange={e => setAnswer(e.target.value)} placeholder="Escreva uma resposta para enviar por e-mail..." /></label><Button disabled={!answer.trim()} onClick={sendAnswer}><Mail size={16} /> Enviar resposta por e-mail</Button></> : <div className="empty-state"><MessageCircle size={24} /><p>Nenhuma dúvida recebida.</p></div>}</div></div></>
         }
         {section === 'Auditoria' && <><CrmTitle eyebrow="TRANSPARÊNCIA E CONTROLE" title="Histórico de ações" description="Acompanhe quem fez cada alteração, quando aconteceu e qual registro foi afetado." /><div className="crm-panel audit-panel"><div className="audit-toolbar"><label className="audit-search"><Search size={17} /><input type="search" value={auditQuery} onChange={event => setAuditQuery(event.target.value)} placeholder="Buscar por responsável, ação ou registro" aria-label="Buscar no histórico de auditoria" /></label><label className="audit-filter-label">Ação<select value={auditActionFilter} onChange={event => setAuditActionFilter(event.target.value)} aria-label="Filtrar por ação"><option>Todas</option>{auditActions.map(action => <option key={action}>{action}</option>)}</select></label><span className="audit-result-count">{filteredAuditItems.length} {filteredAuditItems.length === 1 ? 'registro' : 'registros'}</span></div><div className="audit-table-wrap"><table className="data-table audit-table"><thead><tr><th>Data e hora</th><th>Responsável</th><th>Ação</th><th>Registro afetado</th><th>Detalhes</th></tr></thead><tbody>{filteredAuditItems.map((item, i) => <tr key={`${item.time}-${item.user}-${i}`}><td><span className="audit-time">{item.time}</span></td><td><strong className="audit-actor">{item.user}</strong></td><td><span className="audit-action"><i />{item.action}</span></td><td><strong className="audit-target">{item.target}</strong></td><td className="audit-detail">{item.detail}</td></tr>)}</tbody></table>{filteredAuditItems.length === 0 && <div className="audit-empty"><ListChecks size={22} /><strong>{auditItems.length ? 'Nenhum registro encontrado' : 'Ainda não há ações registradas'}</strong><span>{auditItems.length ? 'Tente ajustar a busca ou o filtro selecionado.' : 'As alterações realizadas pela equipe aparecerão aqui.'}</span></div>}</div></div></>}
-        {section === 'Equipe' && user.perfil === 1 && <><CrmTitle eyebrow="ACESSO RESTRITO · COORDENADOR" title="Equipe e permissões" description="Gerencie colaboradores e papéis de acesso ao InPETU Connect." /><div className="crm-panel"><table className="data-table"><thead><tr><th>Colaborador</th><th>E-mail</th><th>Perfil</th><th>Status</th><th /></tr></thead><tbody>{staff.map(person => { const isCurrentUser = person.email?.toLowerCase() === user.email?.toLowerCase(); return <tr key={person.idUsuario}><td><strong>{person.nomeCompleto}</strong><small>{person.cargoVinculo}</small></td><td>{person.email}</td><td>{['', 'Coordenador', 'Gestor de Espaços', 'Staff/Atendente'][person.idPerfil]}</td><td><span className={`status-pill ${person.ativo ? 'status-confirmed' : 'status-cancelled'}`}><i />{person.ativo ? 'Ativo' : 'Inativo'}</span></td><td>{isCurrentUser ? <span className="table-action-disabled" title="Você não pode alterar seu próprio perfil">Seu perfil</span> : <button className="table-action" onClick={() => setRoleTarget({ ...person })}>Gerenciar papel</button>}</td></tr> })}</tbody></table></div></>}
+        {section === 'Equipe' && user.perfil === 1 && <><CrmTitle eyebrow="ACESSO RESTRITO · COORDENADOR" title="Equipe e permissões" description="Gerencie colaboradores e papéis de acesso ao InPETU Connect." /><div className="crm-panel"><table className="data-table"><thead><tr><th>Colaborador</th><th>E-mail</th><th>Perfil</th><th>Status</th><th /></tr></thead><tbody>{staff.map(person => { const isCurrentUser = person.email?.toLowerCase() === user.email?.toLowerCase(); return <tr key={person.idUsuario}><td><div className="team-person-cell"><Avatar user={person} tamanho={34} /><span><strong>{person.nomeCompleto}</strong><small>{person.cargoVinculo}</small></span></div></td><td>{person.email}</td><td>{['', 'Coordenador', 'Gestor de Espaços', 'Staff/Atendente'][person.idPerfil]}</td><td><span className={`status-pill ${person.ativo ? 'status-confirmed' : 'status-cancelled'}`}><i />{person.ativo ? 'Ativo' : 'Inativo'}</span></td><td>{isCurrentUser ? <span className="table-action-disabled" title="Você não pode alterar seu próprio perfil">Seu perfil</span> : <button className="table-action" onClick={() => setRoleTarget({ ...person })}>Gerenciar papel</button>}</td></tr> })}</tbody></table></div></>}
       </div></main>{toast && <div className="toast"><Check size={17} />{toast}</div>}
     <Modal open={Boolean(reservationCancelTarget)} close={() => { if (!reservationCancelBusy) { setReservationCancelTarget(null); setReservationCancelError('') } }} title="Cancelar reserva">
       <div className="cancel-summary"><span>RESERVA #{reservationCancelTarget?.idReserva}</span><strong>{reservationCancelTarget?.tituloEvento}</strong><small>{reservationCancelTarget?.dataReserva} · {reservationCancelTarget?.horarioInicio}–{reservationCancelTarget?.horarioFim}</small></div>
@@ -1685,13 +1853,13 @@ function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, set
       </form>}
     </Modal>
     <Modal open={Boolean(negotiationTarget)} close={() => { if (!negotiationBusy) { setNegotiationTarget(null); setNegotiationError('') } }} title="Negociar excedente de cota">
-      <div className="quota-negotiation-callout"><strong>{negotiationTarget?.solicitante} · P{negotiationTarget?.persona}</strong><span>{negotiationTarget?.tituloEvento}</span><small>Registre o contato e o resultado da negociação com o solicitante. A reserva só poderá ser aprovada depois desse registro.</small></div>
+      <div className="quota-negotiation-callout"><strong>{negotiationTarget?.solicitante}</strong><span>{negotiationTarget?.tituloEvento}</span><small>Registre o contato e o resultado da negociação com o solicitante. A reserva só poderá ser aprovada depois desse registro.</small></div>
       <label className="reason-field">Contato e resultado da negociação<textarea rows="5" required maxLength={4000} value={negotiationNote} onChange={event => setNegotiationNote(event.target.value)} placeholder="Informe quando e como o solicitante foi contatado e qual foi o acordo." /></label>
       {negotiationError && <p className="form-message" role="alert">{negotiationError}</p>}
       <Button disabled={!negotiationNote.trim() || negotiationBusy} onClick={recordNegotiationAndApprove}>{negotiationBusy ? 'Registrando...' : 'Registrar negociação e aprovar'} <Check size={16} /></Button>
     </Modal>
     <ClientProfileDialog key={clientProfile?.idUsuario || 'closed'} client={clientProfile} reservations={reservations} tickets={tickets} auditItems={auditItems} close={() => setClientProfile(null)} onSave={saveClientProfile} onPersona={saveClientPersona} onDeactivate={deactivateClient} canDeactivate={user.perfil === 1} canResetPassword={user.perfil === 1} onResetPassword={(target, payload) => request(`/usuarios/${target.idUsuario}/redefinir-senha`, { method: 'POST', body: JSON.stringify(payload) })} />
-    <Modal open={Boolean(roleTarget)} close={() => { if (!roleSaveBusy) { setRoleTarget(null); setRoleSaveError('') } }} title="Gerenciar papel">{roleTarget && <><div className="classify-org"><span className="org-avatar">{roleTarget.nomeCompleto?.slice(0, 1)}</span><span><strong>{roleTarget.nomeCompleto}</strong><small>{roleTarget.email}</small></span></div><label className="role-select-label">Perfil de acesso<select value={roleTarget.idPerfil} onChange={event => { setRoleTarget({ ...roleTarget, idPerfil: Number(event.target.value) }); setRoleSaveError('') }}><option value="1">Coordenador</option><option value="2">Gestor de Espaços</option><option value="3">Staff / Atendente</option></select></label>{roleSaveError && <p className="form-message" role="alert">{roleSaveError}</p>}<Button disabled={roleSaveBusy || Number(roleTarget.idPerfil) === staff.find(person => person.idUsuario === roleTarget.idUsuario)?.idPerfil} onClick={saveRole}>{roleSaveBusy ? 'Salvando...' : 'Salvar papel'} <Check size={16} /></Button></>}</Modal>
+    <Modal open={Boolean(roleTarget)} close={() => { if (!roleSaveBusy) { setRoleTarget(null); setRoleSaveError('') } }} title="Gerenciar papel">{roleTarget && <><div className="classify-org"><Avatar user={roleTarget} tamanho={40} className="org-avatar" /><span><strong>{roleTarget.nomeCompleto}</strong><small>{roleTarget.email}</small></span></div><label className="role-select-label">Perfil de acesso<select value={roleTarget.idPerfil} onChange={event => { setRoleTarget({ ...roleTarget, idPerfil: Number(event.target.value) }); setRoleSaveError('') }}><option value="1">Coordenador</option><option value="2">Gestor de Espaços</option><option value="3">Staff / Atendente</option></select></label>{roleSaveError && <p className="form-message" role="alert">{roleSaveError}</p>}<Button disabled={roleSaveBusy || Number(roleTarget.idPerfil) === staff.find(person => person.idUsuario === roleTarget.idUsuario)?.idPerfil} onClick={saveRole}>{roleSaveBusy ? 'Salvando...' : 'Salvar papel'} <Check size={16} /></Button></>}</Modal>
     <Modal open={registrationCreateOpen} close={() => { if (!registrationCreateBusy) { setRegistrationCreateOpen(false); setRegistrationCreateError('') } }} title="Criar cadastro para uma organização">
       <form className="form-stack" onSubmit={createRegistration}>
         <p className="access-intro">Cadastre a organização e uma pessoa responsável. A pessoa entrará usando e-mail e senha.</p>
@@ -1858,7 +2026,7 @@ function ClientProfileDialog({ client, reservations, tickets, auditItems, close,
     } catch (resetFailure) { setResetError(resetFailure.message) } finally { setResetBusy(false) }
   }
   return <Modal open={Boolean(client)} close={close} title={client.nomeCompleto} wide>
-    <div className="client-profile-heading"><span className="client-profile-avatar">{getRoomInitials({ nome: client.nomeCompleto })}</span><div><p className="client-profile-intro">Cadastro de solicitante · ficha e histórico</p><span className={`client-profile-status ${client.ativo === false ? 'client-profile-inactive' : ''}`}><i />{client.ativo === false ? 'Cadastro inativo' : 'Cadastro ativo'}</span></div></div>
+    <div className="client-profile-heading"><Avatar user={client} nome={client.nomeCompleto} tamanho={48} className="client-profile-avatar" /><div><p className="client-profile-intro">Cadastro de solicitante · ficha e histórico</p><span className={`client-profile-status ${client.ativo === false ? 'client-profile-inactive' : ''}`}><i />{client.ativo === false ? 'Cadastro inativo' : 'Cadastro ativo'}</span></div></div>
     <div className="client-profile-tabs" role="tablist" aria-label="Seções da ficha do cliente">
       {['Dados gerais', `Reservas (${clientReservations.length})`, `Dúvidas (${clientTickets.length})`, 'Auditoria'].map(label => {
         const name = label.split(' (')[0]
@@ -1928,7 +2096,7 @@ function AppInner({ onCodeSent, initialView = 'home' }) {
   const [user, setUser] = useState(getStoredUser)
   function updateCurrentUser(updated) {
     setUser(current => {
-      const next = { ...current, ...updated }
+      const next = omitPersona({ ...current, ...updated })
       storeUser(next)
       return next
     })
@@ -1939,7 +2107,8 @@ function AppInner({ onCodeSent, initialView = 'home' }) {
   }
   function completeLogin(result) {
     const perfil = Number(result?.perfil ?? result?.idPerfil ?? 4)
-    const nextUser = { ...result, perfil }
+    const nextUser = omitPersona({ ...result, perfil })
+    storeUser(nextUser)
     setUser(nextUser)
     if (nextUser.senhaTemporaria) {
       setView('password-change')
@@ -1996,15 +2165,9 @@ function AppInner({ onCodeSent, initialView = 'home' }) {
     request('/auth/session')
       .then(session => {
         if (!active) return null
-        const normalized = { ...session, perfil: Number(session.perfil ?? session.idPerfil ?? 4) }
+        const normalized = omitPersona({ ...session, perfil: Number(session.perfil ?? session.idPerfil ?? 4) })
         storeUser(normalized)
-        setUser(current => current
-          && current.email === normalized.email
-          && Number(current.perfil) === normalized.perfil
-          && current.idUsuario === normalized.idUsuario
-          && current.idPersona === normalized.idPersona
-          ? current
-          : { ...current, ...normalized })
+        setUser(current => omitPersona({ ...current, ...normalized }))
         if (normalized.senhaTemporaria) {
           setView('password-change')
           return null

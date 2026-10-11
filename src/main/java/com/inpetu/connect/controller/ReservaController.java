@@ -15,8 +15,12 @@ import java.util.List;
 public class ReservaController {
     private final ReservaService service; private final ReservaRepository reservas;
     public ReservaController(ReservaService service, ReservaRepository reservas) { this.service = service; this.reservas = reservas; }
-    @PostMapping public Reserva criar(@Valid @RequestBody ReservaRequest request, Authentication auth) { return service.criar(request, auth.getName()); }
-    @GetMapping("/minhas") public List<Reserva> minhas(Authentication auth) { return service.minhas(auth.getName()); }
+    @PostMapping public ReservaSolicitanteResumo criar(@Valid @RequestBody ReservaRequest request, Authentication auth) {
+        return ReservaSolicitanteResumo.from(service.criar(request, auth.getName()));
+    }
+    @GetMapping("/minhas") public List<ReservaSolicitanteResumo> minhas(Authentication auth) {
+        return service.minhas(auth.getName()).stream().map(ReservaSolicitanteResumo::from).toList();
+    }
     @GetMapping @PreAuthorize("hasAnyRole('COORDENADOR','GESTOR_ESPACOS','STAFF')")
     public List<Reserva> listar(@RequestParam(required = false) LocalDate data) {
         return data == null ? reservas.findAll() : reservas.findByDataReservaAndStatusReservaIn(data, List.of("Confirmada", "Pendente"));

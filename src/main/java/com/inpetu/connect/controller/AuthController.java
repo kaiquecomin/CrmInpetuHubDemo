@@ -35,6 +35,7 @@ public class AuthController {
     private final JwtService jwt;
     private final UserDetailsService users;
     private final UsuarioRepository usuarios;
+    private final UsuarioFotoRepository fotos;
     private final OrganizacaoRepository organizacoes;
     private final PasswordEncoder passwordEncoder;
     private final LoginAttemptService loginAttempts;
@@ -42,11 +43,12 @@ public class AuthController {
     private final CadastroPublicoService cadastroPublicoService;
 
     public AuthController(AuthenticationManager auth, JwtService jwt, UserDetailsService users,
-                          UsuarioRepository usuarios, OrganizacaoRepository organizacoes, PasswordEncoder passwordEncoder,
+                          UsuarioRepository usuarios, UsuarioFotoRepository fotos, OrganizacaoRepository organizacoes, PasswordEncoder passwordEncoder,
                           LoginAttemptService loginAttempts,
                           @Value("${app.security.trusted-proxies:}") String trustedProxyConfig,
                           CadastroPublicoService cadastroPublicoService) {
-        this.auth = auth; this.jwt = jwt; this.users = users; this.usuarios = usuarios; this.organizacoes = organizacoes;
+        this.auth = auth; this.jwt = jwt; this.users = users; this.usuarios = usuarios;
+        this.fotos = fotos; this.organizacoes = organizacoes;
         this.passwordEncoder = passwordEncoder;
         this.loginAttempts = loginAttempts;
         this.trustedProxies = ClientIpResolver.parseTrustedProxies(trustedProxyConfig);
@@ -139,9 +141,10 @@ public class AuthController {
         payload.put("email", cadastro.getEmail());
         payload.put("idUsuario", cadastro.getIdUsuario());
         payload.put("senhaTemporaria", Boolean.TRUE.equals(cadastro.getSenhaTemporaria()));
-        if (cadastro.getIdPersona() != null) {
-            payload.put("idPersona", cadastro.getIdPersona());
-        }
+        var foto = fotos.findById(cadastro.getIdUsuario()).orElse(null);
+        payload.put("temFoto", foto != null);
+        payload.put("fotoVersao", foto == null ? 0L : foto.getAtualizadaEm()
+                .toInstant(java.time.ZoneOffset.UTC).toEpochMilli());
         return payload;
     }
 

@@ -9,6 +9,7 @@ import com.inpetu.connect.model.Usuario;
 import com.inpetu.connect.repository.CadastroPendenteRepository;
 import com.inpetu.connect.repository.EventoCadastroRepository;
 import com.inpetu.connect.repository.OrganizacaoRepository;
+import com.inpetu.connect.repository.UsuarioFotoRepository;
 import com.inpetu.connect.repository.UsuarioRepository;
 import com.inpetu.connect.security.JwtService;
 import com.inpetu.connect.service.CadastroPublicoService;
@@ -39,6 +40,7 @@ class AuthControllerTest {
     private final JwtService jwt = mock(JwtService.class);
     private final UserDetailsService userDetails = mock(UserDetailsService.class);
     private final UsuarioRepository usuarios = mock(UsuarioRepository.class);
+    private final UsuarioFotoRepository fotos = mock(UsuarioFotoRepository.class);
     private final OrganizacaoRepository organizacoes = mock(OrganizacaoRepository.class);
     private final CadastroPendenteRepository pendentes = mock(CadastroPendenteRepository.class);
     private final EventoCadastroRepository eventos = mock(EventoCadastroRepository.class);
@@ -76,6 +78,7 @@ class AuthControllerTest {
         jwt,
         userDetails,
         usuarios,
+        fotos,
         organizacoes,
         passwordEncoder,
         new LoginAttemptService(5, 60),
