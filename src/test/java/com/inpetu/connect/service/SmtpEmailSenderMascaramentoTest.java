@@ -1,13 +1,15 @@
 package com.inpetu.connect.service;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.web.client.RestClient;
 
 import java.lang.reflect.Method;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class SmtpEmailSenderMascaramentoTest {
-    private final SmtpEmailSender sender = new SmtpEmailSender(null, false, "", "", "");
+    private final SmtpEmailSender sender = new SmtpEmailSender(
+        RestClient.builder().build(), false, "", "", "", "");
 
     @Test
     void masksAddressKeepingOnlyFirstCharacterAndFinalDomain() throws Exception {
