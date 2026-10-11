@@ -1,0 +1,18 @@
+Olá, {{NOME}}. Recebemos um pedido para redefinir a senha da sua conta no
+InPETU Connect. Digite o código abaixo na tela de recuperação para criar uma
+nova senha.
+
+Código para redefinir a senha:
+{{CODIGO}}
+
+Válido por {{VALIDADE_MIN}} minutos e pode ser usado uma única vez.
+
+Não foi você? Ignore este e-mail: a sua senha continua a mesma e ninguém acessa
+a conta só com este aviso. Nunca compartilhe este código, nem com a equipe do
+InPETU.
+
+Sapiens Parque · Lote 73 · Rod. SC-401, 6001 · Florianópolis, SC
+Seus dados são tratados com transparência, conforme a LGPD.
+Este é um e-mail automático, por favor não responda.
+Espaço para ideias. Conexões para transformar.
+© {{ANO}} InPETU Hub · UFSC

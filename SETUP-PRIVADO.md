@@ -13,6 +13,14 @@ segredos.
 - `DB_PASSWORD` — senha do banco; obrigatória. Sem ela, a inicialização deve
   falhar.
 - `JWT_SECRET` — chave de assinatura JWT forte e exclusiva para o ambiente.
+- `OTP_SECRET` — segredo aleatório estável, com ao menos 32 caracteres, exclusivo para HMAC dos códigos de confirmação. Não reutilize o `JWT_SECRET`.
+- `APP_RATE_LIMIT_SECRET` — segredo aleatório estável, com ao menos 32 caracteres, exclusivo para o hash dos limites de cadastro e reenvio.
+- `APP_PUBLIC_URL` — URL pública da aplicação, necessária para links antigos de confirmação.
+- `MAIL_ENABLED` — use `true` para habilitar envio por API do Brevo.
+- `BREVO_API_KEY` — chave da API transacional do Brevo.
+- `MAIL_FROM` — endereço remetente verificado no Brevo.
+- `MAIL_REPLY_TO` — endereço opcional para respostas.
+- `TRUSTED_PROXIES` — lista opcional, separada por vírgulas, de IPs exatos dos proxies confiáveis. Não configure `*`; sem uma origem proxy estável confirmada, deixe vazio.
 - `FRONTEND_ORIGIN` — origem permitida pelo CORS, sem `*`.
 
 ## Primeiro coordenador
@@ -25,7 +33,9 @@ o acesso inicial, remova as variáveis do ambiente.
 
 ## Dados locais de demonstração
 
-O perfil local `demo` requer `DEMO_ADMIN_PASSWORD` e as variáveis
+O script local ativa os perfis `dev,demo`; ambos, mais a ausência do perfil
+`prod`, são exigidos para carregar dados de demonstração. O perfil requer
+`DEMO_ADMIN_PASSWORD` e as variáveis
 `INPETU_DEMO_PASSWORD_*` que o script `scripts/start-local-demo.ps1` solicita.
 Use uma senha diferente para cada conta; o script valida o intervalo de 12 a 72
 caracteres e não imprime os valores.

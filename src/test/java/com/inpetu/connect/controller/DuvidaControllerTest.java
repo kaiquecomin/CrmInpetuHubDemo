@@ -4,12 +4,12 @@ import com.inpetu.connect.dto.DuvidaRequest;
 import com.inpetu.connect.dto.DuvidaRespostaRequest;
 import com.inpetu.connect.model.DuvidaAtendimento;
 import com.inpetu.connect.repository.DuvidaAtendimentoRepository;
+import com.inpetu.connect.service.BrevoEmailClient;
+import com.inpetu.connect.service.EmailTemplateRenderer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -28,11 +28,12 @@ class DuvidaControllerTest {
     DuvidaController controller;
 
     @BeforeEach
-    @SuppressWarnings("unchecked")
     void setUp() {
         duvidas = mock(DuvidaAtendimentoRepository.class);
-        ObjectProvider<JavaMailSender> mailSender = mock(ObjectProvider.class);
-        controller = new DuvidaController(duvidas, tempDirectory.resolve("uploads").toString(), mailSender, false, "demo@example.test");
+        BrevoEmailClient brevo = mock(BrevoEmailClient.class);
+        when(brevo.isEnabled()).thenReturn(false);
+        controller = new DuvidaController(duvidas, tempDirectory.resolve("uploads").toString(),
+            brevo, new EmailTemplateRenderer());
     }
 
     @Test
@@ -106,5 +107,28 @@ class DuvidaControllerTest {
         assertEquals("Resposta da equipe", salvo.getRespostaEquipe());
         assertEquals("Respondida", salvo.getStatusAtendimento());
         assertNotNull(salvo.getDataResposta());
+    }
+
+    @Test
+    void sendsSavedDoubtResponseUsingHtmlAndTextTemplate() {
+        DuvidaAtendimento chamado = new DuvidaAtendimento();
+        chamado.setIdDuvida(8);
+        chamado.setEmailContato("ana@example.test");
+        BrevoEmailClient brevo = mock(BrevoEmailClient.class);
+        when(brevo.isEnabled()).thenReturn(true);
+        DuvidaController emailController = new DuvidaController(duvidas, tempDirectory.resolve("uploads").toString(),
+            brevo, new EmailTemplateRenderer());
+        when(duvidas.findById(8)).thenReturn(Optional.of(chamado));
+        when(duvidas.save(chamado)).thenReturn(chamado);
+
+        emailController.responder(8, new DuvidaRespostaRequest("<script>alert('x')</script>"));
+
+        var content = org.mockito.ArgumentCaptor.forClass(com.inpetu.connect.service.EmailTemplateRenderer.EmailContent.class);
+        verify(brevo).send(org.mockito.ArgumentMatchers.eq("ana@example.test"),
+            org.mockito.ArgumentMatchers.eq("Resposta da equipe InPETU Hub"), content.capture(),
+            org.mockito.ArgumentMatchers.eq("resposta de dúvida"));
+        assertTrue(content.getValue().html().contains("&lt;script&gt;"));
+        assertFalse(content.getValue().html().contains("<script>"));
+        assertTrue(content.getValue().text().contains("<script>"));
     }
 }

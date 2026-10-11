@@ -38,4 +38,14 @@ class JwtServiceTest {
 
         assertFalse(service.valido(token, user));
     }
+
+    @Test
+    void invalidatesTokensWhenPasswordVersionChanges() {
+        JwtService service = new JwtService(SECRET, 3_600_000);
+        UserDetails user = User.withUsername("person@example.test").password("unused").roles("STAFF").build();
+        String token = service.gerar(user, 0);
+
+        assertTrue(service.valido(token, user, 0));
+        assertFalse(service.valido(token, user, 1));
+    }
 }

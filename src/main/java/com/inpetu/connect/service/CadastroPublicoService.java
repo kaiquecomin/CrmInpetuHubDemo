@@ -20,7 +20,10 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.nio.charset.StandardCharsets;
@@ -37,8 +40,11 @@ public class CadastroPublicoService {
     public static final String SUCCESS_MESSAGE = "Enviamos um e-mail com as instruções de acesso.";
     private static final int MAX_CADASTROS_POR_IP = 5;
     private static final int MAX_REENVIO_POR_PENDENTE = 5;
+    private static final int MAX_CODIGOS_POR_HORA = 3;
     private static final int MAX_EMAILS_POR_DIA = 3;
     private static final long REENVIO_INTERVALO_SEGUNDOS = 60L;
+    public static final int CODIGO_VALIDADE_MINUTOS = 10;
+    private static final int MAX_TENTATIVAS_CODIGO = 5;
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final UsuarioRepository usuarios;
@@ -50,6 +56,7 @@ public class CadastroPublicoService {
     private final EmailSender emailSender;
     private final Set<String> trustedProxies;
     private final String rateLimitSecret;
+    private final String otpSecret;
 
     public CadastroPublicoService(UsuarioRepository usuarios,
                                  OrganizacaoRepository organizacoes,
@@ -59,7 +66,11 @@ public class CadastroPublicoService {
                                  EmailDomainValidator emailDomainValidator,
                                  EmailSender emailSender,
                                  @Value("${app.security.trusted-proxies:}") String trustedProxyConfig,
-                                 @Value("${APP_RATE_LIMIT_SECRET:}") String rateLimitSecret) {
+                                 @Value("${APP_RATE_LIMIT_SECRET:}") String rateLimitSecret,
+                                 @Value("${OTP_SECRET:}") String otpSecret) {
+        if (otpSecret == null || otpSecret.length() < 32) {
+            throw new IllegalStateException("OTP_SECRET deve conter pelo menos 32 caracteres.");
+        }
         this.usuarios = usuarios;
         this.organizacoes = organizacoes;
         this.pendentes = pendentes;
@@ -69,6 +80,7 @@ public class CadastroPublicoService {
         this.emailSender = emailSender;
         this.trustedProxies = ClientIpResolver.parseTrustedProxies(trustedProxyConfig);
         this.rateLimitSecret = rateLimitSecret;
+        this.otpSecret = otpSecret;
     }
 
     public ResponseEntity<Map<String,String>> cadastrar(CadastroPublicoRequest request, HttpServletRequest servletRequest) {
@@ -93,6 +105,8 @@ public class CadastroPublicoService {
         Optional<CadastroPendente> existing = pendentes.findByEmailIgnoreCase(email);
         CadastroPendente pendente = existing.orElseGet(CadastroPendente::new);
         String rawToken = newToken();
+        String code = newCode();
+        LocalDateTime now = LocalDateTime.now();
         if (existing.isPresent()) {
             pendente.setNomeCompleto(request.nomeCompleto().trim());
             pendente.setTelefone(request.telefone());
@@ -100,8 +114,11 @@ public class CadastroPublicoService {
             pendente.setNomeOrganizacao(request.organizacao().trim());
             pendente.setSenhaHash(passwordEncoder.encode(request.senha()));
             pendente.setTokenHash(hashToken(rawToken));
-            pendente.setExpiraEm(LocalDateTime.now().plusMinutes(20));
-            pendente.setUltimoEnvioEm(LocalDateTime.now());
+            pendente.setExpiraEm(now.plusMinutes(20));
+            pendente.setCodigoHash(hashCode(code));
+            pendente.setCodigoExpiraEm(now.plusMinutes(CODIGO_VALIDADE_MINUTOS));
+            pendente.setTentativas(0);
+            pendente.setUltimoEnvioEm(now);
             pendente.setTotalEnvios(pendente.getTotalEnvios() == null ? 1 : pendente.getTotalEnvios() + 1);
         } else {
             pendente.setNomeCompleto(request.nomeCompleto().trim());
@@ -111,15 +128,18 @@ public class CadastroPublicoService {
             pendente.setNomeOrganizacao(request.organizacao().trim());
             pendente.setSenhaHash(passwordEncoder.encode(request.senha()));
             pendente.setTokenHash(hashToken(rawToken));
-            pendente.setExpiraEm(LocalDateTime.now().plusMinutes(20));
-            pendente.setCriadoEm(LocalDateTime.now());
-            pendente.setUltimoEnvioEm(LocalDateTime.now());
+            pendente.setExpiraEm(now.plusMinutes(20));
+            pendente.setCodigoHash(hashCode(code));
+            pendente.setCodigoExpiraEm(now.plusMinutes(CODIGO_VALIDADE_MINUTOS));
+            pendente.setTentativas(0);
+            pendente.setCriadoEm(now);
+            pendente.setUltimoEnvioEm(now);
             pendente.setTotalEnvios(1);
         }
 
         pendentes.save(pendente);
         recordEvent(EventoCadastro.TipoEvento.CADASTRO, ip, email);
-        scheduleEmail(pendente, rawToken);
+        sendCodeEmail(pendente, code);
         return pendingAccepted();
     }
 
@@ -138,25 +158,61 @@ public class CadastroPublicoService {
             return ResponseEntity.badRequest().body(Map.of("mensagem", "Link inválido ou expirado"));
         }
 
-        Organizacao organizacao = new Organizacao();
-        organizacao.setNomeOrganizacao(pendente.getNomeOrganizacao());
-        organizacao.setTipoOrganizacao("Pendente de classificação");
-        organizacao = organizacoes.save(organizacao);
-
-        Usuario usuario = new Usuario();
-        usuario.setNomeCompleto(pendente.getNomeCompleto());
-        usuario.setEmail(pendente.getEmail());
-        usuario.setTelefone(pendente.getTelefone());
-        usuario.setCargoVinculo(pendente.getCargoVinculo());
-        usuario.setSenhaHash(pendente.getSenhaHash());
-        usuario.setIdPerfil(4);
-        usuario.setIdPersona(null);
-        usuario.setIdOrganizacao(organizacao.getIdOrganizacao());
-        usuario.setAtivo(true);
-        usuarios.save(usuario);
-
-        pendentes.delete(pendente);
+        efetivarCadastro(pendente);
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("mensagem", "Conta confirmada. Entre com seu e-mail e senha."));
+    }
+
+    @Transactional(noRollbackFor = ResponseStatusException.class)
+    public Usuario confirmarCodigo(String email, String code) {
+        String normalized = normalizeEmail(email);
+        CadastroPendente pendente = pendentes.findByEmailIgnoreCase(normalized).orElse(null);
+        if (pendente == null || !codigoValido(pendente, code)) {
+            if (pendente != null) {
+                int tentativas = pendente.getTentativas() == null ? 0 : pendente.getTentativas();
+                if (tentativas >= MAX_TENTATIVAS_CODIGO) {
+                    pendente.setCodigoHash(null);
+                    pendente.setCodigoExpiraEm(null);
+                }
+                pendentes.save(pendente);
+            }
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Código inválido ou expirado. Solicite um novo código.");
+        }
+        return efetivarCadastro(pendente);
+    }
+
+    public ResponseEntity<Map<String, String>> reenviarCodigo(String email, HttpServletRequest servletRequest) {
+        String normalized = normalizeEmail(email);
+        String ip = ClientIpResolver.resolve(servletRequest, trustedProxies);
+        if (isOtpResendRateLimited(ip, normalized)) {
+            recordEvent(EventoCadastro.TipoEvento.ENVIO, ip, normalized);
+            return pendingAccepted();
+        }
+
+        CadastroPendente pendente = pendentes.findByEmailIgnoreCase(normalized).orElse(null);
+        if (pendente == null) {
+            recordEvent(EventoCadastro.TipoEvento.ENVIO, ip, normalized);
+            return pendingAccepted();
+        }
+        LocalDateTime now = LocalDateTime.now();
+        if (pendente.getUltimoEnvioEm() != null
+            && pendente.getUltimoEnvioEm().plusSeconds(REENVIO_INTERVALO_SEGUNDOS).isAfter(now)) {
+            return pendingAccepted();
+        }
+        int totalEnvios = pendente.getTotalEnvios() == null ? 0 : pendente.getTotalEnvios();
+        if (totalEnvios >= MAX_REENVIO_POR_PENDENTE) {
+            return pendingAccepted();
+        }
+
+        String code = newCode();
+        pendente.setCodigoHash(hashCode(code));
+        pendente.setCodigoExpiraEm(now.plusMinutes(CODIGO_VALIDADE_MINUTOS));
+        pendente.setTentativas(0);
+        pendente.setUltimoEnvioEm(now);
+        pendente.setTotalEnvios(totalEnvios + 1);
+        pendentes.save(pendente);
+        recordEvent(EventoCadastro.TipoEvento.ENVIO, ip, normalized);
+        sendCodeEmail(pendente, code);
+        return pendingAccepted();
     }
 
     public ResponseEntity<Map<String, String>> reenviarConfirmacao(String email) {
@@ -205,6 +261,16 @@ public class CadastroPublicoService {
         return count >= MAX_EMAILS_POR_DIA;
     }
 
+    private boolean isOtpResendRateLimited(String ip, String email) {
+        LocalDateTime oneHourAgo = LocalDateTime.now().minusHours(1);
+        if (email != null && !email.isBlank()
+            && eventos.countByEmailHashAndCriadoEmAfter(hashValue(email), oneHourAgo) >= MAX_CODIGOS_POR_HORA) {
+            return true;
+        }
+        return ip != null && !ip.isBlank()
+            && eventos.countByIpHashAndCriadoEmAfter(hashValue(ip), oneHourAgo) >= MAX_CODIGOS_POR_HORA;
+    }
+
     private void recordEvent(EventoCadastro.TipoEvento tipo, String ip, String email) {
         EventoCadastro evento = new EventoCadastro();
         evento.setTipo(tipo);
@@ -227,6 +293,67 @@ public class CadastroPublicoService {
         }
     }
 
+    private void sendCodeEmail(CadastroPendente pendente, String code) {
+        try {
+            emailSender.sendConfirmationCode(pendente, code, CODIGO_VALIDADE_MINUTOS);
+        } catch (RuntimeException e) {
+            logger.warn("Cadastro pendente salvo, mas o envio do código falhou para {} ({}).",
+                maskedEmail(pendente.getEmail()), e.getClass().getSimpleName());
+            pendente.setUltimoEnvioEm(LocalDateTime.now().minusSeconds(REENVIO_INTERVALO_SEGUNDOS));
+            pendentes.save(pendente);
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "O cadastro foi salvo, mas não foi possível enviar o código. Tente reenviar em instantes.");
+        }
+    }
+
+    private boolean codigoValido(CadastroPendente pendente, String code) {
+        LocalDateTime now = LocalDateTime.now();
+        if (pendente.getCodigoHash() == null || pendente.getCodigoExpiraEm() == null) {
+            return false;
+        }
+        if (!pendente.getCodigoExpiraEm().isAfter(now)) {
+            pendente.setCodigoHash(null);
+            pendente.setCodigoExpiraEm(null);
+            return false;
+        }
+        int tentativas = pendente.getTentativas() == null ? 0 : pendente.getTentativas();
+        if (tentativas >= MAX_TENTATIVAS_CODIGO) {
+            pendente.setCodigoHash(null);
+            pendente.setCodigoExpiraEm(null);
+            return false;
+        }
+        boolean matches = constantTimeEquals(pendente.getCodigoHash(), hashCode(code));
+        if (matches) return true;
+        tentativas++;
+        pendente.setTentativas(tentativas);
+        if (tentativas >= MAX_TENTATIVAS_CODIGO) {
+            pendente.setCodigoHash(null);
+            pendente.setCodigoExpiraEm(null);
+        }
+        return false;
+    }
+
+    private Usuario efetivarCadastro(CadastroPendente pendente) {
+        Organizacao organizacao = new Organizacao();
+        organizacao.setNomeOrganizacao(pendente.getNomeOrganizacao());
+        organizacao.setTipoOrganizacao("Pendente de classificação");
+        organizacao = organizacoes.save(organizacao);
+
+        Usuario usuario = new Usuario();
+        usuario.setNomeCompleto(pendente.getNomeCompleto());
+        usuario.setEmail(pendente.getEmail());
+        usuario.setTelefone(pendente.getTelefone());
+        usuario.setCargoVinculo(pendente.getCargoVinculo());
+        usuario.setSenhaHash(pendente.getSenhaHash());
+        usuario.setIdPerfil(4);
+        usuario.setIdPersona(null);
+        usuario.setIdOrganizacao(organizacao.getIdOrganizacao());
+        usuario.setAtivo(true);
+        Usuario criado = usuarios.save(usuario);
+        pendentes.delete(pendente);
+        return criado;
+    }
+
     private ResponseEntity<Map<String, String>> pendingAccepted() {
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(Map.of("mensagem", SUCCESS_MESSAGE));
     }
@@ -239,6 +366,20 @@ public class CadastroPublicoService {
         byte[] tokenBytes = new byte[32];
         SECURE_RANDOM.nextBytes(tokenBytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(tokenBytes);
+    }
+
+    private String newCode() {
+        return String.format("%06d", SECURE_RANDOM.nextInt(1_000_000));
+    }
+
+    private String hashCode(String code) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(otpSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+            return HexFormat.of().formatHex(mac.doFinal(code.getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception e) {
+            throw new IllegalStateException("Falha ao proteger o código de confirmação.", e);
+        }
     }
 
     private String hashToken(String rawToken) {

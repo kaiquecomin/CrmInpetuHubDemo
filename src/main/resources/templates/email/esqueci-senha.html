@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="pt-BR" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>Redefinição de senha no InPETU Connect</title>
+<style>
+  body { margin:0; padding:0; background:#eef2f7; }
+  table { border-collapse:collapse; }
+  @media only screen and (max-width:620px) {
+    .container { width:100% !important; }
+    .px { padding-left:24px !important; padding-right:24px !important; }
+    .code { font-size:32px !important; letter-spacing:6px !important; }
+    .h1 { font-size:24px !important; }
+  }
+  @media (prefers-color-scheme: dark) {
+    body, .bg { background:#0f1726 !important; }
+    .card { background:#17233a !important; }
+    .t-main { color:#f2f6fb !important; }
+    .t-muted { color:#a9b6c6 !important; }
+    .codebox { background:#0f1b30 !important; border-color:#2b4a78 !important; }
+    .code { color:#ffffff !important; }
+  }
+</style>
+</head>
+<body style="margin:0;padding:0;background:#eef2f7;">
+
+<!-- Pré-visualização na caixa de entrada (preheader) -->
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;font-size:1px;line-height:1px;color:#eef2f7;">
+  Seu código para redefinir a senha é {{CODIGO}}. Ele expira em {{VALIDADE_MIN}} minutos.&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;
+</div>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="bg" style="background:#eef2f7;">
+<tr><td align="center" style="padding:32px 16px;">
+
+  <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" class="container" style="width:600px;max-width:600px;">
+
+    <!-- Cabeçalho -->
+    <tr><td style="padding:0 4px 16px 4px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td width="44" height="44" align="center" valign="middle" style="width:44px;height:44px;background:#15539a;border-radius:12px;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:700;color:#ffffff;letter-spacing:.5px;">IC</td>
+        <td style="padding-left:12px;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+          <div class="t-main" style="font-size:16px;font-weight:700;color:#14233f;line-height:20px;">InPETU Connect</div>
+          <div class="t-muted" style="font-size:11px;letter-spacing:1.4px;color:#6b7c90;line-height:16px;">UFSC · LOTE 73</div>
+        </td>
+      </tr></table>
+    </td></tr>
+
+    <!-- Cartão -->
+    <tr><td class="card" style="background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 2px 12px rgba(20,35,63,.08);">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+
+        <!-- Faixa de cor -->
+        <tr><td height="6" style="height:6px;line-height:6px;font-size:0;background:#1f5c4a;background-image:linear-gradient(90deg,#1f5c4a 0%,#1f5c4a 70%,#e07a4f 100%);">&nbsp;</td></tr>
+
+        <tr><td class="px" style="padding:36px 40px 8px 40px;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+          <div style="font-size:12px;font-weight:700;letter-spacing:1.6px;color:#e07a4f;text-transform:uppercase;">Redefinição de senha</div>
+          <h1 class="h1 t-main" style="margin:10px 0 0 0;font-size:28px;line-height:34px;font-weight:700;color:#14233f;">Esqueceu a senha? Sem problema.</h1>
+          <p class="t-muted" style="margin:16px 0 0 0;font-size:16px;line-height:26px;color:#44546a;">
+            Olá, {{NOME}}. Recebemos um pedido para redefinir a senha da sua conta no InPETU Connect. Digite o código abaixo na tela de recuperação para criar uma nova senha.
+          </p>
+        </td></tr>
+
+        <!-- Código -->
+        <tr><td class="px" style="padding:24px 40px 8px 40px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr><td class="codebox" align="center" style="background:#f0f7f4;border:1.5px dashed #a9cfc1;border-radius:16px;padding:26px 16px;">
+              <div class="t-muted" style="font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;letter-spacing:1.4px;color:#6b7c90;text-transform:uppercase;">Código para redefinir a senha</div>
+              <div class="code" style="margin-top:10px;font-family:'SFMono-Regular',Menlo,Consolas,'Courier New',monospace;font-size:40px;line-height:48px;font-weight:700;letter-spacing:10px;color:#1f5c4a;">{{CODIGO}}</div>
+              <div class="t-muted" style="margin-top:10px;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;color:#5b6b7c;">Válido por <strong>{{VALIDADE_MIN}} minutos</strong> e pode ser usado uma única vez.</div>
+            </td></tr>
+          </table>
+        </td></tr>
+
+        <!-- Aviso de segurança -->
+        <tr><td class="px" style="padding:20px 40px 36px 40px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr><td style="background:#fff6ee;border-left:4px solid #e07a4f;border-radius:8px;padding:14px 16px;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:22px;color:#6a4026;">
+              <strong>Não foi você?</strong> Ignore este e-mail: a sua senha continua a mesma e ninguém acessa a conta só com este aviso.
+              Nunca compartilhe este código, nem com a equipe do InPETU.
+            </td></tr>
+          </table>
+        </td></tr>
+
+      </table>
+    </td></tr>
+
+    <!-- Rodapé -->
+    <tr><td class="px" align="center" style="padding:24px 16px 8px 16px;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+      <div class="t-muted" style="font-size:13px;line-height:20px;color:#6b7c90;">
+        Sapiens Parque · Lote 73 · Rod. SC-401, 6001 · Florianópolis, SC
+      </div>
+      <div class="t-muted" style="margin-top:6px;font-size:12px;line-height:18px;color:#8493a5;">
+        Seus dados são tratados com transparência, conforme a LGPD.<br>
+        Este é um e-mail automático, por favor não responda.
+      </div>
+      <div style="margin-top:10px;font-size:12px;color:#e07a4f;font-weight:600;">Espaço para ideias. Conexões para transformar.</div>
+      <div class="t-muted" style="margin-top:10px;font-size:11px;color:#9aa8b8;">© {{ANO}} InPETU Hub · UFSC</div>
+    </td></tr>
+
+  </table>
+
+</td></tr>
+</table>
+</body>
+</html>

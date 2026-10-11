@@ -1,0 +1,12 @@
+A equipe respondeu sua dúvida
+
+Olá{{NOME}}, a equipe do InPETU Hub enviou uma resposta para sua solicitação:
+
+{{MENSAGEM}}
+
+Esta mensagem foi enviada pela equipe do InPETU Hub em resposta ao seu contato.
+
+Sapiens Parque · Lote 73 · Rod. SC-401, 6001 · Florianópolis, SC
+Este é um e-mail automático, por favor não responda.
+Espaço para ideias. Conexões para transformar.
+© {{ANO}} InPETU Hub · UFSC

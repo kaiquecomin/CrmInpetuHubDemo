@@ -1,0 +1,19 @@
+Olá, {{NOME}}! Falta só um passo.
+
+Recebemos o seu pedido de acesso ao InPETU Connect. Digite o código abaixo na tela
+de verificação para ativar a sua conta e entrar.
+
+Seu código de confirmação:
+{{CODIGO}}
+
+Válido por {{VALIDADE_MIN}} minutos e pode ser usado uma única vez.
+
+Não compartilhe este código. A equipe do InPETU nunca pede o seu código por
+telefone, mensagem ou e-mail. Se você não criou uma conta, é só ignorar esta
+mensagem.
+
+Sapiens Parque · Lote 73 · Rod. SC-401, 6001 · Florianópolis, SC
+Seus dados são tratados com transparência, conforme a LGPD.
+Este é um e-mail automático, por favor não responda.
+Espaço para ideias. Conexões para transformar.
+© {{ANO}} InPETU Hub · UFSC

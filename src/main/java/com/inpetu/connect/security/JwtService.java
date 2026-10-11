@@ -17,17 +17,25 @@ public class JwtService {
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8)); this.expirationMs = expirationMs;
     }
     public String gerar(UserDetails user) {
+        return gerar(user, 0);
+    }
+    public String gerar(UserDetails user, int versaoToken) {
         Date now = new Date();
-        return Jwts.builder().subject(user.getUsername()).claim("db", "main").issuedAt(now).expiration(new Date(now.getTime() + expirationMs)).signWith(key).compact();
+        return Jwts.builder().subject(user.getUsername()).claim("db", "main").claim("ver", versaoToken)
+            .issuedAt(now).expiration(new Date(now.getTime() + expirationMs)).signWith(key).compact();
     }
     public String extrairEmail(String token) {
         return Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload().getSubject();
     }
     public boolean valido(String token, UserDetails user) {
+        return valido(token, user, 0);
+    }
+    public boolean valido(String token, UserDetails user, int versaoToken) {
         try {
             var claims = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
             return "main".equals(claims.get("db", String.class))
                 && claims.getSubject().equals(user.getUsername())
+                && (claims.get("ver", Integer.class) == null ? 0 : claims.get("ver", Integer.class)) == versaoToken
                 && claims.getExpiration().after(new Date());
         }
         catch (JwtException | IllegalArgumentException ex) { return false; }

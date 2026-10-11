@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Locale;
 
 @Configuration
-@Profile("demo")
+@Profile("dev & demo & !prod")
 public class DemoDataSeed {
     private record PessoaDemo(String nome, String email, String cargo, String organizacao, int perfil, Integer persona, String passwordKey, String senhaDemo) {
         PessoaDemo withSenha(String senha) { return new PessoaDemo(nome, email, cargo, organizacao, perfil, persona, passwordKey, senha); }

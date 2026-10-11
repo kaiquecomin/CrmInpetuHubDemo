@@ -9,5 +9,6 @@ public class SpaWebConfig implements WebMvcConfigurer {
     @Override
     public void addViewControllers(ViewControllerRegistry registry) {
         registry.addViewController("/confirmar").setViewName("forward:/index.html");
+        registry.addViewController("/verificar-email").setViewName("forward:/index.html");
     }
 }

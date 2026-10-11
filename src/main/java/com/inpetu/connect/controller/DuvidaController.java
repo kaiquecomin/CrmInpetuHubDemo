@@ -4,14 +4,13 @@ import com.inpetu.connect.dto.DuvidaRequest;
 import com.inpetu.connect.dto.DuvidaRespostaRequest;
 import com.inpetu.connect.model.DuvidaAtendimento;
 import com.inpetu.connect.repository.DuvidaAtendimentoRepository;
+import com.inpetu.connect.service.BrevoEmailClient;
+import com.inpetu.connect.service.EmailTemplateRenderer;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.*;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.multipart.MultipartFile;
@@ -22,20 +21,21 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Transactional;
 
 @RestController @RequestMapping("/api/v1/duvidas")
 public class DuvidaController {
+    private static final Logger logger = LoggerFactory.getLogger(DuvidaController.class);
     private final DuvidaAtendimentoRepository duvidas;
     private final Path uploadDirectory;
-    private final ObjectProvider<JavaMailSender> mailSender;
-    private final boolean mailEnabled;
-    private final String mailFrom;
+    private final BrevoEmailClient brevo;
+    private final EmailTemplateRenderer templates;
     public DuvidaController(DuvidaAtendimentoRepository duvidas, @Value("${app.upload.dir:uploads/inpetu}") String uploadDirectory,
-                            ObjectProvider<JavaMailSender> mailSender, @Value("${app.mail.enabled:false}") boolean mailEnabled,
-                            @Value("${app.mail.from}") String mailFrom) {
+                            BrevoEmailClient brevo, EmailTemplateRenderer templates) {
         this.duvidas = duvidas; this.uploadDirectory = Path.of(uploadDirectory).toAbsolutePath().normalize();
-        this.mailSender = mailSender; this.mailEnabled = mailEnabled; this.mailFrom = mailFrom;
+        this.brevo = brevo; this.templates = templates;
     }
     @PostMapping @Transactional public DuvidaAtendimento criar(@Valid @RequestBody DuvidaRequest request) {
         return salvar(request, null);
@@ -96,10 +96,15 @@ public class DuvidaController {
             new ResponseStatusException(HttpStatus.NOT_FOUND, "Solicitação de atendimento não encontrada."));
         d.setRespostaEquipe(resposta); d.setStatusAtendimento("Respondida"); d.setDataResposta(LocalDateTime.now());
         DuvidaAtendimento salva = duvidas.save(d);
-        JavaMailSender sender = mailSender.getIfAvailable();
-        if (mailEnabled && sender != null) {
-            SimpleMailMessage message = new SimpleMailMessage(); message.setFrom(mailFrom); message.setTo(d.getEmailContato());
-            message.setSubject("Resposta da equipe InPETU Hub"); message.setText(resposta); sender.send(message);
+        if (!brevo.isEnabled()) {
+            brevo.logDisabled(d.getEmailContato(), "resposta de dúvida");
+        } else {
+            try {
+                brevo.send(d.getEmailContato(), "Resposta da equipe InPETU Hub",
+                    templates.doubtResponse(resposta), "resposta de dúvida");
+            } catch (IllegalStateException erro) {
+                logger.warn("Resposta da dúvida {} foi registrada, mas o e-mail não foi enviado.", id);
+            }
         }
         return salva;
     }

@@ -1,0 +1,1 @@
+-- The MySQL-specific production import.sql is intentionally excluded from H2 integration tests.

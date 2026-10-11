@@ -52,4 +52,13 @@ public class CadastroPendente {
 
     @Column(name = "total_envios", nullable = false)
     private Integer totalEnvios = 0;
+
+    @Column(name = "codigo_hash", length = 64)
+    private String codigoHash;
+
+    @Column(name = "codigo_expira_em")
+    private LocalDateTime codigoExpiraEm;
+
+    @Column(name = "tentativas", nullable = false, columnDefinition = "integer not null default 0")
+    private Integer tentativas = 0;
 }

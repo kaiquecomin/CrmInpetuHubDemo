@@ -24,6 +24,7 @@ import org.slf4j.LoggerFactory;
 import java.time.Duration;
 import java.util.Set;
 import java.util.Map;
+import java.util.LinkedHashMap;
 
 @RestController @RequestMapping("/api/v1")
 public class AuthController {
@@ -64,11 +65,8 @@ public class AuthController {
         try {
             auth.authenticate(new UsernamePasswordAuthenticationToken(request.email(), request.senha()));
             loginAttempts.recordSuccess(ip, request.email());
-            var user = users.loadUserByUsername(request.email());
             Usuario cadastro = usuarios.findByEmail(request.email()).orElseThrow();
-            servletResponse.addHeader(HttpHeaders.SET_COOKIE,
-                jwtCookie(jwt.gerar(user), Duration.ofMillis(jwt.expirationMs())).toString());
-            return ResponseEntity.ok(Map.of("nome", cadastro.getNomeCompleto(), "perfil", cadastro.getIdPerfil(), "email", cadastro.getEmail()));
+            return establishSession(cadastro, servletResponse);
         } catch (BadCredentialsException | LockedException e) {
             loginAttempts.recordFailure(ip, request.email());
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "E-mail ou senha incorretos.");
@@ -84,7 +82,7 @@ public class AuthController {
     @GetMapping("/auth/session")
     public Map<String, Object> session(Authentication authentication) {
         Usuario cadastro = usuarios.findByEmailIgnoreCase(authentication.getName()).orElseThrow();
-        return Map.of("nome", cadastro.getNomeCompleto(), "perfil", cadastro.getIdPerfil(), "email", cadastro.getEmail());
+        return sessionPayload(cadastro);
     }
 
     private ResponseCookie jwtCookie(String value, Duration maxAge) {
@@ -111,6 +109,40 @@ public class AuthController {
     @PostMapping("/usuarios/reenviar-confirmacao")
     public ResponseEntity<Map<String, String>> reenviarConfirmacao(@Valid @RequestBody ReenviarConfirmacaoRequest request) {
         return cadastroPublicoService.reenviarConfirmacao(request.email());
+    }
+
+    @PostMapping("/auth/confirmar-codigo")
+    public ResponseEntity<Map<String, Object>> confirmarCodigo(@Valid @RequestBody ConfirmarCodigoRequest request,
+                                                                HttpServletResponse servletResponse) {
+        Usuario cadastro = cadastroPublicoService.confirmarCodigo(request.email(), request.codigo());
+        return establishSession(cadastro, servletResponse);
+    }
+
+    @PostMapping("/auth/reenviar-codigo")
+    public ResponseEntity<Map<String, String>> reenviarCodigo(@Valid @RequestBody ReenviarCodigoRequest request,
+                                                               HttpServletRequest servletRequest) {
+        return cadastroPublicoService.reenviarCodigo(request.email(), servletRequest);
+    }
+
+    private ResponseEntity<Map<String, Object>> establishSession(Usuario cadastro, HttpServletResponse servletResponse) {
+        var user = users.loadUserByUsername(cadastro.getEmail());
+        servletResponse.addHeader(HttpHeaders.SET_COOKIE,
+            jwtCookie(jwt.gerar(user, cadastro.getVersaoToken() == null ? 0 : cadastro.getVersaoToken()),
+                Duration.ofMillis(jwt.expirationMs())).toString());
+        return ResponseEntity.ok(sessionPayload(cadastro));
+    }
+
+    private Map<String, Object> sessionPayload(Usuario cadastro) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("nome", cadastro.getNomeCompleto());
+        payload.put("perfil", cadastro.getIdPerfil());
+        payload.put("email", cadastro.getEmail());
+        payload.put("idUsuario", cadastro.getIdUsuario());
+        payload.put("senhaTemporaria", Boolean.TRUE.equals(cadastro.getSenhaTemporaria()));
+        if (cadastro.getIdPersona() != null) {
+            payload.put("idPersona", cadastro.getIdPersona());
+        }
+        return payload;
     }
 
     private ResponseEntity<Map<String, String>> publicSignupAccepted() {

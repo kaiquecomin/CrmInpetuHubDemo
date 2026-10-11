@@ -19,7 +19,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.http.HttpMethod.POST;
@@ -64,8 +64,54 @@ class SmtpEmailSenderTest {
             .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
 
         SmtpEmailSender sender = new SmtpEmailSender(
-            client.restClient(), true, "https://connect.example.test///", API_KEY, MAIL_FROM, MAIL_REPLY_TO);
+            client.restClient(), new EmailTemplateRenderer(), true, "https://connect.example.test///",
+            API_KEY, MAIL_FROM, MAIL_REPLY_TO);
         sender.sendConfirmation(pending, rawToken);
+
+        client.server().verify();
+    }
+
+    @Test
+    void sendsOtpAsHtmlAndPlainTextWithoutLeakingNameMarkup() {
+        MockClient client = mockClient();
+        CadastroPendente pending = pending();
+        pending.setNomeCompleto("Ana <script>alert('x')</script> & Cia");
+        client.server().expect(requestTo(API_URL))
+            .andExpect(method(POST))
+            .andExpect(jsonPath("$.subject").value("Seu código InPETU Connect: 482917"))
+            .andExpect(jsonPath("$.htmlContent", containsString("Ana &lt;script&gt;")))
+            .andExpect(jsonPath("$.htmlContent", not(containsString("<script>"))))
+            .andExpect(jsonPath("$.htmlContent", containsString("letter-spacing:10px")))
+            .andExpect(jsonPath("$.htmlContent", containsString("Válido por <strong>10 minutos</strong>")))
+            .andExpect(jsonPath("$.htmlContent", not(containsString("{{"))))
+            .andExpect(jsonPath("$.textContent", containsString("482917")))
+            .andExpect(jsonPath("$.textContent", containsString("Válido por 10 minutos")))
+            .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+
+        SmtpEmailSender sender = new SmtpEmailSender(
+            client.restClient(), new EmailTemplateRenderer(), true, "https://connect.example.test",
+            API_KEY, MAIL_FROM, MAIL_REPLY_TO);
+        sender.sendConfirmationCode(pending, "482917", 10);
+
+        client.server().verify();
+    }
+
+    @Test
+    void sendsPasswordResetHtmlAndTextWithExpectedSubject() {
+        MockClient client = mockClient();
+        client.server().expect(requestTo(API_URL))
+            .andExpect(method(POST))
+            .andExpect(jsonPath("$.subject").value("Redefinição de senha no InPETU Connect"))
+            .andExpect(jsonPath("$.htmlContent", containsString("Código para redefinir a senha")))
+            .andExpect(jsonPath("$.htmlContent", containsString("907314")))
+            .andExpect(jsonPath("$.textContent", containsString("907314")))
+            .andExpect(jsonPath("$.textContent", containsString("Válido por 10 minutos")))
+            .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+
+        SmtpEmailSender sender = new SmtpEmailSender(
+            client.restClient(), new EmailTemplateRenderer(), true, "https://connect.example.test",
+            API_KEY, MAIL_FROM, MAIL_REPLY_TO);
+        sender.sendPasswordResetCode("ana@example.test", "Ana Exemplo", "907314", 10);
 
         client.server().verify();
     }
@@ -74,7 +120,7 @@ class SmtpEmailSenderTest {
     void refusesToSendWhenPublicUrlIsEmpty() {
         MockClient client = mockClient();
         SmtpEmailSender sender = new SmtpEmailSender(
-            client.restClient(), true, " ", API_KEY, MAIL_FROM, MAIL_REPLY_TO);
+            client.restClient(), new EmailTemplateRenderer(), true, " ", API_KEY, MAIL_FROM, MAIL_REPLY_TO);
         String rawToken = randomToken();
 
         IllegalStateException exception = assertThrows(
@@ -96,12 +142,13 @@ class SmtpEmailSenderTest {
             .andRespond(withStatus(UNAUTHORIZED).body(privateResponseBody));
 
         SmtpEmailSender sender = new SmtpEmailSender(
-            client.restClient(), true, "https://connect.example.test", API_KEY, MAIL_FROM, MAIL_REPLY_TO);
+            client.restClient(), new EmailTemplateRenderer(), true, "https://connect.example.test",
+            API_KEY, MAIL_FROM, MAIL_REPLY_TO);
         IllegalStateException exception = assertThrows(
             IllegalStateException.class, () -> sender.sendConfirmation(pending(), randomToken()));
 
-        assertEquals("Não foi possível enviar o e-mail de confirmação.", exception.getMessage());
-        assertNull(exception.getCause());
+        assertEquals("Não foi possível enviar o e-mail.", exception.getMessage());
+        assertNotNull(exception.getCause());
         assertFalse(exception.getMessage().contains(API_KEY));
         assertFalse(output.getAll().contains(API_KEY));
         assertFalse(output.getAll().contains(privateResponseBody));
@@ -112,19 +159,19 @@ class SmtpEmailSenderTest {
     void disabledEmailDoesNotCallApi(CapturedOutput output) {
         MockClient client = mockClient();
         SmtpEmailSender sender = new SmtpEmailSender(
-            client.restClient(), false, "", "", MAIL_FROM, MAIL_REPLY_TO);
+            client.restClient(), new EmailTemplateRenderer(), false, "", "", MAIL_FROM, MAIL_REPLY_TO);
 
         sender.sendConfirmation(pending(), randomToken());
 
-        assertTrue(output.getAll().contains("app.mail.enabled=false"));
+        assertTrue(output.getAll().contains("MAIL_ENABLED=false"));
         client.server().verify();
     }
 
     @Test
     void enabledEmailRequiresApiKeyWithoutExposingValue() {
         IllegalStateException exception = assertThrows(IllegalStateException.class, () ->
-            new SmtpEmailSender(mockClient().restClient(), true, "https://connect.example.test", " ",
-                MAIL_FROM, MAIL_REPLY_TO));
+            new SmtpEmailSender(mockClient().restClient(), new EmailTemplateRenderer(), true,
+                "https://connect.example.test", " ", MAIL_FROM, MAIL_REPLY_TO));
 
         assertEquals("BREVO_API_KEY é obrigatório quando app.mail.enabled=true.", exception.getMessage());
     }
@@ -145,6 +192,7 @@ class SmtpEmailSenderTest {
         CadastroPendente pending = new CadastroPendente();
         pending.setEmail(email);
         pending.setTokenHash(tokenHash);
+        pending.setNomeCompleto("Ana Exemplo");
         return pending;
     }
 

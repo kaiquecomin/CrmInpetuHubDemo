@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class SmtpEmailSenderMascaramentoTest {
     private final SmtpEmailSender sender = new SmtpEmailSender(
-        RestClient.builder().build(), false, "", "", "", "");
+        RestClient.builder().build(), new EmailTemplateRenderer(), false, "", "", "", "");
 
     @Test
     void masksAddressKeepingOnlyFirstCharacterAndFinalDomain() throws Exception {

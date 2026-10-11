@@ -8,7 +8,7 @@ import org.springframework.context.annotation.Profile;
 import javax.sql.DataSource;
 
 @Configuration(proxyBeanMethods = false)
-@Profile("demo")
+@Profile("demo & dev & !prod")
 public class LocalDemoDataSourceConfig {
     @Bean
     DataSource demoDataSource(DataSourceProperties properties) {

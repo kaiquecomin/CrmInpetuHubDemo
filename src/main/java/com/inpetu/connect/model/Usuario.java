@@ -16,5 +16,9 @@ public class Usuario {
     @Column(name = "id_persona") private Integer idPersona;
     @Column(name = "id_organizacao") private Integer idOrganizacao;
     @Column(nullable = false) private Boolean ativo = true;
+    @Column(name = "senha_temporaria", nullable = false, columnDefinition = "boolean not null default false")
+    private Boolean senhaTemporaria = false;
+    @Column(name = "versao_token", nullable = false, columnDefinition = "integer not null default 0")
+    private Integer versaoToken = 0;
     @Column(name = "data_cadastro", nullable = false) private LocalDateTime dataCadastro = LocalDateTime.now();
 }

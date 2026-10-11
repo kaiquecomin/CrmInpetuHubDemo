@@ -2,6 +2,7 @@ package com.inpetu.connect.config;
 
 import com.inpetu.connect.repository.UsuarioRepository;
 import com.inpetu.connect.security.JwtAuthenticationFilter;
+import com.inpetu.connect.security.SenhaTemporariaFilter;
 import com.inpetu.connect.security.TestDatabaseHeaderFilter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.*;
@@ -36,19 +37,23 @@ public class SecurityConfig {
     }
     @Bean AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception { return configuration.getAuthenticationManager(); }
     @Bean SecurityFilterChain filterChain(HttpSecurity http, JwtAuthenticationFilter jwtFilter,
+                                          SenhaTemporariaFilter temporaryPasswordFilter,
                                           AuthenticationProvider provider) throws Exception {
         return http.csrf(csrf -> csrf.disable()).cors(cors -> {}).sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authenticationProvider(provider).authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/v1/auth/login", "/api/v1/auth/logout",
+                    "/api/v1/auth/confirmar-codigo", "/api/v1/auth/reenviar-codigo",
                     "/api/v1/usuarios/cadastro-publico", "/api/v1/usuarios/confirmar-email",
                     "/api/v1/usuarios/reenviar-confirmacao").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/auth/session").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/v1/espacos/**", "/api/v1/ecossistema", "/api/v1/ecossistema/*/logo").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/duvidas").permitAll()
-                .requestMatchers("/confirmar").permitAll()
+                .requestMatchers("/confirmar", "/verificar-email").permitAll()
+                .requestMatchers("/api/v1/dev/email-preview").permitAll()
                 .requestMatchers("/api/**").authenticated()
                 .anyRequest().permitAll())
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterAfter(temporaryPasswordFilter, JwtAuthenticationFilter.class)
             .addFilterAfter(new TestDatabaseHeaderFilter(), JwtAuthenticationFilter.class).build();
     }
     @Bean CorsConfigurationSource corsConfigurationSource(@Value("${app.cors.allowed-origin}") String origins) {

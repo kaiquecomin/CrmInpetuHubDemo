@@ -58,8 +58,18 @@ class AuthControllerTest {
             @Override
             public void sendConfirmation(com.inpetu.connect.model.CadastroPendente pendente, String rawToken) {
             }
+
+            @Override
+            public void sendConfirmationCode(com.inpetu.connect.model.CadastroPendente pendente, String code,
+                                             int validityMinutes) {
+            }
+
+            @Override
+            public void sendPasswordResetCode(String email, String name, String code, int validityMinutes) {
+            }
         },
         "",
+        randomSecret(),
         randomSecret());
     private final AuthController controller = new AuthController(
         authentication,
@@ -133,7 +143,7 @@ class AuthControllerTest {
         coordinator.setEmail("coord@example.test");
         coordinator.setIdPerfil(1);
         when(userDetails.loadUserByUsername("coord@example.test")).thenReturn(principal);
-        when(jwt.gerar(principal)).thenReturn(jwtToken);
+        when(jwt.gerar(principal, 0)).thenReturn(jwtToken);
         when(jwt.expirationMs()).thenReturn(3_600_000L);
         when(usuarios.findByEmail("coord@example.test")).thenReturn(Optional.of(coordinator));
         MockHttpServletRequest request = new MockHttpServletRequest();

@@ -44,23 +44,39 @@ Para testar com dados fictícios, use `scripts/start-local-demo.ps1`. Se `script
 
 ### Variáveis de ambiente
 
-| Variável | Obrigatória | Descrição |
+| Variável | Obrigatória | Onde é usada |
 |---|---|---|
-| `DB_URL` | sim | URL JDBC do banco MySQL |
-| `DB_USER` | sim | Usuário do banco |
-| `DB_PASSWORD` | sim | Senha do banco |
-| `JWT_SECRET` | sim | Segredo de assinatura dos tokens, com 32 ou mais caracteres |
-| `APP_ADMIN_EMAIL` | condicional | E-mail do primeiro coordenador, quando não houver perfil 1 |
-| `APP_ADMIN_PASSWORD` | condicional | Senha do primeiro coordenador (12 a 72 caracteres), quando não houver perfil 1 |
-| `DEMO_ADMIN_PASSWORD` | perfil `demo` | Senha da conta administrativa de demonstração |
-| `INPETU_DEMO_PASSWORD_*` | perfil `demo` | Senhas distintas para as demais contas locais de demonstração |
-| `TRUSTED_PROXIES` | não | Lista separada por vírgulas de IPs de proxies confiáveis; vazia por padrão |
-| `APP_UPLOAD_DIR` | não | Pasta de anexos e imagens. Em produção, aponte para um volume persistente |
-| `JWT_EXPIRATION_MS` | não | Validade do token. O padrão é 8 horas |
-| `FRONTEND_ORIGIN` | não | Origem liberada no CORS. O padrão é `http://localhost:5173` |
-| `MAIL_*` | não | Configuração do SMTP para envio de e-mails |
+| `PORT` | Não; plataforma Railway | Porta HTTP (`server.port`), padrão `8080` |
+| `DB_URL` | Para banco remoto | URL JDBC MySQL; padrão local em `application.properties` |
+| `DB_USER` | Não; padrão `root` local | Usuário de `spring.datasource` |
+| `DB_PASSWORD` | Sim | Senha de `spring.datasource` |
+| `JWT_SECRET` | Sim | Chave de assinatura JWT; `JwtService` |
+| `JWT_EXPIRATION_MS` | Não | Validade JWT; padrão 8 horas |
+| `OTP_SECRET` | Sim | Segredo HMAC dos códigos OTP; cadastro e `OtpSecretValidator` |
+| `APP_RATE_LIMIT_SECRET` | Sim, exceto `dev` sem e-mail habilitado | Hashes dos limites por IP/e-mail; validado por `RateLimitSecretValidator` |
+| `LOGIN_MAX_ATTEMPTS` | Não | Tentativas de login; padrão `5` |
+| `LOGIN_LOCK_DURATION_SECONDS` | Não | Bloqueio após tentativas; padrão `900` segundos |
+| `TRUSTED_PROXIES` | Não | IPs de proxy confiáveis usados para resolver IP cliente |
+| `APP_ADMIN_EMAIL` | Condicional | E-mail do primeiro Coordenador criado pelo bootstrap |
+| `APP_ADMIN_PASSWORD` | Condicional | Senha do primeiro Coordenador criado pelo bootstrap |
+| `APP_UPLOAD_DIR` | Não | Diretório de anexos de dúvidas e imagens; padrão `uploads/inpetu` |
+| `FRONTEND_ORIGIN` | Não | Origens CORS; padrão `http://localhost:5173` |
+| `MAIL_ENABLED` | Não | Ativa todos os envios transacionais por Brevo (códigos, respostas e notificações) |
+| `BREVO_API_KEY` | Quando `MAIL_ENABLED=true` | Chave enviada ao endpoint transacional da API Brevo |
+| `MAIL_FROM` | Quando `MAIL_ENABLED=true` | Remetente verificado no Brevo |
+| `MAIL_REPLY_TO` | Não | Reply-to enviado nas mensagens do Brevo |
+| `APP_PUBLIC_URL` | Para o link legado de confirmação | Base da URL no link `/confirmar`; OTP usa o código |
+| `APP_DEMO_ADMIN_EMAIL` | Perfis locais `dev,demo` | Sobrescreve o e-mail administrativo de demonstração; padrão `admin@inpetu.test` |
+| `DEMO_ADMIN_PASSWORD` | Perfis locais `dev,demo` | Senha da conta de demonstração `admin@inpetu.test` |
+| `INPETU_DEMO_PASSWORD_*` | Perfis locais `dev,demo` | Senhas distintas por conta; o sufixo é a chave da conta, em maiúsculas |
+| `VITE_API_URL` | Não | URL da API incorporada ao frontend Vite durante o build; padrão do código local |
+| `JAVA_TOOL_OPTIONS` | Não | Opções da JVM; definida no estágio final do Dockerfile |
 
-`APP_ADMIN_EMAIL` e `APP_ADMIN_PASSWORD` criam o primeiro coordenador apenas uma vez, se ainda não existir nenhum usuário com perfil 1. Sem elas, a aplicação registra um aviso e não cria conta administrativa. Não alteram nem removem contas existentes. Remova essas duas variáveis depois de confirmar o acesso.
+`APP_ADMIN_EMAIL` e `APP_ADMIN_PASSWORD` criam o primeiro coordenador apenas uma vez, se ainda não existir nenhum usuário com perfil 1. Sem elas, a aplicação registra um aviso e não cria conta administrativa; não há credenciais padrão. Não alteram nem removem contas existentes. Remova essas duas variáveis depois de confirmar o acesso. `OTP_SECRET` deve ser um segredo aleatório, estável entre deploys e distinto de `JWT_SECRET`; a aplicação não inicia sem ele. `APP_RATE_LIMIT_SECRET` também deve ser aleatório, estável entre deploys e distinto dos demais segredos. Para habilitar qualquer envio, defina `MAIL_ENABLED=true` e configure `BREVO_API_KEY` e `MAIL_FROM` com remetente validado no Brevo.
+
+Os envios de código, resposta de dúvida e notificação compartilham o cliente HTTP do Brevo; o transporte e a dependência de e-mail SMTP foram removidos. Para resolver IPs atrás de um proxy, `TRUSTED_PROXIES` aceita uma lista separada por vírgulas de endereços IP exatos (não CIDRs). Vazio é o comportamento seguro padrão: ignora `X-Forwarded-For` e usa o endereço remoto visto pela aplicação.
+
+No Railway, a documentação pública consultada descreve a rede de borda, mas não publica uma lista estável de IPs de proxy de origem nem uma garantia contratual de como o `X-Forwarded-For` é saneado antes de chegar ao serviço. Portanto, não há um valor universal seguro a recomendar para `TRUSTED_PROXIES`; não use `*` nem confie em IPs extraídos do próprio cabeçalho. Deixe a variável vazia até obter da Railway um endereço/CIDR de origem estável e uma confirmação de que o proxy remove ou acrescenta os cabeçalhos de forma confiável. Sem isso, o limite por IP contará o IP remoto do proxy, não o IP individual do cliente.
 
 `DB_TEST_PASSWORD` é legado e não é consumido: cada implantação usa um único banco, sem seletor de banco de teste. A aplicação exige `DB_PASSWORD` sem valor padrão. Veja [.env.example](./.env.example) para os nomes, todos sem valores.
 
@@ -75,9 +91,24 @@ O healthcheck usa `/api/v1/database`.
 
 ## E-mail e anexos
 
-O cadastro público define a senha no momento da criação. O envio de e-mails (respostas dos chamados e notificações de reservas) é opcional e depende de um servidor SMTP. As notificações também ficam disponíveis no painel autenticado de cada solicitante e da equipe. Sem SMTP habilitado, elas continuam registradas no painel e o status do e-mail fica indicado como não enviado.
+O cadastro público envia código de confirmação pelo Brevo. Os e-mails usam HTML e versão texto em `src/main/resources/templates/email`; a validade exibida vem da configuração do fluxo OTP. Respostas às dúvidas e notificações usam o mesmo cliente Brevo e os mesmos templates visuais. O preview com dados fictícios fica disponível em `/api/v1/dev/email-preview` somente quando o perfil Spring `dev` estiver ativo.
 
 Anexos PDF, PNG e JPG de até 10 MB e imagens enviadas pela equipe (PNG/JPG de até 5 MB) são armazenados em disco no servidor. As 18 fotos oficiais do catálogo são imagens JPG otimizadas, empacotadas no build e servidas pela própria aplicação; não dependem de volume nem de URL externa. O nome numerado dos arquivos identifica a sala: a primeira imagem de cada grupo é a capa e as demais aparecem na galeria da mesma sala.
+
+## Alterações de acesso e validação manual
+
+O projeto não usa Flyway nem Liquibase. O schema é atualizado pelo Hibernate (`spring.jpa.hibernate.ddl-auto=update`): são aditivas as colunas `codigo_hash`, `codigo_expira_em` e `tentativas` de `cadastro_pendente` (o campo `ultimo_envio_em` é reutilizado), as colunas `senha_temporaria` e `versao_token` de `usuario` e a nova tabela `usuario_foto`. Não há migração SQL versionada nem operação intencional de remoção/renomeação de coluna. Antes do deploy com o MySQL real, faça backup, valide a atualização em uma cópia/staging e confirme a criação dessas colunas/tabela; não altere `ddl-auto` nem rode scripts destrutivos.
+
+Após configurar as variáveis do Railway, valide em staging:
+
+1. **Cadastro/OTP:** solicite cadastro com e-mail de teste, abra `/verificar-email`, confirme o código recebido e confira que o login automático redireciona para o portal. Abra também `/confirmar?token=teste` diretamente: a aplicação React deve carregar, em vez da Whitelabel 404 (o token de teste será recusado). Teste código errado cinco vezes, expiração após 10 minutos, reenvio após 60 segundos e o limite de reenvios por e-mail/IP. Simule falha do Brevo e confira a mensagem de erro e a opção de reenviar.
+2. **Entrada e portal:** acesse uma página protegida antes do login e confirme que, após autenticar, volta apenas a uma rota interna permitida. Sem destino anterior, solicitantes devem ir ao portal e a equipe ao painel.
+3. **Perfil/foto:** altere nome, telefone, organização e vínculo; confirme que e-mail, perfil e persona são somente leitura. Envie JPG/PNG/WebP válido de até 2 MB, confira o avatar, remova a foto e valide a rejeição de tipo/conteúdo incompatível e arquivo grande.
+4. **Senha temporária:** como Coordenador, redefina a senha de um usuário permitido e copie a senha exibida uma única vez. Confirme que tokens anteriores são invalidados, que o login com senha temporária exige troca e que APIs ficam bloqueadas até a nova senha ser salva.
+5. **Persona e telas:** altere a persona em um cadastro de teste, valide a confirmação quando a cota muda e navegue pelo seletor com teclado. Confira ficha, modais e portal em largura móvel.
+6. **E-mails:** com perfil `dev` ativo, abra `/api/v1/dev/email-preview` para conferir os dois modelos. Em staging, confirme recebimento do código HTML e teste também a alternativa de texto do e-mail.
+
+Execute a suíte automatizada do backend com `mvn test` e valide o frontend com `npm run build`.
 
 ## API principal
 

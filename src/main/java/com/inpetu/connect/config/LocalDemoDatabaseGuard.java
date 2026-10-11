@@ -10,7 +10,7 @@ final class LocalDemoDatabaseGuard {
     static void requireLocalMySql(String jdbcUrl) {
         String prefix = "jdbc:mysql:";
         if (jdbcUrl == null || !jdbcUrl.startsWith(prefix)) {
-            throw new IllegalStateException("O perfil demo só pode usar um banco MySQL local.");
+            throw new IllegalStateException("A carga de demonstração só pode usar um banco MySQL local.");
         }
         try {
             String host = URI.create(jdbcUrl.substring(prefix.length())).getHost();
@@ -19,10 +19,10 @@ final class LocalDemoDatabaseGuard {
                 normalizedHost = normalizedHost.substring(1, normalizedHost.length() - 1);
             }
             if (!List.of("localhost", "127.0.0.1", "::1").contains(normalizedHost)) {
-                throw new IllegalStateException("O perfil demo só pode usar um banco MySQL local.");
+                throw new IllegalStateException("A carga de demonstração só pode usar um banco MySQL local.");
             }
         } catch (IllegalArgumentException ex) {
-            throw new IllegalStateException("O perfil demo só pode usar um banco MySQL local.", ex);
+            throw new IllegalStateException("A carga de demonstração só pode usar um banco MySQL local.", ex);
         }
     }
 }

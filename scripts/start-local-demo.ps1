@@ -91,7 +91,7 @@ try {
     try { $generator.GetBytes($random) } finally { $generator.Dispose() }
     Set-TemporaryEnvironment 'JWT_SECRET' ([Convert]::ToBase64String($random))
     [Array]::Clear($random, 0, $random.Length)
-    Set-TemporaryEnvironment 'SPRING_PROFILES_ACTIVE' 'demo'
+    Set-TemporaryEnvironment 'SPRING_PROFILES_ACTIVE' 'dev,demo'
 
     Push-Location $repoRoot
     try {

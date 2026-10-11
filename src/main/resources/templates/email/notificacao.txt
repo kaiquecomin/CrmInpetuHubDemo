@@ -1,0 +1,12 @@
+{{TITULO}}
+
+Olá, {{NOME}}. Há uma nova atualização no InPETU Connect:
+
+{{MENSAGEM}}
+
+Acesse sua conta para acompanhar os detalhes.
+
+Sapiens Parque · Lote 73 · Rod. SC-401, 6001 · Florianópolis, SC
+Este é um e-mail automático, por favor não responda.
+Espaço para ideias. Conexões para transformar.
+© {{ANO}} InPETU Hub · UFSC

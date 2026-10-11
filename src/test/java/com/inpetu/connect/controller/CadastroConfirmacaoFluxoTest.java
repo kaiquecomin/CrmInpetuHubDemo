@@ -38,6 +38,7 @@ import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -57,6 +58,8 @@ class CadastroConfirmacaoFluxoTest {
     private static final String SIGNUP_URL = "/api/v1/usuarios/cadastro-publico";
     private static final String CONFIRM_URL = "/api/v1/usuarios/confirmar-email";
     private static final String RESEND_URL = "/api/v1/usuarios/reenviar-confirmacao";
+    private static final String CONFIRM_CODE_URL = "/api/v1/auth/confirmar-codigo";
+    private static final String RESEND_CODE_URL = "/api/v1/auth/reenviar-codigo";
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final String DATABASE_NAME =
         "cadastro_" + UUID.randomUUID().toString().replace("-", "");
@@ -77,8 +80,10 @@ class CadastroConfirmacaoFluxoTest {
         properties.add("spring.datasource.username", () -> "sa");
         properties.add("spring.datasource.password", () -> "");
         properties.add("spring.jpa.hibernate.ddl-auto", () -> "create-drop");
+        properties.add("spring.jpa.properties.hibernate.hbm2ddl.import_files", () -> "hibernate-import.sql");
         properties.add("spring.sql.init.mode", () -> "never");
         properties.add("app.jwt.secret", CadastroConfirmacaoFluxoTest::randomSecret);
+        properties.add("OTP_SECRET", CadastroConfirmacaoFluxoTest::randomSecret);
         properties.add("APP_RATE_LIMIT_SECRET", CadastroConfirmacaoFluxoTest::randomSecret);
     }
 
@@ -92,6 +97,10 @@ class CadastroConfirmacaoFluxoTest {
     @Test
     void confirmationLinkLoadsTheReactAppWithoutOpeningProtectedApiRoutes() throws Exception {
         mvc.perform(get("/confirmar").queryParam("token", "teste"))
+            .andExpect(status().isOk())
+            .andExpect(forwardedUrl("/index.html"));
+
+        mvc.perform(get("/verificar-email"))
             .andExpect(status().isOk())
             .andExpect(forwardedUrl("/index.html"));
 
@@ -113,15 +122,17 @@ class CadastroConfirmacaoFluxoTest {
                 .content(signupJson(email, password)))
             .andExpect(status().isAccepted());
 
-        String tokenFromEmail = tokenFrom(emailSender.takeLink());
-        assertEquals(32, Base64.getUrlDecoder().decode(tokenFromEmail).length);
+        String code = emailSender.takeCode();
+        assertTrue(code.matches("\\d{6}"));
         CadastroPendente savedPending = pendentes.findByEmailIgnoreCase(email).orElseThrow();
-        assertTrue(tokenHashMatches(tokenFromEmail, savedPending.getTokenHash()),
-            "O hash persistido deve ser SHA-256 puro do token do link.");
-        mvc.perform(post(CONFIRM_URL)
+        assertTrue(savedPending.getCodigoHash().matches("[0-9a-f]{64}"));
+        assertFalse(savedPending.getCodigoHash().equals(code));
+        mvc.perform(post(CONFIRM_CODE_URL)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(confirmJson(tokenFromEmail)))
-            .andExpect(status().isCreated());
+                .content(confirmCodeJson(email, code)))
+            .andExpect(status().isOk())
+            .andExpect(result -> assertTrue(result.getResponse().getHeader("Set-Cookie")
+                .contains("inpetu-token=")));
 
         Usuario usuario = usuarios.findByEmailIgnoreCase(email).orElse(null);
         assertNotNull(usuario);
@@ -133,7 +144,7 @@ class CadastroConfirmacaoFluxoTest {
     }
 
     @Test
-    void tokenExpiradoNaoConfirmaCadastro() throws Exception {
+    void codigoExpiradoNaoConfirmaCadastro() throws Exception {
         String email = uniqueTestEmail();
 
         mvc.perform(post(SIGNUP_URL)
@@ -141,35 +152,39 @@ class CadastroConfirmacaoFluxoTest {
                 .content(signupJson(email, randomSecret())))
             .andExpect(status().isAccepted());
 
-        String tokenFromEmail = tokenFrom(emailSender.takeLink());
+        String code = emailSender.takeCode();
         CadastroPendente pendente = pendentes.findByEmailIgnoreCase(email).orElseThrow();
-        pendente.setExpiraEm(LocalDateTime.now().minusMinutes(1));
+        pendente.setCodigoExpiraEm(LocalDateTime.now().minusMinutes(1));
         pendentes.save(pendente);
 
-        mvc.perform(post(CONFIRM_URL)
+        mvc.perform(post(CONFIRM_CODE_URL)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(confirmJson(tokenFromEmail)))
+                .content(confirmCodeJson(email, code)))
             .andExpect(status().isBadRequest())
-            .andExpect(result -> assertEquals("Link inválido ou expirado",
-                objectMapper.readTree(result.getResponse().getContentAsString()).get("mensagem").asText()));
+            .andExpect(result -> assertTrue(result.getResolvedException().getMessage()
+                .contains("Código inválido ou expirado")));
         assertTrue(usuarios.findByEmailIgnoreCase(email).isEmpty());
     }
 
     @Test
-    void tokenAdulteradoNaoConfirmaCadastro() throws Exception {
+    void cincoCodigosIncorretosInvalidamCodigoENecessitamReenvio() throws Exception {
         String email = uniqueTestEmail();
         mvc.perform(post(SIGNUP_URL)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(signupJson(email, randomSecret())))
             .andExpect(status().isAccepted());
 
-        String token = tokenFrom(emailSender.takeLink());
-        mvc.perform(post(CONFIRM_URL)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(confirmJson(tamper(token))))
-            .andExpect(status().isBadRequest())
-            .andExpect(result -> assertEquals("Link inválido ou expirado",
-                objectMapper.readTree(result.getResponse().getContentAsString()).get("mensagem").asText()));
+        String code = tamperCode(emailSender.takeCode());
+        for (int attempt = 0; attempt < 5; attempt++) {
+            mvc.perform(post(CONFIRM_CODE_URL)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(confirmCodeJson(email, code)))
+                .andExpect(status().isBadRequest());
+        }
+        CadastroPendente pending = pendentes.findByEmailIgnoreCase(email).orElseThrow();
+        assertEquals(5, pending.getTentativas());
+        assertTrue(pending.getCodigoHash() == null);
+        assertTrue(usuarios.findByEmailIgnoreCase(email).isEmpty());
         assertTrue(usuarios.findByEmailIgnoreCase(email).isEmpty());
     }
 
@@ -180,12 +195,12 @@ class CadastroConfirmacaoFluxoTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(signupJson(email, randomSecret())))
             .andExpect(status().isAccepted());
-        String token = tokenFrom(emailSender.takeLink());
+        String code = emailSender.takeCode();
 
-        mvc.perform(post(CONFIRM_URL)
+        mvc.perform(post(CONFIRM_CODE_URL)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(confirmJson(token)))
-            .andExpect(status().isCreated());
+                .content(confirmCodeJson(email, code)))
+            .andExpect(status().isOk());
 
         String newEmail = uniqueTestEmail();
         var newSignup = mvc.perform(post(SIGNUP_URL)
@@ -194,7 +209,7 @@ class CadastroConfirmacaoFluxoTest {
             .andExpect(status().isAccepted())
             .andReturn();
         String newSignupBody = newSignup.getResponse().getContentAsString();
-        tokenFrom(emailSender.takeLink());
+        emailSender.takeCode();
         int sentBeforeDuplicate = emailSender.size();
 
         mvc.perform(post(SIGNUP_URL)
@@ -213,12 +228,12 @@ class CadastroConfirmacaoFluxoTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(signupJson(email, randomSecret())))
             .andExpect(status().isAccepted());
-        String token = tokenFrom(emailSender.takeLink());
+        String code = emailSender.takeCode();
 
-        mvc.perform(post(CONFIRM_URL)
+        mvc.perform(post(CONFIRM_CODE_URL)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(confirmJson(token)))
-            .andExpect(status().isCreated());
+                .content(confirmCodeJson(email, code)))
+            .andExpect(status().isOk());
 
         Usuario usuario = usuarios.findByEmailIgnoreCase(email).orElseThrow();
         assertEquals(4, usuario.getIdPerfil());
@@ -227,33 +242,86 @@ class CadastroConfirmacaoFluxoTest {
     }
 
     @Test
-    void reenvioInvalidaTokenAnterior() throws Exception {
+    void reenvioInvalidaCodigoAnterior() throws Exception {
         String email = uniqueTestEmail();
         mvc.perform(post(SIGNUP_URL)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(signupJson(email, randomSecret())))
             .andExpect(status().isAccepted());
-        String oldToken = tokenFrom(emailSender.takeLink());
+        String oldCode = emailSender.takeCode();
 
         CadastroPendente pending = pendentes.findByEmailIgnoreCase(email).orElseThrow();
         pending.setUltimoEnvioEm(LocalDateTime.now().minusMinutes(2));
         pendentes.save(pending);
 
-        mvc.perform(post(RESEND_URL)
+        mvc.perform(post(RESEND_CODE_URL)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(resendJson(email)))
             .andExpect(status().isAccepted());
-        String newToken = tokenFrom(emailSender.takeLink());
-        assertFalse(oldToken.equals(newToken));
+        String newCode = emailSender.takeCode();
+        assertFalse(oldCode.equals(newCode));
 
-        mvc.perform(post(CONFIRM_URL)
+        mvc.perform(post(CONFIRM_CODE_URL)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(confirmJson(oldToken)))
+                .content(confirmCodeJson(email, oldCode)))
             .andExpect(status().isBadRequest());
-        mvc.perform(post(CONFIRM_URL)
+        mvc.perform(post(CONFIRM_CODE_URL)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(confirmJson(newToken)))
-            .andExpect(status().isCreated());
+                .content(confirmCodeJson(email, newCode)))
+            .andExpect(status().isOk());
+    }
+
+    @Test
+    void reenvioLimitaTresCodigosPorHora() throws Exception {
+        String email = uniqueTestEmail();
+        mvc.perform(post(SIGNUP_URL)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(signupJson(email, randomSecret())))
+            .andExpect(status().isAccepted());
+        emailSender.takeCode();
+
+        for (int send = 0; send < 2; send++) {
+            CadastroPendente pending = pendentes.findByEmailIgnoreCase(email).orElseThrow();
+            pending.setUltimoEnvioEm(LocalDateTime.now().minusMinutes(2));
+            pendentes.save(pending);
+            mvc.perform(post(RESEND_CODE_URL)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(resendJson(email)))
+                .andExpect(status().isAccepted());
+            emailSender.takeCode();
+        }
+        CadastroPendente pending = pendentes.findByEmailIgnoreCase(email).orElseThrow();
+        pending.setUltimoEnvioEm(LocalDateTime.now().minusMinutes(2));
+        pendentes.save(pending);
+        int sentBeforeLimit = emailSender.size();
+
+        mvc.perform(post(RESEND_CODE_URL)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(resendJson(email)))
+            .andExpect(status().isAccepted());
+
+        assertEquals(sentBeforeLimit, emailSender.size());
+    }
+
+    @Test
+    void falhaNoEnvioPreservaCadastroEPermiteReenvio() throws Exception {
+        String email = uniqueTestEmail();
+        emailSender.failNextCodeEmail();
+
+        mvc.perform(post(SIGNUP_URL)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(signupJson(email, randomSecret())))
+            .andExpect(status().isServiceUnavailable());
+
+        CadastroPendente pending = pendentes.findByEmailIgnoreCase(email).orElseThrow();
+        assertNotNull(pending.getCodigoHash());
+        assertTrue(emailSender.size() == 0);
+
+        mvc.perform(post(RESEND_CODE_URL)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(resendJson(email)))
+            .andExpect(status().isAccepted());
+        assertTrue(emailSender.takeCode().matches("\\d{6}"));
     }
 
     private String signupJson(String email, String password) throws Exception {
@@ -263,6 +331,10 @@ class CadastroConfirmacaoFluxoTest {
 
     private String confirmJson(String token) throws Exception {
         return objectMapper.writeValueAsString(new ConfirmBody(token));
+    }
+
+    private String confirmCodeJson(String email, String code) throws Exception {
+        return objectMapper.writeValueAsString(new ConfirmCodeBody(email, code));
     }
 
     private String resendJson(String email) throws Exception {
@@ -319,9 +391,15 @@ class CadastroConfirmacaoFluxoTest {
         return replacement + token.substring(1);
     }
 
+    private static String tamperCode(String code) {
+        char replacement = code.charAt(0) == '0' ? '1' : '0';
+        return replacement + code.substring(1);
+    }
+
     private record SignupBody(String nomeCompleto, String email, String telefone,
                               String organizacao, String cargoVinculo, String senha) {}
     private record ConfirmBody(String token) {}
+    private record ConfirmCodeBody(String email, String codigo) {}
     private record ResendBody(String email) {}
 
     @TestConfiguration(proxyBeanMethods = false)
@@ -344,12 +422,39 @@ class CadastroConfirmacaoFluxoTest {
 
     static class CapturingEmailSender implements EmailSender {
         private final BlockingQueue<String> rawTokens = new LinkedBlockingQueue<>();
+        private final BlockingQueue<String> codes = new LinkedBlockingQueue<>();
         private final AtomicInteger sentCount = new AtomicInteger();
+        private final AtomicBoolean failNextCodeEmail = new AtomicBoolean();
 
         @Override
         public void sendConfirmation(CadastroPendente pendente, String rawToken) {
             rawTokens.add(rawToken);
             sentCount.incrementAndGet();
+        }
+
+        @Override
+        public void sendConfirmationCode(CadastroPendente pendente, String code, int validityMinutes) {
+            if (failNextCodeEmail.compareAndSet(true, false)) {
+                throw new IllegalStateException("Falha simulada no envio.");
+            }
+            codes.add(code);
+            sentCount.incrementAndGet();
+            rawTokens.add(pendente.getTokenHash());
+        }
+
+        @Override
+        public void sendPasswordResetCode(String email, String name, String code, int validityMinutes) {
+            throw new UnsupportedOperationException("Envio de redefinição não simulado neste teste.");
+        }
+
+        void failNextCodeEmail() {
+            failNextCodeEmail.set(true);
+        }
+
+        String takeCode() throws InterruptedException {
+            String code = codes.poll(5, TimeUnit.SECONDS);
+            assertNotNull(code);
+            return code;
         }
 
         String takeLink() throws InterruptedException {
@@ -366,7 +471,9 @@ class CadastroConfirmacaoFluxoTest {
 
         void clear() {
             rawTokens.clear();
+            codes.clear();
             sentCount.set(0);
+            failNextCodeEmail.set(false);
         }
     }
 }
