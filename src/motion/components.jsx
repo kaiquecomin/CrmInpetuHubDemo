@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion, useTransform } from 'motion/react'
+import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion, useScroll, useTransform } from 'motion/react'
 import { motionTokens } from './tokens.js'
 
 function useViewportVisibility({ once = true, threshold = 0.12 } = {}) {
@@ -173,6 +173,23 @@ export function CountUp({
   }, [count, duration, from, reducedMotion, value])
 
   return <motion.span {...props}>{formatted}</motion.span>
+}
+
+export function Parallax({ as = 'div', children, className, strength = 24, ...props }) {
+  const Component = motion[as]
+  const reducedMotion = useReducedMotion()
+  const { scrollY } = useScroll()
+  const y = useTransform(scrollY, [0, 700], [0, strength])
+
+  return (
+    <Component
+      className={className}
+      style={{ y: reducedMotion ? 0 : y }}
+      {...props}
+    >
+      {children}
+    </Component>
+  )
 }
 
 export function PageTransition({

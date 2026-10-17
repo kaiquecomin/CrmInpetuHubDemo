@@ -4,7 +4,7 @@ import { ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, Bell, Building2, C
 import { personas, personaQuotaLabel } from './personas.js'
 import { formatRelativeNotificationDate, normalizeNotificationMessage } from './notifications.js'
 import { BRAND_LOGOS } from './brand.js'
-import { Reveal, Stagger, StaggerItem } from './motion/index.js'
+import { CountUp, Parallax, Reveal, Stagger, StaggerItem, useScrollProgress } from './motion/index.js'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1'
 const omitPersona = user => {
@@ -699,9 +699,16 @@ function Header({ view, setView, openLogin, onOpenCalendar, user, onLogout, onUs
   const [menuOpen, setMenuOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [profileDetailsOpen, setProfileDetailsOpen] = useState(false)
+  const [compact, setCompact] = useState(false)
+  useEffect(() => {
+    const updateCompact = () => setCompact(window.scrollY > 24)
+    updateCompact()
+    window.addEventListener('scroll', updateCompact, { passive: true })
+    return () => window.removeEventListener('scroll', updateCompact)
+  }, [])
   const goTo = (id) => { setView('home'); setMenuOpen(false); window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0) }
   const perfilLabel = user?.perfil === 1 ? 'Coordenador / Admin' : user?.perfil === 2 ? 'Gestor de espaços' : user?.perfil === 3 ? 'Atendente / Staff' : 'Solicitante'
-  return <header className="site-header reference-header"><div className="header-inner"><button className="logo-button" aria-label="InPETU hub — página inicial" onClick={() => { setView(user && !isCrmUser(user) ? 'portal' : 'home'); window.scrollTo({ top: 0, behavior: 'smooth' }) }}><Logo /></button>
+  return <header className={`site-header reference-header ${compact ? 'site-header-compact' : ''}`}><div className="header-inner"><button className="logo-button" aria-label="InPETU hub — página inicial" onClick={() => { setView(user && !isCrmUser(user) ? 'portal' : 'home'); window.scrollTo({ top: 0, behavior: 'smooth' }) }}><Logo /></button>
     <nav className={`main-nav ${menuOpen ? 'nav-open' : ''}`}><button className={view === 'home' || view === 'portal' ? 'nav-active' : ''} onClick={() => { setView(user && !isCrmUser(user) ? 'portal' : 'home'); window.scrollTo({ top: 0, behavior: 'smooth' }); setMenuOpen(false) }}>{user && !isCrmUser(user) ? 'Meu portal' : 'Início'}</button><button onClick={() => goTo('spaces')}>Nossos Espaços</button><button onClick={() => goTo('about')}>Sobre o Hub</button><button className={view === 'help' ? 'nav-active' : ''} onClick={() => { setView('help'); setMenuOpen(false) }}>Fale Conosco</button></nav>
     <div className="header-actions">{user ? <div className="profile-control"><NotificationCenter user={user} /><div className="profile-switcher"><button type="button" className="profile-trigger" aria-haspopup="menu" aria-expanded={profileOpen} onClick={() => setProfileOpen(value => !value)}><Avatar user={user} tamanho={34} className="profile-avatar" /><span className="profile-meta"><strong>{user.nome || user.email || 'Perfil'}</strong><small>{perfilLabel}</small></span><ChevronDown className="profile-chevron" size={16} aria-hidden="true" /></button>{profileOpen && <div className="profile-menu" role="menu"><button type="button" role="menuitem" onClick={() => { setProfileDetailsOpen(true); setProfileOpen(false) }}>Meu perfil</button><button type="button" role="menuitem" onClick={() => { setView('reservations'); setProfileOpen(false) }}>Minhas reservas</button>{isCrmUser(user) && <a href="/paineladm" role="menuitem">Painel administrativo</a>}<button type="button" role="menuitem" onClick={() => { onLogout?.(); setProfileOpen(false) }}>Sair da conta</button></div>}</div><ProfileDialog open={profileDetailsOpen} close={() => setProfileDetailsOpen(false)} user={user} onUserUpdate={onUserUpdate} /></div> : <button className="team-link reference-login" onClick={() => { openLogin(); setMenuOpen(false) }}>Entrar</button>}<Button icon={CalendarDays} className="reference-header-cta" onClick={() => { onOpenCalendar(); setMenuOpen(false) }}>Agendar Espaço</Button></div><button className="mobile-menu icon-button" onClick={() => setMenuOpen(!menuOpen)} aria-label="Abrir menu"><MenuIcon /></button>
   </div></header>
@@ -763,12 +770,12 @@ function Home({ spaces, spacesLoaded, onConsultSpace, onSearchAvailability, onOp
           <Button type="submit" icon={Search}>Consultar horários</Button>
         </form>
         <dl className="reference-stats">
-          <div><dt>08h-22h</dt><dd>Horário de funcionamento</dd></div>
-          <div><dt>{spaces.filter(space => space.ativo !== false).length}</dt><dd>Ambientes ativos</dd></div>
+          <div><dt><CountUp value={22} from={8} format={value => `08h-${Math.round(value)}h`} /></dt><dd>Horário de funcionamento</dd></div>
+          <div><dt>{spacesLoaded ? <CountUp value={spaces.filter(space => space.ativo !== false).length} /> : '...'}</dt><dd>Ambientes ativos</dd></div>
           <div><dt>UFSC</dt><dd>Inovação em Florianópolis</dd></div>
         </dl>
       </div>
-      <div className="reference-hero-images">
+      <Parallax className="reference-hero-images" strength={24}>
         {heroSpace && <RoomPhoto key={heroSpace.idEspaco} className="reference-hero-photo" space={heroSpace} alt={`Foto de ${heroSpace.nomeEspaco}`} />}
         <div className="hero-image-note"><span><Building2 size={18} /></span><div><strong>{heroSpace?.nomeEspaco || 'Seu próximo encontro começa aqui'}</strong><small>{heroSpace?.capacidadePessoas ? `Até ${heroSpace.capacidadePessoas} pessoas · InPETU Hub` : 'Consulte nossos ambientes no InPETU Hub'}</small></div></div>
         {showcaseSpaces.length > 1 && <div className="hero-image-controls">
@@ -776,7 +783,7 @@ function Home({ spaces, spacesLoaded, onConsultSpace, onSearchAvailability, onOp
           <button type="button" onClick={() => setHeroIndex(index => (index - 1 + showcaseSpaces.length) % showcaseSpaces.length)} aria-label="Espaço anterior"><ChevronLeft size={18} /></button>
           <button type="button" onClick={() => setHeroIndex(index => (index + 1) % showcaseSpaces.length)} aria-label="Próximo espaço"><ChevronRight size={18} /></button>
         </div>}
-      </div>
+      </Parallax>
     </Reveal>
     <Reveal as="section" id="spaces" className="spaces-section"><div className="section-top"><div><Title as="h2">Nossos <em>Espaços</em></Title><p>Ambientes preparados para capacitações, eventos, mentorias e visitas técnicas.</p></div><button className="all-spaces-link" onClick={onOpenCalendar}>Abrir calendário completo <ArrowRight size={16} /></button></div>
       <div className="filter-row"><div className="filter-label"><SlidersHorizontal size={15} /> EXPLORE POR TIPO</div>{types.map(type => <button key={type} className={`filter-chip ${filter === type ? 'filter-chip-active' : ''}`} onClick={() => setFilter(type)}>{type}</button>)}</div>
@@ -1184,19 +1191,19 @@ function PortalHome({ user, items, reservationsLoaded, onOpenCalendar, onOpenRes
     .sort((a, b) => `${a.dataReserva}T${a.horarioInicio}`.localeCompare(`${b.dataReserva}T${b.horarioInicio}`))
     .slice(0, 3)
   return <main className="inner-page portal-home">
-    <section className="portal-welcome">
+    <Reveal as="section" className="portal-welcome">
       <div><Title as="h1">Olá, <em>{user?.nome?.split(' ')[0] || 'bem-vindo'}</em></Title><p>Acompanhe suas reservas e planeje o próximo encontro no InPETU Hub.</p></div>
       <Avatar user={user} tamanho={64} className="portal-avatar" />
-    </section>
-    <section className="portal-summary-grid" aria-label="Resumo da conta">
-      <article className="portal-summary-card"><span>RESERVAS ATIVAS · ESTE MÊS</span><strong>{activeThisMonth}</strong><small>Solicitações pendentes ou confirmadas neste mês</small></article>
-      <article className="portal-summary-card"><span>PRÓXIMAS RESERVAS</span><strong>{reservationsLoaded ? upcoming.length : '...'}</strong><small>Solicitações pendentes ou confirmadas</small></article>
-    </section>
-    <section className="portal-upcoming">
+    </Reveal>
+    <Stagger as="section" className="portal-summary-grid" aria-label="Resumo da conta">
+      <StaggerItem as="article" className="portal-summary-card"><span>RESERVAS ATIVAS · ESTE MÊS</span><strong><CountUp value={activeThisMonth} /></strong><small>Solicitações pendentes ou confirmadas neste mês</small></StaggerItem>
+      <StaggerItem as="article" className="portal-summary-card"><span>PRÓXIMAS RESERVAS</span><strong>{reservationsLoaded ? <CountUp value={upcoming.length} /> : '...'}</strong><small>Solicitações pendentes ou confirmadas</small></StaggerItem>
+    </Stagger>
+    <Reveal as="section" className="portal-upcoming">
       <div className="portal-section-heading"><div><Title as="h2">Próximas reservas</Title></div><button type="button" className="portal-text-action" onClick={onOpenReservations}>Minhas reservas <ArrowRight size={15} /></button></div>
-      {!reservationsLoaded ? <p className="portal-empty">Carregando suas reservas...</p> : upcoming.length ? <div className="portal-upcoming-list">{upcoming.map(item => <article key={item.idReserva}><span className="portal-date"><strong>{new Date(`${item.dataReserva}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit' })}</strong><small>{new Date(`${item.dataReserva}T12:00:00`).toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}</small></span><div><strong>{item.tituloEvento}</strong><small>{item.dataReserva} · {item.horarioInicio}-{item.horarioFim} · {item.espaco || 'Espaço InPETU'}{item.telefoneContato ? ` · Contato: ${formatBrazilianPhone(item.telefoneContato)}` : ''}</small></div><span className={`status-pill ${reservationStatusClass(item.statusReserva)}`}><i />{reservationStatusLabel(item.statusReserva)}</span></article>)}</div> : <p className="portal-empty">Você ainda não tem reservas próximas. Que tal planejar seu próximo encontro?</p>}
+      {!reservationsLoaded ? <p className="portal-empty">Carregando suas reservas...</p> : upcoming.length ? <Stagger as="div" className="portal-upcoming-list">{upcoming.map(item => <StaggerItem as="article" key={item.idReserva}><span className="portal-date"><strong>{new Date(`${item.dataReserva}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit' })}</strong><small>{new Date(`${item.dataReserva}T12:00:00`).toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}</small></span><div><strong>{item.tituloEvento}</strong><small>{item.dataReserva} · {item.horarioInicio}-{item.horarioFim} · {item.espaco || 'Espaço InPETU'}{item.telefoneContato ? ` · Contato: ${formatBrazilianPhone(item.telefoneContato)}` : ''}</small></div><span className={`status-pill ${reservationStatusClass(item.statusReserva)}`}><i />{reservationStatusLabel(item.statusReserva)}</span></StaggerItem>)}</Stagger> : <p className="portal-empty">Você ainda não tem reservas próximas. Que tal planejar seu próximo encontro?</p>}
       <Button icon={CalendarDays} onClick={onOpenCalendar}>Agendar espaço</Button>
-    </section>
+    </Reveal>
   </main>
 }
 function HelpPage() {
@@ -2271,6 +2278,10 @@ function ClientProfileDialog({ client, reservations, tickets, auditItems, close,
   </Modal>
 }
 function Footer({ setView }) { return <footer className="site-footer"><div className="footer-main"><div><Logo variant="horizontalDark" /><p>Espaço para ideias. Conexões para transformar.</p></div><div className="footer-links"><span>EXPLORE</span><button onClick={() => setView('home')}>Espaços</button><button onClick={() => setView('calendar')}>Disponibilidade</button><button onClick={() => setView('help')}>Fale conosco</button></div><div className="footer-address"><span>ENCONTRE A GENTE</span><p><MapPin size={15} /> Sapiens Parque · Lote 73<br />Rod. SC-401, 6001 · Florianópolis, SC</p><a href="https://maps.google.com/?q=Sapiens+Parque+Florianopolis" target="_blank" rel="noreferrer">Abrir mapa <ExternalLink size={13} /></a></div></div><div className="footer-bottom"><span>© 2026 InPETU Hub · UFSC</span><span><ShieldCheck size={14} /> Seus dados tratados com transparência, conforme a LGPD.</span><span>Ciência que aproxima. </span></div></footer> }
+function ReadingProgress() {
+  const progress = useScrollProgress()
+  return <div className="reading-progress" aria-hidden="true"><span style={{ transform: `scaleX(${progress})` }} /></div>
+}
 function AppInner({ onCodeSent, onNavigate, initialView = 'default' }) {
   const [view, setCurrentView] = useState(() => initialView === 'default' ? getDefaultView() : initialView)
   useEffect(() => {
@@ -2452,20 +2463,21 @@ function AppInner({ onCodeSent, onNavigate, initialView = 'default' }) {
     }
   }
   if (view === 'password-change') {
-    return <div className="public-app"><PasswordChangePage user={user} onLogout={logout} onPasswordChanged={passwordChanged} /></div>
+    return <div className="public-app"><ReadingProgress /><PasswordChangePage user={user} onLogout={logout} onPasswordChanged={passwordChanged} /></div>
   }
   if (view === 'crm') return <Crm user={user} setUser={setUser} onReturnHome={() => { setView('home'); window.scrollTo({ top: 0, behavior: 'smooth' }) }} spaces={spaces} setSpaces={setSpaces} reservations={reservations} setReservations={setReservations} />
   return (
     <div className="public-app">
+      <ReadingProgress />
       <Header view={view} setView={setView} openLogin={() => setView('access')} onOpenCalendar={openCalendar} user={user} onLogout={logout} onUserUpdate={updateCurrentUser} />
       {dataError && <p className="form-message" role="alert">{dataError} Atualize a página para tentar novamente.</p>}
       {view === 'home' && <Home spaces={spaces} spacesLoaded={spacesLoaded} onConsultSpace={showSpaceAvailability} setSignupOpen={() => setView('signup')} onOpenCalendar={openCalendar} onSearchAvailability={(date, kind) => { setCalendarQuery({ date, kind, spaceId: '' }); setView('calendar'); window.scrollTo({ top: 0, behavior: 'smooth' }) }} />}
       {view === 'portal' && user ? <PortalHome user={user} items={myReservations} reservationsLoaded={myReservationsLoaded} onOpenCalendar={openCalendar} onOpenReservations={() => setView('reservations')} /> : view === 'portal' && <AccessPage onLogin={completeLogin} onSignup={() => setView('signup')} />}
-      {view === 'calendar' && <CalendarPage spaces={spaces} spacesLoaded={spacesLoaded} onReserve={openBooking} initialDate={calendarQuery.date || localDateValue()} initialKind={calendarQuery.kind} initialSpaceId={calendarQuery.spaceId} availabilityVersion={availabilityVersion} />}
-      {view === 'reservations' && user ? <ReservationsPage items={myReservations} onCancel={updateCancel} /> : view === 'reservations' && <AccessPage onLogin={completeLogin} onSignup={() => setView('signup')} />}
-      {view === 'help' && <HelpPage />}
-      {view === 'access' && <AccessPage onLogin={completeLogin} onSignup={() => setView('signup')} />}
-      {view === 'signup' && <SignupPage onBack={() => setView('access')} onCodeSent={onCodeSent} />}
+      {view === 'calendar' && <Reveal key={view} className="route-reveal"><CalendarPage spaces={spaces} spacesLoaded={spacesLoaded} onReserve={openBooking} initialDate={calendarQuery.date || localDateValue()} initialKind={calendarQuery.kind} initialSpaceId={calendarQuery.spaceId} availabilityVersion={availabilityVersion} /></Reveal>}
+      {view === 'reservations' && user ? <Reveal key={view} className="route-reveal"><ReservationsPage items={myReservations} onCancel={updateCancel} /></Reveal> : view === 'reservations' && <Reveal key={view} className="route-reveal"><AccessPage onLogin={completeLogin} onSignup={() => setView('signup')} /></Reveal>}
+      {view === 'help' && <Reveal key={view} className="route-reveal"><HelpPage /></Reveal>}
+      {view === 'access' && <Reveal key={view} className="route-reveal"><AccessPage onLogin={completeLogin} onSignup={() => setView('signup')} /></Reveal>}
+      {view === 'signup' && <Reveal key={view} className="route-reveal"><SignupPage onBack={() => setView('access')} onCodeSent={onCodeSent} /></Reveal>}
       {!['access', 'signup'].includes(view) && <Footer setView={setView} />}
       <BookingModal space={bookingSpace} close={() => setBookingSpace(null)} onSaved={updateSaved} openLogin={() => openLogin('calendar')} initialDate={bookingSchedule.date} initialTime={bookingSchedule.time} initialEndTime={bookingEndTime} user={user} />
     </div>
