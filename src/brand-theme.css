@@ -114,6 +114,32 @@ select:focus-visible,
   background: var(--color-french-blue);
 }
 
+.public-app .reference-login {
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--color-brand-accessible);
+  border-radius: 999px;
+  background: var(--color-brand-accessible);
+  color: var(--on-blue);
+  font-weight: 700;
+}
+
+.public-app .reference-login:hover {
+  border-color: var(--color-oxford-blue);
+  background: var(--color-oxford-blue);
+  color: var(--on-blue);
+}
+
+.public-app .mobile-menu {
+  display: none;
+}
+
+.public-app .mobile-menu.icon-button {
+  border-color: var(--color-french-blue);
+  background: var(--color-french-blue);
+  color: var(--on-blue);
+}
+
 .public-app .reference-header-cta,
 .button-primary,
 .crm-layout .primary-action,
@@ -121,8 +147,17 @@ select:focus-visible,
   border: 1px solid var(--color-brand-accessible);
   border-radius: 999px;
   background: var(--color-brand-accessible);
-  color: #FFFFFF;
+  color: var(--on-blue);
   font-weight: 700;
+}
+
+.public-app .reference-header-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  gap: 8px;
+  white-space: nowrap;
 }
 
 .public-app .reference-header-cta:hover,
@@ -131,6 +166,30 @@ select:focus-visible,
 .crm-layout .button-primary:hover:not(:disabled) {
   background: var(--color-oxford-blue);
   border-color: var(--color-oxford-blue);
+}
+
+.public-app .profile-meta strong,
+.public-app .profile-meta small {
+  color: var(--color-brand-accessible);
+}
+
+.avatar,
+.portal-avatar,
+.profile-editor-avatar {
+  color: var(--color-brand-accessible);
+}
+
+.crm-layout .subtle-action,
+.crm-layout .full-width-link {
+  border-color: transparent;
+  background: transparent;
+  color: var(--color-brand-accessible);
+}
+
+.crm-layout .subtle-action:hover:not(:disabled),
+.crm-layout .full-width-link:hover:not(:disabled) {
+  background: var(--color-brand-soft);
+  color: var(--color-oxford-blue);
 }
 
 .button-outline,
@@ -172,22 +231,24 @@ select:focus-visible,
 
 .public-app .reference-hero {
   min-height: 570px;
-  background: linear-gradient(120deg, var(--color-french-blue), var(--color-oxford-blue));
-  color: #FFFFFF;
+  background-image:
+    linear-gradient(rgb(24 31 55 / 46%), rgb(24 31 55 / 46%)),
+    linear-gradient(120deg, var(--color-french-blue), var(--color-oxford-blue));
+  color: var(--on-blue);
 }
 
 .public-app .reference-hero-copy,
 .public-app .reference-hero-copy :where(h1, p, .reference-location, .reference-stats dt, .reference-stats dd) {
-  color: #FFFFFF;
+  color: var(--on-blue);
 }
 
 .public-app .reference-hero-copy .reference-heading em {
-  color: #FFFFFF;
+  color: var(--on-blue);
 }
 
 .public-app .reference-location {
   border-color: rgb(255 255 255 / 38%);
-  background: rgb(24 31 55 / 30%);
+  background: rgb(24 31 55 / 42%);
 }
 
 .public-app .reference-hero :where(.availability-search, .hero-image-note) {
@@ -206,9 +267,11 @@ select:focus-visible,
 }
 
 .public-app .reference-heading em {
-  background: linear-gradient(90deg, #FFFFFF 0%, #B6D7EF 58%, #F28C38 100%);
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  position: relative;
+  display: inline-block;
+  background: none;
+  background-clip: initial;
+  -webkit-text-fill-color: currentColor;
 }
 
 .public-app :is(.reference-heading, .section-top h2, .about-copy h2, .portal-welcome h1, .portal-section-heading h2, .inner-page h1)::before {
@@ -255,6 +318,70 @@ select:focus-visible,
 .public-app .section-top h2 em,
 .inner-page h1 em {
   color: var(--color-french-blue);
+}
+
+.public-app .reference-hero .reference-heading,
+.public-app .reference-hero .reference-heading em {
+  color: var(--on-blue);
+  font-weight: 800;
+}
+
+.public-app .reference-hero .reference-heading em {
+  -webkit-text-fill-color: var(--on-blue);
+}
+
+.public-app .reference-hero .reference-heading em::after {
+  position: absolute;
+  right: 0;
+  bottom: -0.08em;
+  left: 0;
+  height: 0.075em;
+  border-radius: 999px;
+  background: var(--color-ut-orange);
+  content: "";
+  transform: scaleX(0);
+  transform-origin: left center;
+  animation: brand-bars-grow 700ms cubic-bezier(0.22, 1, 0.36, 1) 420ms both;
+}
+
+.public-app .reference-hero .reference-location,
+.public-app .reference-hero .reference-description,
+.public-app .reference-hero .reference-stats dt,
+.public-app .reference-hero .reference-stats dd {
+  color: var(--on-blue-muted);
+  font-size: 16px;
+}
+
+.public-app .reference-hero .reference-heading {
+  color: var(--on-blue);
+}
+
+.public-app .reference-hero .reference-stats dt {
+  color: var(--on-blue);
+}
+
+.public-app .reference-hero .reference-location {
+  color: var(--on-blue);
+}
+
+.public-app .reference-hero .reference-description {
+  line-height: 1.65;
+}
+
+.public-app .about-copy h2 {
+  color: var(--color-oxford-blue);
+}
+
+.public-app .about-copy h2 em,
+.public-app .about-copy p strong,
+.public-app .about-copy li,
+.public-app .about-copy li svg,
+.public-app .about-hub .ecosystem-cta > strong {
+  color: var(--color-brand-accessible);
+}
+
+.public-app .about-copy p {
+  color: var(--color-text-muted);
 }
 
 .public-app .reference-description,
@@ -379,7 +506,6 @@ select:focus-visible,
 .account-signup button,
 .account-signup a,
 .verification-resend,
-.public-app .reference-login,
 .public-app .profile-menu button,
 .public-app .footer-address a {
   color: var(--color-brand-accessible);
@@ -405,26 +531,35 @@ select:focus-visible,
   color: #176B45;
 }
 
+.public-app .api-error-banner {
+  position: relative;
+  margin: 0;
+  padding: 12px clamp(16px, 4vw, 48px);
+  border-right: 0;
+  border-left: 0;
+  border-radius: 0;
+}
+
 .public-app .site-footer {
   padding-block: 48px 24px;
   background: var(--color-oxford-blue);
-  color: #FFFFFF;
+  color: var(--on-blue);
 }
 
 .public-app .footer-main,
 .public-app .footer-bottom {
-  color: #FFFFFF;
+  color: var(--on-blue);
 }
 
 .public-app .footer-main > div > p,
 .public-app .footer-address p,
 .public-app .footer-bottom span {
-  color: #E2E7F0;
+  color: var(--on-blue-muted);
 }
 
 .public-app .footer-links button,
 .public-app .footer-address a {
-  color: #FFFFFF;
+  color: var(--on-blue);
 }
 
 .public-app .footer-links button:hover,
@@ -441,8 +576,10 @@ select:focus-visible,
 }
 
 .crm-login-visual {
-  background: linear-gradient(135deg, var(--color-french-blue), var(--color-oxford-blue));
-  color: #FFFFFF;
+  background-image:
+    linear-gradient(110deg, rgb(24 31 55 / 42%), rgb(24 31 55 / 42%)),
+    linear-gradient(135deg, var(--color-french-blue), var(--color-oxford-blue));
+  color: var(--on-blue);
 }
 
 .crm-login-visual > .brand-logo {
@@ -457,7 +594,7 @@ select:focus-visible,
 .crm-login-visual h1 em,
 .crm-login-visual p,
 .crm-login-visual small {
-  color: #FFFFFF;
+  color: var(--on-blue);
 }
 
 .crm-login-form {
@@ -475,7 +612,7 @@ select:focus-visible,
 .crm-sidebar {
   background: var(--color-oxford-blue);
   border-color: var(--color-oxford-blue);
-  color: #FFFFFF;
+  color: var(--on-blue);
 }
 
 .crm-logo-button {
@@ -507,20 +644,31 @@ select:focus-visible,
 
 .crm-sidebar .workspace-label,
 .crm-sidebar .sidebar-help small {
-  color: #D2D9E5;
+  color: var(--on-blue-muted);
 }
 
 .crm-sidebar .crm-nav button,
 .crm-sidebar .crm-return-home,
 .crm-sidebar .sidebar-help {
-  color: #FFFFFF;
+  color: var(--on-blue);
+}
+
+.crm-layout .crm-sidebar .crm-profile-menu .profile-button {
+  background: transparent;
+  color: var(--on-blue-muted);
+}
+
+.crm-layout .crm-sidebar .crm-profile-menu .profile-button:hover,
+.crm-layout .crm-sidebar .crm-profile-menu .profile-button:focus-visible {
+  background: rgb(255 255 255 / 10%);
+  color: var(--on-blue);
 }
 
 .crm-sidebar .crm-nav button:hover,
 .crm-sidebar .crm-nav .crm-nav-active {
   border-radius: var(--radius-control);
   background: #26334F;
-  color: #FFFFFF;
+  color: var(--on-blue);
 }
 
 .crm-sidebar .crm-nav .crm-nav-active svg,
@@ -532,7 +680,7 @@ select:focus-visible,
 .crm-sidebar .sidebar-help button {
   border-color: #52617C;
   background: transparent;
-  color: #FFFFFF;
+  color: var(--on-blue);
 }
 
 .crm-sidebar .sidebar-help {
@@ -655,6 +803,52 @@ select:focus-visible,
     padding-inline: 20px;
   }
 
+  .public-app .logo-button {
+    flex: 0 0 auto;
+  }
+
+  .public-app .logo-button .brand-logo {
+    width: clamp(112px, 15vw, 148px);
+  }
+
+  .public-app .main-nav {
+    position: absolute;
+    z-index: 40;
+    top: 100%;
+    right: 0;
+    left: 0;
+    display: none;
+    height: auto;
+    flex-direction: column;
+    gap: 0;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-card);
+  }
+
+  .public-app .main-nav.nav-open {
+    display: flex;
+  }
+
+  .public-app .main-nav button {
+    width: 100%;
+    min-height: 44px;
+    height: auto;
+    justify-content: flex-start;
+    text-align: left;
+  }
+
+  .public-app .mobile-menu.icon-button {
+    display: grid;
+    width: 38px;
+    min-width: 38px;
+    height: 38px;
+    min-height: 38px;
+    padding: 0;
+    place-items: center;
+  }
+
   .public-app .reference-hero {
     min-height: auto;
     padding: 64px clamp(20px, 5vw, 48px);
@@ -687,13 +881,77 @@ select:focus-visible,
   }
 
   .public-app .header-inner {
+    position: relative;
+    gap: 4px;
     padding-inline: 16px;
+  }
+
+  .public-app .logo-button {
+    flex: 0 0 auto;
+  }
+
+  .public-app .logo-button .brand-logo {
+    width: clamp(96px, 28vw, 132px);
+  }
+
+  .public-app .main-nav {
+    position: absolute;
+    z-index: 40;
+    top: 100%;
+    right: 0;
+    left: 0;
+    display: none;
+    height: auto;
+    flex-direction: column;
+    gap: 0;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-card);
+  }
+
+  .public-app .main-nav.nav-open {
+    display: flex;
+  }
+
+  .public-app .main-nav button {
+    width: 100%;
+    min-height: 44px;
+    height: auto;
+    justify-content: flex-start;
+    text-align: left;
+  }
+
+  .public-app .header-actions {
+    flex: 0 0 auto;
+    gap: 4px;
+    margin-left: auto;
+  }
+
+  .public-app .profile-control {
+    gap: 4px;
+    padding: 0;
+    border: 0;
+  }
+
+  .public-app .profile-meta {
+    display: none;
   }
 
   .public-app .reference-hero {
     grid-template-columns: minmax(0, 1fr);
     gap: 32px;
     padding: 42px 18px;
+  }
+
+  .public-app .mobile-menu.icon-button {
+    display: grid;
+    width: 38px;
+    min-width: 38px;
+    height: 38px;
+    min-height: 38px;
+    padding: 0;
+    place-items: center;
   }
 
   .public-app .reference-heading {

@@ -3,6 +3,8 @@
   --color-seasalt: #FAFAFA;
   --color-french-blue: #0077CC;
   --color-oxford-blue: #181F37;
+  --on-blue: #FAFAFA;
+  --on-blue-muted: rgb(250 250 250 / 92%);
   --color-ut-orange: #F28C38;
   --color-background: var(--color-seasalt);
   --color-surface: #FFFFFF;

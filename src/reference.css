@@ -156,8 +156,7 @@
   .public-app .profile-control .notification-trigger{width:29px;height:31px}
   .public-app .profile-meta strong{max-width:92px;font-size:13px}
   .public-app .profile-meta small{font-size:13px}
-  .public-app .reference-login{font-size:0;min-width:28px;height:32px;position:relative}
-  .public-app .reference-login:before{content:'Entrar';font-size:13px}
+  .public-app .reference-login{font-size:13px;min-width:54px;height:34px;position:relative}
   .public-app .reference-header-cta{width:36px;height:34px;min-height:34px;padding:0;font-size:0;gap:0}
   .public-app .reference-header-cta svg{width:16px;height:16px}
   .public-app .mobile-menu.icon-button{display:grid;width:30px;height:32px}
