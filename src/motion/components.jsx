@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion, useScroll, useTransform } from 'motion/react'
+import { AnimatePresence, animate, m, useMotionValue, useReducedMotion, useScroll, useTransform } from 'motion/react'
 import { motionTokens } from './tokens.js'
 
 function useViewportVisibility({ once = true, threshold = 0.12 } = {}) {
@@ -55,7 +55,7 @@ export function Reveal({
   ...props
 }) {
   const { ref, armed, visible, reducedMotion } = useViewportVisibility({ once, threshold })
-  const Component = motion[as]
+  const Component = m[as]
 
   return (
     <Component
@@ -97,7 +97,7 @@ export function Stagger({
   ...props
 }) {
   const { ref, armed, visible, reducedMotion } = useViewportVisibility({ once, threshold })
-  const Component = motion[as]
+  const Component = m[as]
   const variants = reducedMotion
     ? { hidden: {}, visible: {} }
     : {
@@ -128,7 +128,7 @@ export function StaggerItem({
   ...props
 }) {
   const reducedMotion = useReducedMotion()
-  const Component = motion[as]
+  const Component = m[as]
   const variants = reducedMotion
     ? { hidden: { opacity: 1, y: 0 }, visible: { opacity: 1, y: 0 } }
     : {
@@ -172,11 +172,11 @@ export function CountUp({
     return () => controls.stop()
   }, [count, duration, from, reducedMotion, value])
 
-  return <motion.span {...props}>{formatted}</motion.span>
+  return <m.span {...props}>{formatted}</m.span>
 }
 
 export function Parallax({ as = 'div', children, className, strength = 24, ...props }) {
-  const Component = motion[as]
+  const Component = m[as]
   const reducedMotion = useReducedMotion()
   const { scrollY } = useScroll()
   const y = useTransform(scrollY, [0, 700], [0, strength])
@@ -201,7 +201,7 @@ export function PageTransition({
   ...props
 }) {
   const reducedMotion = useReducedMotion()
-  const Component = motion[as]
+  const Component = m[as]
 
   return (
     <AnimatePresence mode="wait" initial={false}>
