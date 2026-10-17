@@ -516,3 +516,196 @@ body {
     transition: none;
   }
 }
+
+.public-app .space-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.public-app .space-card {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.public-app .space-card-featured {
+  display: block;
+  grid-column: auto;
+  grid-template-columns: none;
+}
+
+.public-app .space-card-featured .space-image {
+  height: auto;
+  min-height: 0;
+  aspect-ratio: 16 / 9;
+}
+
+.public-app .space-image {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+}
+
+.public-app .space-image > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.public-app .space-image::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  background: linear-gradient(0deg, rgb(24 31 55 / 72%), transparent 62%);
+  pointer-events: none;
+}
+
+.public-app .space-image-open {
+  position: absolute;
+  z-index: 3;
+  bottom: 12px;
+  left: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: calc(100% - 24px);
+  padding: 8px 11px;
+  border: 1px solid rgb(250 250 250 / 40%);
+  border-radius: 9px;
+  background: rgb(24 31 55 / 88%);
+  color: #FAFAFA;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.public-app .space-image-open svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.public-app .space-image .availability-dot {
+  position: absolute;
+  z-index: 3;
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.public-app .space-unavailable-overlay {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgb(24 31 55 / 48%);
+  color: #FAFAFA;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 1.3px;
+  text-shadow: 0 1px 3px rgb(0 0 0 / 30%);
+}
+
+.public-app .space-card-unavailable .space-image::after {
+  background: rgb(24 31 55 / 16%);
+}
+
+.public-app .filter-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.public-app .filter-chip-active,
+.public-app .filter-chip:hover {
+  border-color: var(--color-brand);
+  background: var(--color-brand);
+  color: #FAFAFA;
+}
+
+.public-app .space-info .space-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 40px;
+  margin-top: 10px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--color-brand);
+  color: #FAFAFA;
+  font-weight: 700;
+}
+
+@media (max-width: 1000px) {
+  .public-app .space-grid {
+    gap: 14px;
+  }
+}
+
+@media (max-width: 720px) {
+  .public-app .space-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .public-app .space-card-featured {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  }
+
+  .public-app .space-image {
+    aspect-ratio: 1.45;
+  }
+
+  .public-app .space-card-featured .space-image {
+    height: 100%;
+    min-height: 190px;
+    aspect-ratio: auto;
+  }
+
+  .public-app .space-info {
+    min-width: 0;
+  }
+
+  .public-app .space-info .space-cta {
+    min-height: 36px;
+    padding: 0 8px;
+    font-size: 12px;
+  }
+
+  .public-app .space-unavailable-overlay {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 360px) {
+  .public-app .space-card-featured {
+    grid-template-columns: 1fr;
+  }
+
+  .public-app .space-card-featured .space-image {
+    height: auto;
+    min-height: 0;
+    aspect-ratio: 16 / 9;
+  }
+}
