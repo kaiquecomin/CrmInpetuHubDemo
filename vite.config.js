@@ -7,6 +7,18 @@ export default defineConfig(({ command }) => ({
   build: {
     outDir: 'src/main/resources/static',
     emptyOutDir: false,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined
+          if (/\/(react|react-dom|scheduler)\//.test(id)) return 'vendor-react'
+          if (/\/(motion|motion-dom|motion-utils)\//.test(id)) return 'vendor-motion'
+          if (id.includes('/@headlessui/')) return 'vendor-headlessui'
+          if (id.includes('/lucide-react/')) return 'vendor-icons'
+          return undefined
+        },
+      },
+    },
   },
   plugins: [react(), tailwindcss()],
   server: { host: '127.0.0.1', port: 5173 },
