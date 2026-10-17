@@ -729,9 +729,27 @@ function Home({ spaces, spacesLoaded, onConsultSpace, onSearchAvailability, onOp
   useEffect(() => {
     if (heroIndex >= showcaseSpaces.length) setHeroIndex(0)
   }, [heroIndex, showcaseSpaces.length])
+  useEffect(() => {
+    const targets = [...document.querySelectorAll('[data-reveal]:not(.reveal-visible)')]
+    if (!targets.length) return
+    const showAll = () => targets.forEach(target => target.classList.add('reveal-visible'))
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || !('IntersectionObserver' in window)) {
+      showAll()
+      return
+    }
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return
+        entry.target.classList.add('reveal-visible')
+        observer.unobserve(entry.target)
+      })
+    }, { threshold: 0.12 })
+    targets.forEach(target => observer.observe(target))
+    return () => observer.disconnect()
+  }, [filter, filtered.length])
   const heroSpace = showcaseSpaces[heroIndex]
   return <>
-    <section className="hero-shell reference-hero">
+    <section className="hero-shell reference-hero" data-reveal>
       <div className="reference-hero-copy">
         <div className="reference-location"><MapPin size={14} /> Lote 73 · Sapiens Parque · Florianópolis</div>
         <Title as="h1" emoji="👋" className="reference-heading">Um espaço para suas ideias <em>ganharem vida.</em></Title>
@@ -757,14 +775,14 @@ function Home({ spaces, spacesLoaded, onConsultSpace, onSearchAvailability, onOp
         </div>}
       </div>
     </section>
-    <section id="spaces" className="spaces-section"><div className="section-top"><div><Title as="h2" emoji="👋">Nossos <em>Espaços</em></Title><p>Ambientes preparados para capacitações, eventos, mentorias e visitas técnicas.</p></div><button className="all-spaces-link" onClick={onOpenCalendar}>Abrir calendário completo <ArrowRight size={16} /></button></div>
+    <section id="spaces" className="spaces-section" data-reveal><div className="section-top"><div><Title as="h2" emoji="👋">Nossos <em>Espaços</em></Title><p>Ambientes preparados para capacitações, eventos, mentorias e visitas técnicas.</p></div><button className="all-spaces-link" onClick={onOpenCalendar}>Abrir calendário completo <ArrowRight size={16} /></button></div>
       <div className="filter-row"><div className="filter-label"><SlidersHorizontal size={15} /> EXPLORE POR TIPO</div>{types.map(type => <button key={type} className={`filter-chip ${filter === type ? 'filter-chip-active' : ''}`} onClick={() => setFilter(type)}>{type}</button>)}</div>
       {!spacesLoaded && <p className="empty-inline" role="status">Carregando espaços...</p>}
       {spacesLoaded && spaces.length === 0 && <p className="empty-inline" role="status">Nenhum espaço cadastrado no momento.</p>}
-      <div className="space-grid">{filtered.map((space, index) => { const unavailable = space.ativo === false; const guidedTourSpace = isGuidedTour(space.tipoEspaco); return <article className={`space-card ${index === 0 ? 'space-card-featured' : ''} ${unavailable ? 'space-card-unavailable' : ''}`} key={space.idEspaco}><div className="space-image"><RoomPhoto space={space} alt={`Foto de ${space.nomeEspaco}`} /><button type="button" className="space-image-open" onClick={() => setGallerySpace(space)} aria-label={`Ver foto de ${space.nomeEspaco}`}>Ver foto <ArrowUpRight size={15} /></button>{unavailable ? <span className="space-unavailable-overlay">INDISPONÍVEL</span> : <span className="availability-dot"><i /> Disponível</span>}</div><div className="space-info"><div className="space-meta"><span>{space.tipoEspaco}</span><span><Users size={14} /> Até {space.capacidadePessoas || 20} pessoas</span></div><Title as="h3" emoji="✨">{space.nomeEspaco}</Title><p>{unavailable ? <>{space.motivoIndisponibilidade || 'Este espaço está temporariamente indisponível.'}<small className="unavailable-deadline">{unavailableDeadlineLabel(space.dataPrevisaoRetorno)}</small></> : space.equipamentosDisponiveis || 'Um ambiente versátil para as suas ideias.'}</p><button className="space-cta" onClick={() => onConsultSpace(space)}>{unavailable ? 'Ver motivo' : guidedTourSpace ? 'Solicitar visita' : 'Ver Horários'}</button></div></article> })}</div>
+      <div className="space-grid">{filtered.map((space, index) => { const unavailable = space.ativo === false; const guidedTourSpace = isGuidedTour(space.tipoEspaco); return <article data-reveal style={{ transitionDelay: `${Math.min(index, 5) * 70}ms` }} className={`space-card ${index === 0 ? 'space-card-featured' : ''} ${unavailable ? 'space-card-unavailable' : ''}`} key={space.idEspaco}><div className="space-image"><RoomPhoto space={space} alt={`Foto de ${space.nomeEspaco}`} /><button type="button" className="space-image-open" onClick={() => setGallerySpace(space)} aria-label={`Ver foto de ${space.nomeEspaco}`}>Ver foto <ArrowUpRight size={15} /></button>{unavailable ? <span className="space-unavailable-overlay">INDISPONÍVEL</span> : <span className="availability-dot"><i /> Disponível</span>}</div><div className="space-info"><div className="space-meta"><span>{space.tipoEspaco}</span><span><Users size={14} /> Até {space.capacidadePessoas || 20} pessoas</span></div><Title as="h3" emoji="✨">{space.nomeEspaco}</Title><p>{unavailable ? <>{space.motivoIndisponibilidade || 'Este espaço está temporariamente indisponível.'}<small className="unavailable-deadline">{unavailableDeadlineLabel(space.dataPrevisaoRetorno)}</small></> : space.equipamentosDisponiveis || 'Um ambiente versátil para as suas ideias.'}</p><button className="space-cta" onClick={() => onConsultSpace(space)}>{unavailable ? 'Ver motivo' : guidedTourSpace ? 'Solicitar visita' : 'Ver Horários'}</button></div></article> })}</div>
     </section>
     {gallerySpace && <RoomGallery space={gallerySpace} onClose={() => setGallerySpace(null)} onConsultSpace={onConsultSpace} />}
-    <section id="about" className="about-hub"><div className="about-copy"><Title as="h2" emoji="👋">Sobre o <em>Hub</em></Title><p>O <strong>Centro de Inovação InPETU Hub</strong> está instalado no <strong>Lote 73 do Parque Tecnológico Sapiens Parque</strong>, em Canasvieiras, Florianópolis, conectando pesquisa, empreendedorismo e desenvolvimento tecnológico.</p><p>O Hub oferece infraestrutura compartilhada para capacitações, eventos, mentorias e visitas técnicas, com espaços que podem ser consultados e solicitados diretamente pelo InPETU Connect.</p><ul><li><Check size={15} /> Infraestrutura multimídia para encontros e capacitações</li><li><Check size={15} /> Agendamento digital e acompanhamento pela equipe</li><li><Check size={15} /> Atendimento dedicado e cuidado com seus dados</li></ul></div><aside className="ecosystem-cta"><strong>Conheça os espaços</strong><p>Consulte o calendário e encontre um ambiente para sua próxima atividade.</p><Button icon={ArrowRight} onClick={onOpenCalendar}>Ver disponibilidade</Button></aside></section>
+    <section id="about" className="about-hub" data-reveal><div className="about-copy"><Title as="h2" emoji="👋">Sobre o <em>Hub</em></Title><p>O <strong>Centro de Inovação InPETU Hub</strong> está instalado no <strong>Lote 73 do Parque Tecnológico Sapiens Parque</strong>, em Canasvieiras, Florianópolis, conectando pesquisa, empreendedorismo e desenvolvimento tecnológico.</p><p>O Hub oferece infraestrutura compartilhada para capacitações, eventos, mentorias e visitas técnicas, com espaços que podem ser consultados e solicitados diretamente pelo InPETU Connect.</p><ul><li><Check size={15} /> Infraestrutura multimídia para encontros e capacitações</li><li><Check size={15} /> Agendamento digital e acompanhamento pela equipe</li><li><Check size={15} /> Atendimento dedicado e cuidado com seus dados</li></ul></div><aside className="ecosystem-cta"><strong>Conheça os espaços</strong><p>Consulte o calendário e encontre um ambiente para sua próxima atividade.</p><Button icon={ArrowRight} onClick={onOpenCalendar}>Ver disponibilidade</Button></aside></section>
   </>
 }
 function BookingModal({ space, close, onSaved, openLogin, initialDate, initialTime, initialEndTime, user }) {
