@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
-import { Avatar } from './App.jsx'
+import { Avatar, Title } from './App.jsx'
 
 const originalCreateObjectURL = URL.createObjectURL
 const originalRevokeObjectURL = URL.revokeObjectURL
@@ -76,5 +76,15 @@ describe('Avatar', () => {
     render(<Avatar user={{ idUsuario: 503, nomeCompleto: 'Ana Souza', temFoto: true, fotoVersao: 1 }} />)
 
     await waitFor(() => expect(screen.getByRole('img', { name: 'Avatar de Ana Souza' }).textContent).toBe('AS'))
+  })
+})
+
+describe('Title', () => {
+  it('renders an accessible heading with its semantic emoji before the text', () => {
+    render(<Title as="h2" emoji="🎉">Minhas reservas</Title>)
+
+    const heading = screen.getByRole('heading', { name: 'Minhas reservas', level: 2 })
+    expect(heading.firstElementChild.getAttribute('aria-hidden')).toBe('true')
+    expect(heading.firstElementChild.textContent).toBe('📅')
   })
 })

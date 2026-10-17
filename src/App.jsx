@@ -41,6 +41,24 @@ const formatBrazilianPhone = value => {
   return `(${areaCode}) ${subscriber.slice(0, prefixLength)}-${subscriber.slice(prefixLength)}`
 }
 const isValidBrazilianMobile = value => /^\(\d{2}\) 9\d{4}-\d{4}$/.test(String(value || ''))
+const reservationStatusLabel = status => status === 'Confirmada' ? 'Aprovado' : status
+const reservationStatusClass = status => status === 'Confirmada' ? 'status-confirmed' : status === 'Cancelada' ? 'status-cancelled' : 'status-pending'
+const getTitleEmoji = value => {
+  const title = String(value || '').toLocaleLowerCase('pt-BR')
+  if (/olá|bom dia/.test(title)) return '👋'
+  if (/reserv|solicita|agend|agenda|calend/.test(title)) return '📅'
+  if (/espaço|sala/.test(title)) return '📍'
+  if (/conversar|ajuda|atendimento/.test(title)) return '💬'
+  if (/sobre|hub|ecossistema|conex/.test(title)) return '🌿'
+  if (/cliente|equipe|cadastro/.test(title)) return '👥'
+  if (/senha|login|acesso|conta|confirm|verifique|e-mail|email/.test(title)) return /e-mail|email/.test(title) ? '✉️' : '🔐'
+  return null
+}
+const getTitleText = value => {
+  if (typeof value === 'string' || typeof value === 'number') return String(value)
+  if (Array.isArray(value)) return value.map(getTitleText).join(' ')
+  return value?.props?.children ? getTitleText(value.props.children) : ''
+}
 const isGuidedTour = type => type?.trim().toLocaleLowerCase('pt-BR') === 'visita guiada'
 const normalizeRoomName = value => value?.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLocaleLowerCase('pt-BR') || ''
 const roomPhotoSets = {
@@ -222,11 +240,29 @@ function PhoneInput({ value, onChange, ...props }) {
     onChange={handleChange}
   />
 }
+function PasswordInput(props) {
+  const [visible, setVisible] = useState(false)
+  return <div className="password-input-wrap">
+    <input {...props} type={visible ? 'text' : 'password'} />
+    <button
+      type="button"
+      className="password-input-toggle"
+      aria-label={visible ? 'Ocultar senha' : 'Mostrar senha'}
+      aria-pressed={visible}
+      onClick={() => setVisible(current => !current)}
+    >
+      {visible ? <EyeOff size={17} /> : <Eye size={17} />}
+    </button>
+  </div>
+}
+export function Title({ as: Tag = 'h2', emoji, children, className, ...props }) {
+  return <Tag className={className} {...props}><span className="title-emoji" aria-hidden="true">{getTitleEmoji(getTitleText(children)) || emoji || '✨'}</span>{children}</Tag>
+}
 function Modal({ open, close, title, children, wide = false }) {
   return <Transition appear show={open} as={Fragment}><Dialog as="div" className="dialog-root" onClose={close}>
     <TransitionChild as={Fragment} enter="ease-out duration-200" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-150" leaveFrom="opacity-100" leaveTo="opacity-0"><div className="dialog-backdrop" /></TransitionChild>
     <div className="dialog-wrap"><TransitionChild as={Fragment} enter="ease-out duration-200" enterFrom="opacity-0 translate-y-3" enterTo="opacity-100 translate-y-0" leave="ease-in duration-150" leaveFrom="opacity-100 translate-y-0" leaveTo="opacity-0 translate-y-3"><DialogPanel className={`dialog-panel ${wide ? 'dialog-wide' : ''}`}>
-      <div className="dialog-heading"><DialogTitle className="dialog-title">{title}</DialogTitle><button className="icon-button" aria-label="Fechar" onClick={close}><X size={19} /></button></div>{children}
+      <div className="dialog-heading"><DialogTitle as={Title} emoji={getTitleEmoji(title)} className="dialog-title">{title}</DialogTitle><button className="icon-button" aria-label="Fechar" onClick={close}><X size={19} /></button></div>{children}
     </DialogPanel></TransitionChild></div>
   </Dialog></Transition>
 }
@@ -248,6 +284,7 @@ function NotificationCenter({ user }) {
   const [items, setItems] = useState([])
   const [open, setOpen] = useState(false)
   const [error, setError] = useState('')
+  const containerRef = useRef(null)
   useEffect(() => {
     if (!user) {
       setItems([])
@@ -266,6 +303,21 @@ function NotificationCenter({ user }) {
     const timer = window.setInterval(refresh, 30000)
     return () => { active = false; window.clearInterval(timer) }
   }, [user])
+  useEffect(() => {
+    if (!open) return
+    function closeWhenOutside(event) {
+      if (!containerRef.current?.contains(event.target)) setOpen(false)
+    }
+    function closeOnEscape(event) {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('pointerdown', closeWhenOutside)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('pointerdown', closeWhenOutside)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [open])
   async function markRead(item) {
     if (item.lida) return
     try {
@@ -287,15 +339,15 @@ function NotificationCenter({ user }) {
   }
   if (!user) return null
   const unread = items.filter(item => !item.lida).length
-  return <div className="notification-center">
+  return <div className="notification-center" ref={containerRef}>
     <button type="button" className="notification-trigger" aria-label={`Notificações${unread ? `, ${unread} não lidas` : ''}`} aria-expanded={open} onClick={() => setOpen(value => !value)}>
       <Bell size={19} />{unread > 0 && <span className="notification-count">{unread > 9 ? '9+' : unread}</span>}
     </button>
     {open && <section className="notification-popover" aria-label="Notificações">
-      <div className="notification-heading"><strong>Notificações</strong><button type="button" onClick={markAllRead} disabled={!unread}>Marcar todas como lidas</button></div>
+      <div className="notification-heading"><strong>Notificações</strong><div><button type="button" onClick={markAllRead} disabled={!unread}>Marcar todas como lidas</button><button type="button" className="notification-close" aria-label="Fechar notificações" onClick={() => setOpen(false)}><X size={16} /></button></div></div>
       {error && <p className="notification-error" role="alert">{error}</p>}
       {items.length ? <div className="notification-list">{items.slice(0, 12).map(item => <button type="button" key={item.idNotificacao} className={`notification-item ${item.lida ? '' : 'notification-unread'}`} onClick={() => markRead(item)}>
-        <span><strong>{item.titulo}</strong><small>{item.mensagem}</small><time>{new Date(item.dataHora).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</time>{item.statusEmail !== 'ENVIADO' && <em>E-mail {item.statusEmail === 'DESATIVADO' ? 'desativado' : 'não enviado — verifique a configuração SMTP'}</em>}</span>
+        <span><strong>{item.titulo}</strong><small>{item.mensagem}</small><time>{new Date(item.dataHora).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</time>{item.statusEmail !== 'ENVIADO' && <em>E-mail {item.statusEmail === 'DESATIVADO' ? 'desativado' : 'não enviado , verifique a configuração SMTP'}</em>}</span>
         {!item.lida && <i aria-label="Não lida" />}
       </button>)}</div> : <p className="notification-empty">Você não tem notificações.</p>}
     </section>}
@@ -607,7 +659,7 @@ function ProfileDialog({ open, close, user, onUserUpdate }) {
         <Button className="profile-save-action" type="submit" disabled={saving || !profileChanged || invalidPhone}>{saving ? 'Salvando...' : 'Salvar perfil'}</Button>
       </form>
       <form className="profile-password-form" onSubmit={changePassword}>
-        <h3>Alterar senha</h3>
+        <Title as="h3" emoji="🔒">Alterar senha</Title>
         {passwordField('senhaAtual', 'Senha atual', 'current-password')}
         {passwordField('novaSenha', 'Nova senha', 'new-password')}
         {passwordField('confirmarSenha', 'Confirmar nova senha', 'new-password')}
@@ -630,7 +682,7 @@ function Header({ view, setView, openLogin, onOpenCalendar, user, onLogout, onUs
   const perfilLabel = user?.perfil === 1 ? 'Coordenador / Admin' : user?.perfil === 2 ? 'Gestor de espaços' : user?.perfil === 3 ? 'Atendente / Staff' : 'Solicitante'
   return <header className="site-header reference-header"><div className="header-inner"><button className="logo-button" onClick={() => { setView(user && !isCrmUser(user) ? 'portal' : 'home'); window.scrollTo({ top: 0, behavior: 'smooth' }) }}><span className="reference-logo-icon"><Building2 size={20} /></span><span className="reference-brand-copy"><strong>InPETU Connect</strong><small>UFSC · LOTE 73</small></span></button>
     <nav className={`main-nav ${menuOpen ? 'nav-open' : ''}`}><button className={view === 'home' || view === 'portal' ? 'nav-active' : ''} onClick={() => { setView(user && !isCrmUser(user) ? 'portal' : 'home'); window.scrollTo({ top: 0, behavior: 'smooth' }); setMenuOpen(false) }}>{user && !isCrmUser(user) ? 'Meu portal' : 'Início'}</button><button onClick={() => goTo('spaces')}>Nossos Espaços</button><button onClick={() => goTo('about')}>Sobre o Hub</button><button className={view === 'help' ? 'nav-active' : ''} onClick={() => { setView('help'); setMenuOpen(false) }}>Fale Conosco</button></nav>
-    <div className="header-actions">{user ? <div className="profile-control"><NotificationCenter user={user} /><div className="profile-switcher"><button type="button" className="profile-trigger" aria-haspopup="menu" aria-expanded={profileOpen} onClick={() => setProfileOpen(value => !value)}><Avatar user={user} tamanho={34} className="profile-avatar" /><span className="profile-meta"><strong>{user.nome || user.email || 'Perfil'}</strong><small>{perfilLabel}</small></span><ChevronDown className="profile-chevron" size={16} aria-hidden="true" /></button>{profileOpen && <div className="profile-menu" role="menu"><button type="button" role="menuitem" onClick={() => { setProfileDetailsOpen(true); setProfileOpen(false) }}>Meu perfil</button><button type="button" role="menuitem" onClick={() => { setView('reservations'); setProfileOpen(false) }}>Minhas reservas</button>{isCrmUser(user) && <button type="button" role="menuitem" onClick={() => { setView('crm'); setProfileOpen(false) }}>Painel administrativo</button>}<button type="button" role="menuitem" onClick={() => { onLogout?.(); setProfileOpen(false) }}>Sair da conta</button></div>}</div><ProfileDialog open={profileDetailsOpen} close={() => setProfileDetailsOpen(false)} user={user} onUserUpdate={onUserUpdate} /></div> : <button className="team-link reference-login" onClick={() => { openLogin(); setMenuOpen(false) }}>Entrar</button>}<Button icon={CalendarDays} className="reference-header-cta" onClick={() => { onOpenCalendar(); setMenuOpen(false) }}>Agendar Espaço</Button></div><button className="mobile-menu icon-button" onClick={() => setMenuOpen(!menuOpen)} aria-label="Abrir menu"><MenuIcon /></button>
+    <div className="header-actions">{user ? <div className="profile-control"><NotificationCenter user={user} /><div className="profile-switcher"><button type="button" className="profile-trigger" aria-haspopup="menu" aria-expanded={profileOpen} onClick={() => setProfileOpen(value => !value)}><Avatar user={user} tamanho={34} className="profile-avatar" /><span className="profile-meta"><strong>{user.nome || user.email || 'Perfil'}</strong><small>{perfilLabel}</small></span><ChevronDown className="profile-chevron" size={16} aria-hidden="true" /></button>{profileOpen && <div className="profile-menu" role="menu"><button type="button" role="menuitem" onClick={() => { setProfileDetailsOpen(true); setProfileOpen(false) }}>Meu perfil</button><button type="button" role="menuitem" onClick={() => { setView('reservations'); setProfileOpen(false) }}>Minhas reservas</button>{isCrmUser(user) && <a href="/paineladm" role="menuitem">Painel administrativo</a>}<button type="button" role="menuitem" onClick={() => { onLogout?.(); setProfileOpen(false) }}>Sair da conta</button></div>}</div><ProfileDialog open={profileDetailsOpen} close={() => setProfileDetailsOpen(false)} user={user} onUserUpdate={onUserUpdate} /></div> : <button className="team-link reference-login" onClick={() => { openLogin(); setMenuOpen(false) }}>Entrar</button>}<Button icon={CalendarDays} className="reference-header-cta" onClick={() => { onOpenCalendar(); setMenuOpen(false) }}>Agendar Espaço</Button></div><button className="mobile-menu icon-button" onClick={() => setMenuOpen(!menuOpen)} aria-label="Abrir menu"><MenuIcon /></button>
   </div></header>
 }
 function RoomGallery({ space, onClose, onConsultSpace }) {
@@ -642,7 +694,7 @@ function RoomGallery({ space, onClose, onConsultSpace }) {
   return <Modal open={Boolean(space)} close={onClose} title={`Foto de ${space.nomeEspaco}`} wide>
     <div className="room-gallery">
       <div className="room-gallery-stage" aria-live="polite">
-        <img key={selectedImage} src={selectedImage} alt={`${space.nomeEspaco} — foto ${imageIndex + 1} de ${images.length}`} onError={event => {
+        <img key={selectedImage} src={selectedImage} alt={`${space.nomeEspaco} , foto ${imageIndex + 1} de ${images.length}`} onError={event => {
           const image = event.currentTarget
           if (image.src !== new URL(coverImage, window.location.href).href) image.src = coverImage
         }} />
@@ -658,7 +710,7 @@ function RoomGallery({ space, onClose, onConsultSpace }) {
         </button>)}
       </div>}
       <div className="room-gallery-caption">
-        <div><small>{space.tipoEspaco}</small><h3>{space.nomeEspaco}</h3><p>Capacidade para até {space.capacidadePessoas || '—'} pessoas</p></div>
+        <div><small>{space.tipoEspaco}</small><Title as="h3" emoji="✨">{space.nomeEspaco}</Title><p>Capacidade para até {space.capacidadePessoas || ','} pessoas</p></div>
         <Button icon={CalendarDays} onClick={() => { onClose(); onConsultSpace(space) }}>Ver horários</Button>
       </div>
     </div>
@@ -681,8 +733,8 @@ function Home({ spaces, spacesLoaded, onConsultSpace, onSearchAvailability, onOp
   return <>
     <section className="hero-shell reference-hero">
       <div className="reference-hero-copy">
-        <div className="eyebrow reference-location"><MapPin size={14} /> Lote 73 · Sapiens Parque · Florianópolis</div>
-        <h1 className="reference-heading">Um espaço para suas ideias <em>ganharem vida.</em></h1>
+        <div className="reference-location"><MapPin size={14} /> Lote 73 · Sapiens Parque · Florianópolis</div>
+        <Title as="h1" emoji="👋" className="reference-heading">Um espaço para suas ideias <em>ganharem vida.</em></Title>
         <p className="reference-description">Encontre o ambiente certo para se reunir, aprender e fazer acontecer no InPETU Hub.</p>
         <form id="availability-search" className="availability-search" onSubmit={event => { event.preventDefault(); onSearchAvailability(searchDate, searchType) }}>
           <label><span>Tipo de espaço</span><select value={searchType} onChange={event => setSearchType(event.target.value)}><option value="">Todos os espaços</option>{[...new Set(spaces.map(space => space.tipoEspaco))].map(type => <option value={type} key={type}>{type}</option>)}</select></label>
@@ -690,14 +742,14 @@ function Home({ spaces, spacesLoaded, onConsultSpace, onSearchAvailability, onOp
           <Button type="submit" icon={Search}>Consultar horários</Button>
         </form>
         <dl className="reference-stats">
-          <div><dt>08h–22h</dt><dd>Horário de funcionamento</dd></div>
+          <div><dt>08h-22h</dt><dd>Horário de funcionamento</dd></div>
           <div><dt>{spaces.filter(space => space.ativo !== false).length}</dt><dd>Ambientes ativos</dd></div>
           <div><dt>UFSC</dt><dd>Inovação em Florianópolis</dd></div>
         </dl>
       </div>
       <div className="reference-hero-images">
         {heroSpace && <RoomPhoto key={heroSpace.idEspaco} className="reference-hero-photo" space={heroSpace} alt={`Foto de ${heroSpace.nomeEspaco}`} />}
-        <div className="hero-image-note"><span><Building2 size={18} /></span><div><strong>{heroSpace?.nomeEspaco || 'Seu próximo encontro começa aqui'}</strong><small>Até {heroSpace?.capacidadePessoas || '—'} pessoas · InPETU Hub</small></div></div>
+        <div className="hero-image-note"><span><Building2 size={18} /></span><div><strong>{heroSpace?.nomeEspaco || 'Seu próximo encontro começa aqui'}</strong><small>Até {heroSpace?.capacidadePessoas || ','} pessoas · InPETU Hub</small></div></div>
         {showcaseSpaces.length > 1 && <div className="hero-image-controls">
           <span>{String(heroIndex + 1).padStart(2, '0')} <i /> {String(showcaseSpaces.length).padStart(2, '0')}</span>
           <button type="button" onClick={() => setHeroIndex(index => (index - 1 + showcaseSpaces.length) % showcaseSpaces.length)} aria-label="Espaço anterior"><ChevronLeft size={18} /></button>
@@ -705,29 +757,33 @@ function Home({ spaces, spacesLoaded, onConsultSpace, onSearchAvailability, onOp
         </div>}
       </div>
     </section>
-    <section id="spaces" className="spaces-section"><div className="section-top"><div><div className="eyebrow">LOTE 73 · INPETU HUB</div><h2>Nossos <em>Espaços</em></h2><p>Ambientes preparados para capacitações, eventos, mentorias e visitas técnicas.</p></div><button className="all-spaces-link" onClick={onOpenCalendar}>Abrir calendário completo <ArrowRight size={16} /></button></div>
+    <section id="spaces" className="spaces-section"><div className="section-top"><div><Title as="h2" emoji="👋">Nossos <em>Espaços</em></Title><p>Ambientes preparados para capacitações, eventos, mentorias e visitas técnicas.</p></div><button className="all-spaces-link" onClick={onOpenCalendar}>Abrir calendário completo <ArrowRight size={16} /></button></div>
       <div className="filter-row"><div className="filter-label"><SlidersHorizontal size={15} /> EXPLORE POR TIPO</div>{types.map(type => <button key={type} className={`filter-chip ${filter === type ? 'filter-chip-active' : ''}`} onClick={() => setFilter(type)}>{type}</button>)}</div>
       {!spacesLoaded && <p className="empty-inline" role="status">Carregando espaços...</p>}
       {spacesLoaded && spaces.length === 0 && <p className="empty-inline" role="status">Nenhum espaço cadastrado no momento.</p>}
-      <div className="space-grid">{filtered.map((space, index) => { const unavailable = space.ativo === false; const guidedTourSpace = isGuidedTour(space.tipoEspaco); return <article className={`space-card ${index === 0 ? 'space-card-featured' : ''} ${unavailable ? 'space-card-unavailable' : ''}`} key={space.idEspaco}><div className="space-image"><RoomPhoto space={space} alt={`Foto de ${space.nomeEspaco}`} /><button type="button" className="space-image-open" onClick={() => setGallerySpace(space)} aria-label={`Ver foto de ${space.nomeEspaco}`}>Ver foto <ArrowUpRight size={15} /></button>{unavailable ? <span className="space-unavailable-overlay">INDISPONÍVEL</span> : <span className="availability-dot"><i /> Disponível</span>}</div><div className="space-info"><div className="space-meta"><span>{space.tipoEspaco}</span><span><Users size={14} /> Até {space.capacidadePessoas || 20} pessoas</span></div><h3>{space.nomeEspaco}</h3><p>{unavailable ? <>{space.motivoIndisponibilidade || 'Este espaço está temporariamente indisponível.'}<small className="unavailable-deadline">{unavailableDeadlineLabel(space.dataPrevisaoRetorno)}</small></> : space.equipamentosDisponiveis || 'Um ambiente versátil para as suas ideias.'}</p><button className="space-cta" onClick={() => onConsultSpace(space)}>{unavailable ? 'Ver motivo' : guidedTourSpace ? 'Solicitar visita' : 'Ver Horários'}</button></div></article> })}</div>
+      <div className="space-grid">{filtered.map((space, index) => { const unavailable = space.ativo === false; const guidedTourSpace = isGuidedTour(space.tipoEspaco); return <article className={`space-card ${index === 0 ? 'space-card-featured' : ''} ${unavailable ? 'space-card-unavailable' : ''}`} key={space.idEspaco}><div className="space-image"><RoomPhoto space={space} alt={`Foto de ${space.nomeEspaco}`} /><button type="button" className="space-image-open" onClick={() => setGallerySpace(space)} aria-label={`Ver foto de ${space.nomeEspaco}`}>Ver foto <ArrowUpRight size={15} /></button>{unavailable ? <span className="space-unavailable-overlay">INDISPONÍVEL</span> : <span className="availability-dot"><i /> Disponível</span>}</div><div className="space-info"><div className="space-meta"><span>{space.tipoEspaco}</span><span><Users size={14} /> Até {space.capacidadePessoas || 20} pessoas</span></div><Title as="h3" emoji="✨">{space.nomeEspaco}</Title><p>{unavailable ? <>{space.motivoIndisponibilidade || 'Este espaço está temporariamente indisponível.'}<small className="unavailable-deadline">{unavailableDeadlineLabel(space.dataPrevisaoRetorno)}</small></> : space.equipamentosDisponiveis || 'Um ambiente versátil para as suas ideias.'}</p><button className="space-cta" onClick={() => onConsultSpace(space)}>{unavailable ? 'Ver motivo' : guidedTourSpace ? 'Solicitar visita' : 'Ver Horários'}</button></div></article> })}</div>
     </section>
     {gallerySpace && <RoomGallery space={gallerySpace} onClose={() => setGallerySpace(null)} onConsultSpace={onConsultSpace} />}
-    <section id="about" className="about-hub"><div className="about-copy"><div className="eyebrow">CIÊNCIA, TECNOLOGIA E CONEXÕES</div><h2>Sobre o <em>Hub</em></h2><p>O <strong>Centro de Inovação InPETU Hub</strong> está instalado no <strong>Lote 73 do Parque Tecnológico Sapiens Parque</strong>, em Canasvieiras, Florianópolis, conectando pesquisa, empreendedorismo e desenvolvimento tecnológico.</p><p>O Hub oferece infraestrutura compartilhada para capacitações, eventos, mentorias e visitas técnicas, com espaços que podem ser consultados e solicitados diretamente pelo InPETU Connect.</p><ul><li><Check size={15} /> Infraestrutura multimídia para encontros e capacitações</li><li><Check size={15} /> Agendamento digital e acompanhamento pela equipe</li><li><Check size={15} /> Atendimento dedicado e cuidado com seus dados</li></ul></div><aside className="ecosystem-cta"><span className="eyebrow">INPETU CONNECT</span><strong>Conheça os espaços</strong><p>Consulte o calendário e encontre um ambiente para sua próxima atividade.</p><Button icon={ArrowRight} onClick={onOpenCalendar}>Ver disponibilidade</Button></aside></section>
+    <section id="about" className="about-hub"><div className="about-copy"><Title as="h2" emoji="👋">Sobre o <em>Hub</em></Title><p>O <strong>Centro de Inovação InPETU Hub</strong> está instalado no <strong>Lote 73 do Parque Tecnológico Sapiens Parque</strong>, em Canasvieiras, Florianópolis, conectando pesquisa, empreendedorismo e desenvolvimento tecnológico.</p><p>O Hub oferece infraestrutura compartilhada para capacitações, eventos, mentorias e visitas técnicas, com espaços que podem ser consultados e solicitados diretamente pelo InPETU Connect.</p><ul><li><Check size={15} /> Infraestrutura multimídia para encontros e capacitações</li><li><Check size={15} /> Agendamento digital e acompanhamento pela equipe</li><li><Check size={15} /> Atendimento dedicado e cuidado com seus dados</li></ul></div><aside className="ecosystem-cta"><strong>Conheça os espaços</strong><p>Consulte o calendário e encontre um ambiente para sua próxima atividade.</p><Button icon={ArrowRight} onClick={onOpenCalendar}>Ver disponibilidade</Button></aside></section>
   </>
 }
-function BookingModal({ space, close, onSaved, openLogin, initialDate, initialTime, initialEndTime }) {
+function BookingModal({ space, close, onSaved, openLogin, initialDate, initialTime, initialEndTime, user }) {
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
-  const [form, setForm] = useState({ dataReserva: '', horarioInicio: '09:00', horarioFim: '10:00', tituloEvento: '', descricaoFinalidade: '', quantidadeParticipantes: '' })
+  const [form, setForm] = useState({ dataReserva: '', horarioInicio: '09:00', horarioFim: '10:00', tituloEvento: '', descricaoFinalidade: '', quantidadeParticipantes: '', telefoneContato: '' })
   const guidedTour = isGuidedTour(space?.tipoEspaco)
   useEffect(() => {
     if (!space) return
     const horarioInicio = guidedTour ? initialTime || '' : initialTime || '09:00'
-    setForm({ dataReserva: initialDate || localDateValue(), horarioInicio, horarioFim: guidedTour ? initialEndTime || '' : initialEndTime || addMinutesToTime(horarioInicio, 30), tituloEvento: '', descricaoFinalidade: '', quantidadeParticipantes: '' })
+    setForm({ dataReserva: initialDate || localDateValue(), horarioInicio, horarioFim: guidedTour ? initialEndTime || '' : initialEndTime || addMinutesToTime(horarioInicio, 30), tituloEvento: '', descricaoFinalidade: '', quantidadeParticipantes: '', telefoneContato: phoneDigits(user?.telefone) })
     setMessage('')
-  }, [space, initialDate, initialTime, initialEndTime, guidedTour])
+  }, [space, initialDate, initialTime, initialEndTime, guidedTour, user?.telefone])
   async function submit(event) {
     event.preventDefault()
+    if (form.telefoneContato && !isValidBrazilianMobile(formatBrazilianPhone(form.telefoneContato))) {
+      setMessage('Informe um celular válido para contato sobre a reserva.')
+      return
+    }
     setBusy(true); setMessage('')
     try {
       const saved = await request('/reservas', { method: 'POST', body: JSON.stringify({ ...form, quantidadeParticipantes: guidedTour ? Number(form.quantidadeParticipantes) : null, idEspaco: space.idEspaco }) })
@@ -740,6 +796,10 @@ function BookingModal({ space, close, onSaved, openLogin, initialDate, initialTi
   return <Modal open={Boolean(space)} close={close} title="Solicitar este espaço">
     <form className="form-stack" onSubmit={submit}><div className="selected-space"><RoomPhoto space={space} alt="" /><div><strong>{space?.nomeEspaco}</strong><small>{space?.tipoEspaco} · até {space?.capacidadePessoas} pessoas</small></div><span className="selected-status"><i /> {guidedTour ? 'Confirmação manual' : 'Aberto'}</span></div>
       {guidedTour && <p className="access-intro">A equipe confirma a visita, mas o intervalo fica reservado desde o primeiro pedido. Horários já solicitados não podem ser escolhidos novamente.</p>}
+      <section className="reservation-contact-card" aria-label="Contato para esta reserva">
+        <strong>Contato para esta reserva</strong>
+        <label>Telefone para contato ou alteração<PhoneInput value={form.telefoneContato} onChange={telefoneContato => setForm(current => ({ ...current, telefoneContato }))} /><small>Usaremos este número caso seja necessário falar sobre a solicitação.</small></label>
+      </section>
       <label>{guidedTour ? 'Data preferida da visita' : 'Data do encontro'}<input required type="date" min={localDateValue()} value={form.dataReserva} onChange={e => setForm({ ...form, dataReserva: e.target.value })} /></label><div className="field-pair"><label>{guidedTour ? 'Horário preferido de início' : 'Início'}<input required type="time" min="08:00" max="21:30" step="1800" value={form.horarioInicio} onChange={e => setForm({ ...form, horarioInicio: e.target.value })} /></label><label>{guidedTour ? 'Horário preferido de término' : 'Fim'}<input required type="time" min={form.horarioInicio || '08:30'} max="22:00" step="1800" value={form.horarioFim} onChange={e => setForm({ ...form, horarioFim: e.target.value })} /></label></div>
       {guidedTour && <label>Quantidade de visitantes<input required type="number" min="1" max={space?.capacidadePessoas || 20} value={form.quantidadeParticipantes} onChange={e => setForm({ ...form, quantidadeParticipantes: e.target.value })} /><small>Capacidade máxima: {space?.capacidadePessoas || 20} pessoas.</small></label>}
       <label>{guidedTour ? 'Nome do grupo ou da instituição' : 'Nome do encontro'}<input required maxLength="150" placeholder={guidedTour ? 'Ex.: Turma de Engenharia da UFSC' : 'Ex.: Oficina de prototipagem'} value={form.tituloEvento} onChange={e => setForm({ ...form, tituloEvento: e.target.value })} /></label><label>{guidedTour ? 'Objetivo ou observações da visita' : 'O que você está planejando?'}<textarea required rows="3" placeholder={guidedTour ? 'Conte brevemente o perfil do grupo e o que gostaria de conhecer' : 'Conte um pouco sobre o encontro'} value={form.descricaoFinalidade} onChange={e => setForm({ ...form, descricaoFinalidade: e.target.value })} /></label>
@@ -761,12 +821,12 @@ function AccessPage({ onLogin, onSignup }) {
     } catch (error) { setNotice(error.message) } finally { setBusy(false) }
   }
   return <main className="account-page">
-    <div className="account-page-heading"><h1>Acesso ao InPETU Connect</h1><p>Entre com seu e-mail e senha para acessar sua conta.</p></div>
+    <div className="account-page-heading"><Title as="h1" emoji="👋">Acesso ao InPETU Connect</Title><p>Entre com seu e-mail e senha para acessar sua conta.</p></div>
     <section className="account-card" aria-label="Acessar sua conta">
       <p className="account-description">Acesse para acompanhar e gerenciar suas solicitações. O painel da equipe é exibido conforme as permissões da sua conta.</p>
       <form className="form-stack account-form" onSubmit={submit}>
         <label>E-mail <span aria-hidden="true">*</span><input required type="email" autoComplete="email" placeholder="seu.email@empresa.com" value={email} onChange={e => setEmail(e.target.value)} /></label>
-        <label>Senha <span aria-hidden="true">*</span><input required type="password" autoComplete="current-password" placeholder="Sua senha" value={password} onChange={e => setPassword(e.target.value)} /></label>
+        <label>Senha <span aria-hidden="true">*</span><PasswordInput required autoComplete="current-password" placeholder="Sua senha" value={password} onChange={e => setPassword(e.target.value)} /></label>
         {notice && <p className="account-notice account-notice-error" role="alert">{notice}</p>}
         <Button type="submit" disabled={busy}>{busy ? 'Aguarde...' : 'Entrar com e-mail e senha'}</Button>
       </form>
@@ -790,7 +850,7 @@ function PasswordChangePage({ user, onLogout, onPasswordChanged }) {
     } catch (changeError) { setError(changeError.message) } finally { setBusy(false) }
   }
   return <main className="account-page password-change-page">
-    <div className="account-page-heading"><div className="eyebrow">AÇÃO NECESSÁRIA</div><h1>Defina sua nova senha</h1><p>A senha temporária só pode ser usada para esta troca.</p></div>
+    <div className="account-page-heading"><Title as="h1" emoji="👋">Defina sua nova senha</Title><p>A senha temporária só pode ser usada para esta troca.</p></div>
     <section className="account-card">
       <p className="account-description">Olá, {user?.nome?.split(' ')[0] || 'usuário'}. Escolha uma senha nova para continuar usando o InPETU Connect.</p>
       <form className="form-stack account-form" onSubmit={submit}>
@@ -839,7 +899,7 @@ function SignupPage({ onBack, onCodeSent }) {
     }
   }
   return <main className="account-page account-page-signup">
-    <div className="account-page-heading"><h1>Criar acesso público</h1><p>Cadastre-se para solicitar espaços e acompanhar seus agendamentos.</p></div>
+    <div className="account-page-heading"><Title as="h1" emoji="👋">Criar acesso público</Title><p>Cadastre-se para solicitar espaços e acompanhar seus agendamentos.</p></div>
     <section className="account-card account-card-signup">
       <p className="account-description">Preencha seus dados. A classificação da organização é feita pela equipe InPETU.</p>
       <form className="form-stack account-form" onSubmit={submit}>
@@ -848,8 +908,8 @@ function SignupPage({ onBack, onCodeSent }) {
         <label>Telefone<PhoneInput value={form.telefone} onChange={telefone => setForm({ ...form, telefone })} /></label>
         <label>Organização <span aria-hidden="true">*</span><input required value={form.organizacao} onChange={e => setForm({ ...form, organizacao: e.target.value })} /></label>
         <label>Cargo ou vínculo <span aria-hidden="true">*</span><input required value={form.cargoVinculo} onChange={e => setForm({ ...form, cargoVinculo: e.target.value })} /></label>
-        <label>Senha <span aria-hidden="true">*</span><input required minLength={8} maxLength={64} type="password" autoComplete="new-password" value={form.senha} onChange={e => setForm({ ...form, senha: e.target.value })} /></label>
-        <label>Confirmar senha <span aria-hidden="true">*</span><input required minLength={8} maxLength={64} type="password" autoComplete="new-password" value={form.confirmarSenha} onChange={e => setForm({ ...form, confirmarSenha: e.target.value })} /></label>
+        <label>Senha <span aria-hidden="true">*</span><PasswordInput required minLength={8} maxLength={64} autoComplete="new-password" value={form.senha} onChange={e => setForm({ ...form, senha: e.target.value })} /></label>
+        <label>Confirmar senha <span aria-hidden="true">*</span><PasswordInput required minLength={8} maxLength={64} autoComplete="new-password" value={form.confirmarSenha} onChange={e => setForm({ ...form, confirmarSenha: e.target.value })} /></label>
         {status && <p className="account-notice account-notice-error" role="alert">{status}</p>}
         {sendFailedEmail && <button className="button button-primary" type="button" disabled={resending} onClick={resendAfterSendFailure}>{resending ? 'Reenviando...' : 'Reenviar código'}</button>}
         <Button type="submit">Criar conta <ArrowRight size={16} /></Button>
@@ -951,7 +1011,7 @@ function EmailVerificationPage({ email, onCorrectEmail, onConfirmed }) {
 
   const countdown = `${String(Math.floor(secondsLeft / 60)).padStart(2, '0')}:${String(secondsLeft % 60).padStart(2, '0')}`
   return <main className="account-page">
-    <div className="account-page-heading"><h1>Verifique seu e-mail</h1><p>Digite o código de 6 dígitos enviado para {email ? <strong>{maskEmail(email)}</strong> : 'seu endereço de e-mail'}.</p></div>
+    <div className="account-page-heading"><Title as="h1" emoji="✉️">Verifique seu e-mail</Title><p>Digite o código de 6 dígitos enviado para {email ? <strong>{maskEmail(email)}</strong> : 'seu endereço de e-mail'}.</p></div>
     <section className="account-card verification-card">
       {email ? <form className="form-stack account-form" onSubmit={submit}>
         <div className="verification-code" role="group" aria-label="Código de verificação de seis dígitos">
@@ -1013,7 +1073,7 @@ function EmailConfirmationPage() {
   }, [])
 
   return <main className="account-page">
-    <div className="account-page-heading"><h1>Confirmação de cadastro</h1><p>Validação do seu acesso ao InPETU Connect.</p></div>
+    <div className="account-page-heading"><Title as="h1" emoji="👋">Confirmação de cadastro</Title><p>Validação do seu acesso ao InPETU Connect.</p></div>
     <section className="account-card" aria-live="polite">
       <p className={`account-notice ${status.kind === 'success' ? 'account-notice-success' : status.kind === 'error' ? 'account-notice-error' : ''}`} role={status.kind === 'error' ? 'alert' : 'status'}>{status.message}</p>
       {status.kind !== 'loading' && <p className="account-signup"><a href="/">Voltar ao InPETU Connect</a></p>}
@@ -1032,8 +1092,9 @@ function ReservationsPage({ items, onCancel }) {
     setCancelBusy(true)
     setCancelError('')
     try {
-      await request(`/reservas/${selected.idReserva}/cancelar`, { method: 'DELETE', body: JSON.stringify({ motivoCancelamento: reason.trim() }) })
-      onCancel(selected, reason.trim())
+      const updated = await request(`/reservas/${selected.idReserva}/cancelar`, { method: 'DELETE', body: JSON.stringify({ motivoCancelamento: reason.trim() }) })
+      if (updated.statusReserva !== 'Cancelada') throw new Error('A API não confirmou o cancelamento da reserva.')
+      onCancel(updated, reason.trim())
       setSelected(null)
       setReason('')
     } catch (error) {
@@ -1044,13 +1105,13 @@ function ReservationsPage({ items, onCancel }) {
   }
   return <main className="inner-page">
     <div className="page-back"><ArrowLeft size={15} /> <span>PORTAL DO SOLICITANTE</span></div>
-    <div className="section-top"><div><div className="eyebrow">SEU ESPAÇO, SEU HISTÓRICO</div><h1>Minhas <em>reservas</em></h1><p>Acompanhe cada encontro planejado no InPETU Hub.</p></div><div className="compact-filter"><Filter size={15} /><select value={filter} onChange={e => setFilter(e.target.value)}><option>Todas</option><option>Pendente</option><option>Confirmada</option><option>Cancelada</option></select><ChevronDown size={14} /></div></div>
+    <div className="section-top"><div><Title as="h1" emoji="📅">Minhas <em>reservas</em></Title><p>Acompanhe cada encontro planejado no InPETU Hub.</p></div><div className="compact-filter"><Filter size={15} /><select value={filter} onChange={e => setFilter(e.target.value)}><option>Todas</option><option value="Pendente">Pendente</option><option value="Confirmada">Aprovado</option><option value="Cancelada">Cancelada</option></select><ChevronDown size={14} /></div></div>
     <div className="reservation-table-wrap"><table className="data-table"><thead><tr><th>Encontro</th><th>Espaço</th><th>Data e horário</th><th>Status</th><th>Ação</th></tr></thead><tbody>{list.map(item => {
       const cancellationAllowed = calendarDaysUntil(item.dataReserva) >= 15
-      return <tr key={item.idReserva}><td><strong>{item.tituloEvento}</strong><small>Solicitação #{item.idReserva}</small></td><td>{item.espaco || 'Espaço InPETU'}</td><td>{item.dataReserva} · {item.horarioInicio}–{item.horarioFim}{item.quantidadeParticipantes ? <small>{item.quantidadeParticipantes} visitantes</small> : null}</td><td><span className={`status-pill ${item.statusReserva === 'Confirmada' ? 'status-confirmed' : item.statusReserva === 'Cancelada' ? 'status-cancelled' : 'status-pending'}`}><i />{item.statusReserva}</span></td><td>{item.statusReserva !== 'Cancelada' && (cancellationAllowed ? <button className="table-action" onClick={() => { setSelected(item); setCancelError('') }}>Cancelar</button> : <small>Menos de 15 dias: solicite exceção à equipe.</small>)}</td></tr>
+      return <tr key={item.idReserva}><td><strong>{item.tituloEvento}</strong><small>Solicitação #{item.idReserva}</small></td><td>{item.espaco || 'Espaço InPETU'}</td><td>{item.dataReserva} · {item.horarioInicio}-{item.horarioFim}{item.quantidadeParticipantes ? <small>{item.quantidadeParticipantes} visitantes</small> : null}{item.telefoneContato && <small>Contato: {formatBrazilianPhone(item.telefoneContato)}</small>}</td><td><span className={`status-pill ${reservationStatusClass(item.statusReserva)}`}><i />{reservationStatusLabel(item.statusReserva)}</span></td><td>{item.statusReserva !== 'Cancelada' && (cancellationAllowed ? <button className="table-action" onClick={() => { setSelected(item); setCancelError('') }}>Cancelar</button> : <small>Menos de 15 dias: solicite exceção à equipe.</small>)}</td></tr>
     })}</tbody></table>{list.length === 0 && <div className="empty-state"><CalendarDays size={25} /><p>Nenhuma reserva nesta categoria.</p></div>}</div>
     <Modal open={Boolean(selected)} close={() => { if (!cancelBusy) { setSelected(null); setCancelError('') } }} title="Cancelar solicitação">
-      <div className="cancel-summary"><span>RESERVA #{selected?.idReserva}</span><strong>{selected?.tituloEvento}</strong><small>{selected?.dataReserva} · {selected?.horarioInicio}–{selected?.horarioFim}</small></div>
+      <div className="cancel-summary"><span>RESERVA #{selected?.idReserva}</span><strong>{selected?.tituloEvento}</strong><small>{selected?.dataReserva} · {selected?.horarioInicio}-{selected?.horarioFim}</small></div>
       <label className="reason-field">Motivo do cancelamento<textarea rows="4" required placeholder="Conte por que está cancelando esta reserva" value={reason} onChange={e => setReason(e.target.value)} /></label>
       <p className="form-footnote">O cancelamento exige pelo menos 15 dias de antecedência. Dentro desse prazo, somente a equipe pode autorizar uma exceção.</p>
       {cancelError && <p className="form-message" role="alert">{cancelError}</p>}
@@ -1068,7 +1129,7 @@ function PortalHome({ user, items, reservationsLoaded, onOpenCalendar, onOpenRes
     .slice(0, 3)
   return <main className="inner-page portal-home">
     <section className="portal-welcome">
-      <div><div className="eyebrow">PORTAL DO SOLICITANTE</div><h1>Olá, <em>{user?.nome?.split(' ')[0] || 'bem-vindo'}</em></h1><p>Acompanhe suas reservas e planeje o próximo encontro no InPETU Hub.</p></div>
+      <div><Title as="h1" emoji="👋">Olá, <em>{user?.nome?.split(' ')[0] || 'bem-vindo'}</em></Title><p>Acompanhe suas reservas e planeje o próximo encontro no InPETU Hub.</p></div>
       <Avatar user={user} tamanho={64} className="portal-avatar" />
     </section>
     <section className="portal-summary-grid" aria-label="Resumo da conta">
@@ -1076,8 +1137,8 @@ function PortalHome({ user, items, reservationsLoaded, onOpenCalendar, onOpenRes
       <article className="portal-summary-card"><span>PRÓXIMAS RESERVAS</span><strong>{reservationsLoaded ? upcoming.length : '...'}</strong><small>Solicitações pendentes ou confirmadas</small></article>
     </section>
     <section className="portal-upcoming">
-      <div className="portal-section-heading"><div><div className="eyebrow">SEU PRÓXIMO ENCONTRO</div><h2>Próximas reservas</h2></div><button type="button" className="portal-text-action" onClick={onOpenReservations}>Minhas reservas <ArrowRight size={15} /></button></div>
-      {!reservationsLoaded ? <p className="portal-empty">Carregando suas reservas...</p> : upcoming.length ? <div className="portal-upcoming-list">{upcoming.map(item => <article key={item.idReserva}><span className="portal-date"><strong>{new Date(`${item.dataReserva}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit' })}</strong><small>{new Date(`${item.dataReserva}T12:00:00`).toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}</small></span><div><strong>{item.tituloEvento}</strong><small>{item.dataReserva} · {item.horarioInicio}–{item.horarioFim} · {item.espaco || 'Espaço InPETU'}</small></div><span className={`status-pill ${item.statusReserva === 'Confirmada' ? 'status-confirmed' : 'status-pending'}`}><i />{item.statusReserva}</span></article>)}</div> : <p className="portal-empty">Você ainda não tem reservas próximas. Que tal planejar seu próximo encontro?</p>}
+      <div className="portal-section-heading"><div><Title as="h2" emoji="📅">Próximas reservas</Title></div><button type="button" className="portal-text-action" onClick={onOpenReservations}>Minhas reservas <ArrowRight size={15} /></button></div>
+      {!reservationsLoaded ? <p className="portal-empty">Carregando suas reservas...</p> : upcoming.length ? <div className="portal-upcoming-list">{upcoming.map(item => <article key={item.idReserva}><span className="portal-date"><strong>{new Date(`${item.dataReserva}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit' })}</strong><small>{new Date(`${item.dataReserva}T12:00:00`).toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}</small></span><div><strong>{item.tituloEvento}</strong><small>{item.dataReserva} · {item.horarioInicio}-{item.horarioFim} · {item.espaco || 'Espaço InPETU'}{item.telefoneContato ? ` · Contato: ${formatBrazilianPhone(item.telefoneContato)}` : ''}</small></div><span className={`status-pill ${reservationStatusClass(item.statusReserva)}`}><i />{reservationStatusLabel(item.statusReserva)}</span></article>)}</div> : <p className="portal-empty">Você ainda não tem reservas próximas. Que tal planejar seu próximo encontro?</p>}
       <Button icon={CalendarDays} onClick={onOpenCalendar}>Agendar espaço</Button>
     </section>
   </main>
@@ -1088,7 +1149,7 @@ function HelpPage() {
   const [status, setStatus] = useState('')
   const [progress, setProgress] = useState(0)
   async function submit(event) { event.preventDefault(); setStatus(''); if (file && (!['application/pdf', 'image/png', 'image/jpeg'].includes(file.type) || file.size > 10 * 1024 * 1024)) return setStatus('Anexe PDF, PNG ou JPG de até 10 MB.'); try { if (file) await uploadQuestion(form, file, setProgress); else await request('/duvidas', { method: 'POST', body: JSON.stringify(form) }); setProgress(100); setStatus('Mensagem enviada. A equipe InPETU responderá pelo e-mail informado.'); setForm({ emailContato: '', telefoneContato: '', mensagemDuvida: '' }); setFile(null) } catch (error) { setStatus(error.message); setProgress(0) } }
-  return <main className="inner-page help-page"><div className="help-intro"><div className="eyebrow">ESTAMOS POR PERTO</div><h1>Vamos conversar<br /><em>sobre sua ideia?</em></h1><p>Tem dúvidas sobre os espaços, eventos ou quer descobrir como fazer parte do ecossistema? Escreva para a gente.</p><div className="help-contact"><span><Mail size={17} /></span><div><small>FALE DIRETAMENTE</small><strong>inpetu@contato.ufsc.br</strong></div></div><div className="help-contact"><span><MapPin size={17} /></span><div><small>VENHA NOS VISITAR</small><strong>Lote 73 · Sapiens Parque, Florianópolis</strong></div></div></div><form className="help-form" onSubmit={submit}><div className="form-heading"><MessageCircle size={20} /><div><strong>Fale com a equipe</strong><small>Retornamos em até dois dias úteis.</small></div></div><label>Seu e-mail<input required type="email" value={form.emailContato} onChange={e => setForm({ ...form, emailContato: e.target.value })} /></label><label>Telefone <span>(opcional)</span><PhoneInput value={form.telefoneContato} onChange={telefoneContato => setForm({ ...form, telefoneContato })} /></label><label>Sua mensagem<textarea required rows="5" maxLength="5000" value={form.mensagemDuvida} onChange={e => setForm({ ...form, mensagemDuvida: e.target.value })} placeholder="Como podemos ajudar?" /></label><label className="upload-box"><input type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" onChange={e => setFile(e.target.files?.[0] || null)} /><span className="upload-icon"><Plus size={19} /></span><span><strong>{file ? file.name : 'Adicionar anexo'}</strong><small>PDF, PNG ou JPG · até 10 MB</small></span><span className="upload-action">Escolher arquivo</span></label>{progress > 0 && <div className="progress-track"><span style={{ width: `${progress}%` }} /></div>}{status && <p className={status.startsWith('Mensagem') ? 'success-note' : 'form-message'}>{status}</p>}<Button type="submit">Enviar mensagem <ArrowRight size={16} /></Button><p className="form-footnote"><ShieldCheck size={14} /> Seus dados são protegidos pela política de privacidade UFSC.</p></form></main>
+  return <main className="inner-page help-page"><div className="help-intro"><Title as="h1" emoji="👋">Vamos conversar<br /><em>sobre sua ideia?</em></Title><p>Tem dúvidas sobre os espaços, eventos ou quer descobrir como fazer parte do ecossistema? Escreva para a gente.</p><div className="help-contact"><span><Mail size={17} /></span><div><small>FALE DIRETAMENTE</small><strong>inpetu@contato.ufsc.br</strong></div></div><div className="help-contact"><span><MapPin size={17} /></span><div><small>VENHA NOS VISITAR</small><strong>Lote 73 · Sapiens Parque, Florianópolis</strong></div></div></div><form className="help-form" onSubmit={submit}><div className="form-heading"><MessageCircle size={20} /><div><strong>Fale com a equipe</strong><small>Retornamos em até dois dias úteis.</small></div></div><label>Seu e-mail<input required type="email" value={form.emailContato} onChange={e => setForm({ ...form, emailContato: e.target.value })} /></label><label>Telefone <span>(opcional)</span><PhoneInput value={form.telefoneContato} onChange={telefoneContato => setForm({ ...form, telefoneContato })} /></label><label>Sua mensagem<textarea required rows="5" maxLength="5000" value={form.mensagemDuvida} onChange={e => setForm({ ...form, mensagemDuvida: e.target.value })} placeholder="Como podemos ajudar?" /></label><label className="upload-box"><input type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" onChange={e => setFile(e.target.files?.[0] || null)} /><span className="upload-icon"><Plus size={19} /></span><span><strong>{file ? file.name : 'Adicionar anexo'}</strong><small>PDF, PNG ou JPG · até 10 MB</small></span><span className="upload-action">Escolher arquivo</span></label>{progress > 0 && <div className="progress-track"><span style={{ width: `${progress}%` }} /></div>}{status && <p className={status.startsWith('Mensagem') ? 'success-note' : 'form-message'}>{status}</p>}<Button type="submit">Enviar mensagem <ArrowRight size={16} /></Button><p className="form-footnote"><ShieldCheck size={14} /> Seus dados são protegidos pela política de privacidade UFSC.</p></form></main>
 }
 function CalendarPage({ spaces, spacesLoaded, onReserve, initialDate, initialKind, initialSpaceId, availabilityVersion }) {
   const [date, setDate] = useState(initialDate)
@@ -1231,8 +1292,7 @@ function CalendarPage({ spaces, spacesLoaded, onReserve, initialDate, initialKin
   }
   return <main className="inner-page catalog-page booking-page">
     <header className="catalog-heading booking-heading">
-      <span className="booking-eyebrow">INPETU CONNECT · LOTE 73</span>
-      <h1>Agende um espaço</h1>
+      <Title as="h1" emoji="👋">Agende um espaço</Title>
       <p>Escolha o ambiente, defina o dia e horário e envie sua solicitação.</p>
     </header>
     <ol className="booking-steps" aria-label="Etapas da reserva">
@@ -1244,7 +1304,7 @@ function CalendarPage({ spaces, spacesLoaded, onReserve, initialDate, initialKin
     <div className="booking-layout">
       <div className="booking-main">
         <section className="booking-section" aria-labelledby="booking-space-title">
-          <div className="booking-section-heading"><span className="booking-section-number">01</span><div><h2 id="booking-space-title">Escolha o espaço</h2><p>Selecione um ambiente para ver a agenda.</p></div></div>
+          <div className="booking-section-heading"><span className="booking-section-number">01</span><div><Title as="h2" emoji="👋" id="booking-space-title">Escolha o espaço</Title><p>Selecione um ambiente para ver a agenda.</p></div></div>
           {!spacesLoaded ? <p className="booking-state" role="status">Carregando espaços...</p> : orderedSpaces.length === 0 ? <p className="booking-state">Nenhum espaço cadastrado no momento.</p> : <div className="booking-space-grid">
             {orderedSpaces.map(space => {
               const unavailable = space.ativo === false
@@ -1264,8 +1324,8 @@ function CalendarPage({ spaces, spacesLoaded, onReserve, initialDate, initialKin
         </section>
 
         <section className="booking-section" aria-labelledby="booking-date-title">
-          <div className="booking-section-heading"><span className="booking-section-number">02</span><div><h2 id="booking-date-title">Escolha dia e horário</h2><p>Selecione uma data e um intervalo disponível.</p></div></div>
-          <div className="booking-date-toolbar"><h3>Próximos 14 dias</h3><button type="button" className="booking-calendar-toggle" aria-expanded={monthCalendarOpen} aria-controls="booking-month-calendar" onClick={() => setMonthCalendarOpen(open => !open)}><CalendarDays size={15} /> {monthCalendarOpen ? 'Fechar calendário' : 'Abrir calendário'}</button></div>
+          <div className="booking-section-heading"><span className="booking-section-number">02</span><div><Title as="h2" emoji="👋" id="booking-date-title">Escolha dia e horário</Title><p>Selecione uma data e um intervalo disponível.</p></div></div>
+          <div className="booking-date-toolbar"><Title as="h3" emoji="👋">Próximos 14 dias</Title><button type="button" className="booking-calendar-toggle" aria-expanded={monthCalendarOpen} aria-controls="booking-month-calendar" onClick={() => setMonthCalendarOpen(open => !open)}><CalendarDays size={15} /> {monthCalendarOpen ? 'Fechar calendário' : 'Abrir calendário'}</button></div>
           <div className="booking-date-rail" role="group" aria-label="Selecione um dos próximos 14 dias">
             {upcomingDays.map(day => {
               const value = localDateValue(day)
@@ -1287,7 +1347,7 @@ function CalendarPage({ spaces, spacesLoaded, onReserve, initialDate, initialKin
           {!selectedSpace ? <p className="booking-state">Escolha um espaço para consultar os horários.</p> : availabilityLoading ? <p className="booking-state" role="status">Consultando disponibilidade...</p> : availabilityError ? <div className="booking-error" role="alert"><span>Não foi possível consultar a disponibilidade: {availabilityError}</span><button type="button" onClick={() => setAvailabilityReload(value => value + 1)}>Tentar novamente</button></div> : <div className="booking-time-groups">
             <p className="catalog-time-help">Clique no primeiro e no último horário que você quer reservar.</p>
             {slotGroups.map(group => <section className="booking-time-group" key={group.label} aria-label={group.label}>
-              <h3>{group.label}</h3><div className="booking-time-grid">{group.times.map(time => {
+              <Title as="h3" emoji="✨">{group.label}</Title><div className="booking-time-grid">{group.times.map(time => {
                 const reservation = reservationAt(time)
                 const status = reservation ? (reservation.statusReserva === 'Pendente' ? 'pending' : 'busy') : 'free'
                 const statusLabel = reservation ? (reservation.statusReserva === 'Pendente' ? 'Em análise' : 'Ocupado') : 'Livre'
@@ -1300,20 +1360,20 @@ function CalendarPage({ spaces, spacesLoaded, onReserve, initialDate, initialKin
                   !isRangeAvailable(startTime, addMinutesToTime(time, 30))
                 const disabled = isPastToday || Boolean(reservation) || Boolean(rangeWouldConflict)
                 const unavailableReason = isPastToday ? 'horário já passado' : reservation ? statusLabel : rangeWouldConflict ? 'o intervalo inclui um horário ocupado ou em análise' : statusLabel
-                return <button key={time} type="button" className={`booking-time-option booking-time-${status} ${isSelectedRange && !reservation ? 'booking-time-in-range' : ''} ${isSelectedStart ? 'booking-time-start' : ''} ${isSelectedEnd ? 'booking-time-end' : ''}`} disabled={disabled} onClick={() => selectSlotTime(time)} aria-label={`${time}–${slotEndTime}, ${disabled ? unavailableReason : statusLabel}${isSelectedStart ? ', início selecionado' : ''}${isSelectedEnd ? ', fim selecionado' : ''}`}>
+                return <button key={time} type="button" className={`booking-time-option booking-time-${status} ${isSelectedRange && !reservation ? 'booking-time-in-range' : ''} ${isSelectedStart ? 'booking-time-start' : ''} ${isSelectedEnd ? 'booking-time-end' : ''}`} disabled={disabled} onClick={() => selectSlotTime(time)} aria-label={`${time}-${slotEndTime}, ${disabled ? unavailableReason : statusLabel}${isSelectedStart ? ', início selecionado' : ''}${isSelectedEnd ? ', fim selecionado' : ''}`}>
                   <span className="booking-time-dot" aria-hidden="true" /><strong>{time}</strong>
                 </button>
               })}</div>
             </section>)}
           </div>}
           {startTime && endTime > startTime && !availabilityLoading && !availabilityError && !isRangeAvailable(startTime, endTime) && <p className="booking-validation-error" role="alert">O período escolhido inclui um horário ocupado ou em análise.</p>}
-          <p className="booking-hours-note">Funcionamento: 08h–22h. Horários ocupados ou em análise não podem ser reservados.</p>
+          <p className="booking-hours-note">Funcionamento: 08h-22h. Horários ocupados ou em análise não podem ser reservados.</p>
         </section>
       </div>
 
       <aside className="booking-summary" aria-labelledby="booking-summary-title">
-        <span className="booking-summary-eyebrow">ETAPA 03</span><h2 id="booking-summary-title">Resumo da solicitação</h2>
-        <dl><div><dt>Espaço</dt><dd>{selectedSpace?.nomeEspaco || 'Não selecionado'}</dd></div><div><dt>Data</dt><dd>{date ? displayDate : 'Não selecionada'}</dd></div><div><dt>Horário</dt><dd>{startTime && endTime ? `${startTime}–${endTime} · ${reservationDurationLabel}` : 'Não selecionado'}</dd></div></dl>
+        <Title as="h2" emoji="👋" id="booking-summary-title">Resumo da solicitação</Title>
+        <dl><div><dt>Espaço</dt><dd>{selectedSpace?.nomeEspaco || 'Não selecionado'}</dd></div><div><dt>Data</dt><dd>{date ? displayDate : 'Não selecionada'}</dd></div><div><dt>Horário</dt><dd>{startTime && endTime ? `${startTime}-${endTime} · ${reservationDurationLabel}` : 'Não selecionado'}</dd></div></dl>
         {selectedSpace?.exigeAprovacaoManual && <p className="booking-summary-review">Este pedido requer análise manual.</p>}
         {availabilityLoading ? <p className="booking-summary-hint" role="status">Consultando horários disponíveis...</p> : availabilityError ? <p className="booking-summary-hint booking-summary-hint-error">Não foi possível validar os horários. Tente novamente.</p> : !canRequestReservation && <p className="booking-summary-hint">{!selectedSpace ? 'Escolha um espaço.' : date < localDateValue() ? 'Escolha uma data de hoje em diante.' : !startTime ? 'Escolha um horário de início.' : !endTime ? 'Escolha um horário de término.' : 'Escolha um intervalo disponível.'}</p>}
         <Button icon={CalendarDays} disabled={!canRequestReservation} onClick={() => onReserve(selectedSpace, date, startTime, endTime)}>{guidedTour ? 'Solicitar visita guiada' : 'Solicitar reserva'}</Button>
@@ -1348,6 +1408,7 @@ function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, set
   const [reservationCancelReason, setReservationCancelReason] = useState('')
   const [reservationCancelError, setReservationCancelError] = useState('')
   const [reservationCancelBusy, setReservationCancelBusy] = useState(false)
+  const [approvingReservationId, setApprovingReservationId] = useState(null)
   const [spaceModal, setSpaceModal] = useState(false)
   const [spaceToDeactivate, setSpaceToDeactivate] = useState(null)
   const [spaceReason, setSpaceReason] = useState('')
@@ -1383,7 +1444,7 @@ function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, set
     Promise.all([request('/reservas'), request('/usuarios'), request('/organizacoes'), request('/duvidas'), request('/auditoria')]).then(([bookings, users, organizations, questions, logs]) => {
       const orgById = new Map(organizations.map(org => [org.idOrganizacao, org]))
       const userById = new Map(users.map(person => [person.idUsuario, person]))
-      setReservations(bookings.map(item => ({ ...item, espaco: spaces.find(space => space.idEspaco === item.idEspaco)?.nomeEspaco || 'Espaço InPETU', tipoEspaco: spaces.find(space => space.idEspaco === item.idEspaco)?.tipoEspaco, solicitante: userById.get(item.idSolicitante)?.nomeCompleto || 'Solicitante', persona: userById.get(item.idSolicitante)?.idPersona })))
+      setReservations(bookings.map(item => ({ ...item, espaco: spaces.find(space => space.idEspaco === item.idEspaco)?.nomeEspaco || 'Espaço InPETU', tipoEspaco: spaces.find(space => space.idEspaco === item.idEspaco)?.tipoEspaco, solicitante: userById.get(item.idSolicitante)?.nomeCompleto || 'Solicitante', telefoneContato: item.telefoneContato || userById.get(item.idSolicitante)?.telefone, persona: userById.get(item.idSolicitante)?.idPersona })))
       setClientUsers(users.filter(person => person.idPerfil === 4).map(person => ({
         ...person,
         organizacao: orgById.get(person.idOrganizacao)?.nomeOrganizacao || 'Não informada',
@@ -1409,6 +1470,63 @@ function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, set
       setCrmDataError(`Não foi possível carregar os dados do painel. ${error.message}`)
     })
   }, [user, spaces])
+  useEffect(() => {
+    if (!user) return
+    let active = true
+    let refreshing = false
+    let refreshTimer
+    const refreshReservations = async () => {
+      if (!active || refreshing) return
+      refreshing = true
+      try {
+        const [bookings, users] = await Promise.all([request('/reservas'), request('/usuarios')])
+        if (!Array.isArray(bookings) || !Array.isArray(users)) throw new Error('A API retornou uma lista inválida.')
+        if (!active) return
+        const userById = new Map(users.map(person => [person.idUsuario, person]))
+        setReservations(bookings.map(item => ({
+          ...item,
+          espaco: spaces.find(space => space.idEspaco === item.idEspaco)?.nomeEspaco || 'Espaço InPETU',
+          tipoEspaco: spaces.find(space => space.idEspaco === item.idEspaco)?.tipoEspaco,
+          solicitante: userById.get(item.idSolicitante)?.nomeCompleto || 'Solicitante',
+          telefoneContato: item.telefoneContato || userById.get(item.idSolicitante)?.telefone,
+          persona: userById.get(item.idSolicitante)?.idPersona,
+        })))
+        setCrmDataError(current => current.startsWith('Não foi possível atualizar as reservas do painel.') ? '' : current)
+      } catch (error) {
+        if (!active) return
+        if (error.status === 401) {
+          clearStoredUser()
+          setUser(null)
+          onReturnHome()
+        } else {
+          setCrmDataError(current => current || `Não foi possível atualizar as reservas do painel. ${error.message}`)
+        }
+      } finally {
+        refreshing = false
+        if (active) {
+          window.clearTimeout(refreshTimer)
+          refreshTimer = window.setTimeout(refreshReservations, 15_000)
+        }
+      }
+    }
+    const refreshNow = () => {
+      window.clearTimeout(refreshTimer)
+      refreshTimer = undefined
+      refreshReservations()
+    }
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') refreshNow()
+    }
+    refreshTimer = window.setTimeout(refreshReservations, 15_000)
+    window.addEventListener('focus', refreshNow)
+    document.addEventListener('visibilitychange', refreshWhenVisible)
+    return () => {
+      active = false
+      window.clearTimeout(refreshTimer)
+      window.removeEventListener('focus', refreshNow)
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
+    }
+  }, [user?.idUsuario, user?.email, spaces])
   async function logout() {
     try {
       await request('/auth/logout', { method: 'POST' })
@@ -1420,14 +1538,17 @@ function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, set
     onReturnHome()
   }
   async function approve(item) {
+    if (approvingReservationId !== null) return
     if (item.excedeCota && !item.dataNegociacao) {
       setNegotiationTarget(item)
       setNegotiationNote('')
       setNegotiationError('')
       return
     }
+    setApprovingReservationId(item.idReserva)
     try {
       const updated = await request(`/reservas/${item.idReserva}/aprovar`, { method: 'POST' })
+      if (updated.statusReserva !== 'Confirmada') throw new Error('A API não confirmou a aprovação da reserva.')
       setReservations(items => items.map(reservation => reservation.idReserva === item.idReserva ? { ...reservation, ...updated } : reservation))
       setAuditItems(items => [{
         time: new Date(updated.dataAprovacao || new Date()).toLocaleString('pt-BR'),
@@ -1439,6 +1560,8 @@ function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, set
       notify('Reserva aprovada e solicitante atualizado.')
     } catch (error) {
       notify(error.message)
+    } finally {
+      setApprovingReservationId(null)
     }
   }
     function editReservation(item) {
@@ -1451,6 +1574,7 @@ function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, set
         horarioFim: item.horarioFim,
         idEspaco: item.idEspaco,
         quantidadeParticipantes: item.quantidadeParticipantes || '',
+        telefoneContato: phoneDigits(item.telefoneContato || ''),
       })
       setReservationEditError('')
     }
@@ -1465,6 +1589,7 @@ function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, set
           body: JSON.stringify({
             ...reservationEditForm,
             idEspaco: Number(reservationEditForm.idEspaco),
+            telefoneContato: reservationEditForm.telefoneContato || null,
             quantidadeParticipantes: spaces.find(space => space.idEspaco === Number(reservationEditForm.idEspaco))?.tipoEspaco?.toLocaleLowerCase('pt-BR').includes('visita')
               ? Number(reservationEditForm.quantidadeParticipantes)
               : null,
@@ -1508,13 +1633,14 @@ function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, set
     setReservationCancelBusy(true)
     setReservationCancelError('')
     try {
-      await request(`/reservas/${reservationCancelTarget.idReserva}/cancelar`, {
+      const updated = await request(`/reservas/${reservationCancelTarget.idReserva}/cancelar`, {
         method: 'DELETE',
         body: JSON.stringify({ motivoCancelamento: reservationCancelReason.trim() }),
       })
+      if (updated.statusReserva !== 'Cancelada') throw new Error('A API não confirmou o cancelamento da reserva.')
       const target = reservationCancelTarget
       setReservations(items => items.map(item => item.idReserva === target.idReserva
-        ? { ...item, statusReserva: 'Cancelada', motivoCancelamento: reservationCancelReason.trim() }
+        ? { ...item, ...updated, motivoCancelamento: reservationCancelReason.trim() }
         : item))
       setAuditItems(items => [{
         time: new Date().toLocaleString('pt-BR'),
@@ -1799,41 +1925,41 @@ function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, set
     `${item.time} ${item.user} ${item.action} ${item.target} ${item.detail}`.toLowerCase().includes(auditQuery.trim().toLowerCase())
   )
   const auditActions = [...new Set(auditItems.map(item => item.action))]
-  if (!user) return <div className="crm-login"><div className="crm-login-visual"><Logo inverse /><div><div className="eyebrow">INPETU HUB · UFSC</div><h1>O ecossistema,<br /><em>em movimento.</em></h1><p>Gestão inteligente dos encontros e espaços do Lote 73.</p><div className="crm-location"><MapPin size={17} />Sapiens Parque · Florianópolis</div></div><small>AMBIENTE DE GESTÃO INTERNA</small></div><div className="crm-login-form"><button type="button" className="crm-return-home" onClick={onReturnHome}><ArrowLeft size={16} /> Voltar ao site inicial</button><div className="eyebrow">ACESSO RESTRITO · EQUIPE INPETU</div><h2>Acesso ao painel</h2><p>Entre com sua conta da equipe para gerenciar reservas, espaços e cadastros.</p><LoginInline onLogin={setUser} /></div></div>
+  if (!user) return <div className="crm-login"><div className="crm-login-visual"><Logo inverse /><div><Title as="h1" emoji="👋">O ecossistema,<br /><em>em movimento.</em></Title><p>Gestão inteligente dos encontros e espaços do Lote 73.</p><div className="crm-location"><MapPin size={17} />Sapiens Parque · Florianópolis</div></div><small>AMBIENTE DE GESTÃO INTERNA</small></div><div className="crm-login-form"><button type="button" className="crm-return-home" onClick={onReturnHome}><ArrowLeft size={16} /> Voltar ao site inicial</button><Title as="h2" emoji="👋">Acesso ao painel</Title><p>Entre com sua conta da equipe para gerenciar reservas, espaços e cadastros.</p><LoginInline onLogin={setUser} /></div></div>
   return <div className="crm-layout"><aside className="crm-sidebar"><button className="crm-logo-button" onClick={() => setSection('Visão geral')}><Logo /></button><div className="workspace-label">ESPAÇO DE TRABALHO</div><nav className="crm-nav">{nav.map(({ name, icon: Icon }) => <button key={name} className={section === name ? 'crm-nav-active' : ''} onClick={() => setSection(name)}><Icon size={18} /><span>{name}</span>{name === 'Reservas' && pending.length > 0 && <b>{pending.length}</b>}</button>)}</nav><div className="sidebar-spacer" /><button type="button" className="crm-return-home crm-sidebar-return" onClick={onReturnHome}><HomeIcon size={16} /> Voltar ao site inicial</button><div className="sidebar-help"><span><CircleHelp size={17} /></span><strong>Chamados de usuários</strong><small>Acompanhe e responda pedidos de suporte.</small><button onClick={() => { setSection('Atendimento'); setSelectedTicket(pendingQuestions[0] || tickets[0] || null) }}>Abrir chamados <ArrowRight size={14} /></button></div><Menu as="div" className="crm-profile-menu"><MenuButton type="button" className="profile-button"><Avatar user={user} tamanho={38} /><span><strong>{user.nome || 'Equipe InPETU'}</strong><small>{user.perfil === 1 ? 'Coordenador' : user.perfil === 2 ? 'Gestor de espaços' : 'Atendimento'}</small></span><MoreHorizontal size={18} aria-hidden="true" /></MenuButton><MenuItems className="crm-profile-menu-items"><MenuItem><button type="button" onClick={onReturnHome}><HomeIcon size={15} /> Voltar ao site</button></MenuItem><MenuItem><button type="button" onClick={logout}><DoorOpen size={15} /> Sair da conta</button></MenuItem></MenuItems></Menu></aside>
     <main className="crm-main"><header className="crm-topbar"><div className="breadcrumbs"><span>InPETU Connect</span><span>/</span><strong>{section}</strong></div><label className="global-search"><Search size={16} /><input placeholder="Buscar em tudo" value={search} onChange={e => setSearch(e.target.value)} /><kbd>⌘ K</kbd></label><NotificationCenter user={user} /><button type="button" className="crm-icon" aria-label="Ajuda" onClick={() => setHelpOpen(true)}><CircleHelp size={18} /></button><Menu as="div" className="crm-topbar-profile"><MenuButton type="button" className="crm-avatar" aria-label={`Perfil de ${user.nome || 'usuário'}`}><Avatar user={user} tamanho={36} /></MenuButton><MenuItems className="crm-profile-menu-items crm-topbar-profile-items"><MenuItem><button type="button" onClick={() => setProfileDetailsOpen(true)}>Meu perfil</button></MenuItem><MenuItem><button type="button" onClick={onReturnHome}><HomeIcon size={15} /> Voltar ao site</button></MenuItem><MenuItem><button type="button" onClick={logout}><DoorOpen size={15} /> Sair da conta</button></MenuItem></MenuItems></Menu></header>
       <Modal open={helpOpen} close={() => setHelpOpen(false)} title="Ajuda do painel"><p className="access-intro">Use o menu lateral para acessar visão geral, reservas, cadastros, espaços, atendimento e auditoria.</p><p className="access-intro">Para consultar dúvidas enviadas pelos usuários e responder chamados, abra a área de Atendimento.</p><Button onClick={() => { setSection('Atendimento'); setHelpOpen(false) }}>Abrir atendimento <ArrowRight size={16} /></Button></Modal>
       <ProfileDialog open={profileDetailsOpen} close={() => setProfileDetailsOpen(false)} user={user} onUserUpdate={updated => { const next = omitPersona({ ...user, ...updated }); storeUser(next); setUser(next); setStaff(items => items.map(person => person.idUsuario === next.idUsuario ? { ...person, ...updated } : person)); setClientUsers(items => items.map(person => person.idUsuario === next.idUsuario ? { ...person, ...updated } : person)) }} />
-      <div className="crm-content">{crmDataError && <div className="form-message" role="alert">{crmDataError}</div>}{section === 'Visão geral' && <><div className="crm-greeting"><div><div className="eyebrow">{selectedDateLabel}</div><h1>Bom dia, {user.nome?.split(' ')[0] || 'equipe'} {isDashboardToday && <span>☀</span>}</h1><p>{isDashboardToday ? 'O Lote 73 está em movimento. Veja o que precisa de atenção.' : 'Visualizando reservas e ocupação desta data.'}</p></div><div className="date-navigation" aria-label="Navegação da agenda"><button type="button" className="date-step" aria-label="Dia anterior" onClick={() => shiftDashboardDate(-1)}><ChevronLeft size={16} /></button><label className="date-button"><CalendarDays size={16} /><span>{isDashboardToday ? 'Hoje · ' : ''}{selectedDay.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}</span><input aria-label="Selecionar data da agenda" type="date" value={dashboardDate} onChange={event => setDashboardDate(event.target.value)} /></label><button type="button" className="date-step" aria-label="Próximo dia" onClick={() => shiftDashboardDate(1)}><ChevronRight size={16} /></button>{!isDashboardToday && <button type="button" className="date-today" onClick={() => setDashboardDate(todayKey)}>Hoje</button>}</div></div><div className="kpi-grid"><Kpi icon={CalendarDays} label="Reservas no dia" value={String(selectedReservations.length).padStart(2, '0')} change={`${occupiedSpaces.size} espaços com agenda nesta data`} accent="mint" /><Kpi icon={Clock3} label="Aguardando aprovação" value={String(pending.length).padStart(2, '0')} change="Precisam da sua atenção" accent="yellow" /><Kpi icon={DoorOpen} label="Ocupação do Lote 73" value={`${occupancyRate}%`} change={`${occupiedSpaces.size} de ${activeSpaces.length} espaços ocupados nesta data`} accent="blue" /><Kpi icon={MessageCircle} label="Dúvidas em aberto" value={String(pendingQuestions.length).padStart(2, '0')} change={`${tickets.length} chamados recebidos`} accent="coral" /></div><div className="dashboard-columns"><section className="crm-panel conflict-panel"><div className="panel-heading"><div><div className="eyebrow">DECISÃO NECESSÁRIA · {selectedDay.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '').toUpperCase()}</div><h2>Solicitações pendentes <span className="heading-count">{selectedPending.length}</span></h2></div><button className="subtle-action" onClick={() => setSection('Reservas')}>Ver todas <ArrowRight size={15} /></button></div>{selectedPending.length ? selectedPending.map(item => <div className="conflict-card" key={item.idReserva}><div className="conflict-card-top"><span className="conflict-icon"><CalendarDays size={16} /></span><span className="conflict-date">{new Date(`${item.dataReserva}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '').toUpperCase()} · {item.horarioInicio}–{item.horarioFim}</span><span className="pending-indicator">EM ANÁLISE</span></div><strong>{item.tituloEvento}</strong><div className="conflict-meta"><span>{item.espaco}</span><span className="meta-dot" />{item.solicitante}</div><div className="conflict-actions"><button className="decision-button" onClick={() => approve(item)}><Check size={15} /> Aprovar solicitação</button><button className="decision-secondary" onClick={() => notify('Solicite um motivo antes de recusar esta reserva.')}>Recusar</button></div></div>) : <div className="empty-inline"><Check size={18} />Nenhuma solicitação pendente nesta data.</div>}</section><section className="crm-panel today-panel"><div className="panel-heading"><div><div className="eyebrow">{isDashboardToday ? 'HOJE NO HUB' : selectedDay.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '').toUpperCase()}</div><h2>Agenda do dia</h2></div><button className="icon-button" onClick={() => setSection('Reservas')} aria-label="Abrir agenda"><ArrowUpRight size={18} /></button></div>  <div className="day-timeline">{selectedReservations.map(item => <div className="timeline-event" key={item.idReserva}><span>{item.horarioInicio}</span><i className={`timeline-mark ${item.statusReserva === 'Pendente' ? 'pendente' : ''}`} /><div><strong>{item.tituloEvento}</strong><small>{item.espaco || 'Espaço InPETU'} · {item.statusReserva}</small></div></div>)}{selectedReservations.length === 0 && <div className="empty-inline">Nenhuma reserva nesta data.</div>}</div><button className="full-width-link" onClick={() => setSection('Reservas')}>Abrir agenda completa <ArrowRight size={15} /></button></section></div><section className="crm-panel recent-panel"><div className="panel-heading"><div><div className="eyebrow">VISÃO DO ECOSSISTEMA</div><h2>Cadastros recentes</h2></div><button className="subtle-action" onClick={() => setSection('Cadastros')}>Gerenciar cadastros <ArrowRight size={15} /></button></div><table className="data-table"><thead><tr><th>Organização</th><th>Contato principal</th><th>Cadastro</th><th>Classificação</th><th /></tr></thead><tbody>{partners.slice(0, 3).map(p => <tr key={p.id}><td><strong>{p.name}</strong><small>{p.email}</small></td><td>{p.contact}</td><td>Hoje · 09:42</td><td>{p.persona ? 'Classificado' : 'Aguardando classificação'}</td><td><button className="table-more" onClick={() => setClientProfile(clientUsers.find(person => person.idUsuario === p.userId) || null)}><MoreHorizontal size={19} /></button></td></tr>)}</tbody></table></section></>}
+      <div className="crm-content">{crmDataError && <div className="form-message" role="alert">{crmDataError}</div>}{section === 'Visão geral' && <><div className="crm-greeting"><div><Title as="h1" emoji="👋">Bom dia, {user.nome?.split(' ')[0] || 'equipe'} {isDashboardToday && <span>☀</span>}</Title><p>{isDashboardToday ? 'O Lote 73 está em movimento. Veja o que precisa de atenção.' : 'Visualizando reservas e ocupação desta data.'}</p></div><div className="date-navigation" aria-label="Navegação da agenda"><button type="button" className="date-step" aria-label="Dia anterior" onClick={() => shiftDashboardDate(-1)}><ChevronLeft size={16} /></button><label className="date-button"><CalendarDays size={16} /><span>{isDashboardToday ? 'Hoje · ' : ''}{selectedDay.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}</span><input aria-label="Selecionar data da agenda" type="date" value={dashboardDate} onChange={event => setDashboardDate(event.target.value)} /></label><button type="button" className="date-step" aria-label="Próximo dia" onClick={() => shiftDashboardDate(1)}><ChevronRight size={16} /></button>{!isDashboardToday && <button type="button" className="date-today" onClick={() => setDashboardDate(todayKey)}>Hoje</button>}</div></div><div className="kpi-grid"><Kpi icon={CalendarDays} label="Reservas no dia" value={String(selectedReservations.length).padStart(2, '0')} change={`${occupiedSpaces.size} espaços com agenda nesta data`} accent="mint" /><Kpi icon={Clock3} label="Aguardando aprovação" value={String(pending.length).padStart(2, '0')} change="Precisam da sua atenção" accent="yellow" /><Kpi icon={DoorOpen} label="Ocupação do Lote 73" value={`${occupancyRate}%`} change={`${occupiedSpaces.size} de ${activeSpaces.length} espaços ocupados nesta data`} accent="blue" /><Kpi icon={MessageCircle} label="Dúvidas em aberto" value={String(pendingQuestions.length).padStart(2, '0')} change={`${tickets.length} chamados recebidos`} accent="coral" /></div><div className="dashboard-columns"><section className="crm-panel conflict-panel"><div className="panel-heading"><div><Title as="h2" emoji="👋">Solicitações pendentes <span className="heading-count">{selectedPending.length}</span></Title></div><button className="subtle-action" onClick={() => setSection('Reservas')}>Ver todas <ArrowRight size={15} /></button></div>{selectedPending.length ? selectedPending.map(item => <div className="conflict-card" key={item.idReserva}><div className="conflict-card-top"><span className="conflict-icon"><CalendarDays size={16} /></span><span className="conflict-date">{new Date(`${item.dataReserva}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '').toUpperCase()} · {item.horarioInicio}-{item.horarioFim}</span><span className="pending-indicator">EM ANÁLISE</span></div><strong>{item.tituloEvento}</strong><div className="conflict-meta"><span>{item.espaco}</span><span className="meta-dot" />{item.solicitante}</div>{item.telefoneContato && <small className="reservation-contact-inline">Contato: {formatBrazilianPhone(item.telefoneContato)}</small>}<div className="conflict-actions"><button className="decision-button" disabled={approvingReservationId !== null} onClick={() => approve(item)}><Check size={15} /> {approvingReservationId === item.idReserva ? 'Aprovando...' : 'Aprovar solicitação'}</button><button className="decision-secondary" onClick={() => notify('Solicite um motivo antes de recusar esta reserva.')}>Recusar</button></div></div>) : <div className="empty-inline"><Check size={18} />Nenhuma solicitação pendente nesta data.</div>}</section><section className="crm-panel today-panel"><div className="panel-heading"><div><Title as="h2" emoji="👋">Agenda do dia</Title></div><button className="icon-button" onClick={() => setSection('Reservas')} aria-label="Abrir agenda"><ArrowUpRight size={18} /></button></div>  <div className="day-timeline">{selectedReservations.map(item => <div className="timeline-event" key={item.idReserva}><span>{item.horarioInicio}</span><i className={`timeline-mark ${item.statusReserva === 'Pendente' ? 'pendente' : ''}`} /><div><strong>{item.tituloEvento}</strong><small>{item.espaco || 'Espaço InPETU'} · {item.statusReserva}</small></div></div>)}{selectedReservations.length === 0 && <div className="empty-inline">Nenhuma reserva nesta data.</div>}</div><button className="full-width-link" onClick={() => setSection('Reservas')}>Abrir agenda completa <ArrowRight size={15} /></button></section></div><section className="crm-panel recent-panel"><div className="panel-heading"><div><Title as="h2" emoji="👋">Cadastros recentes</Title></div><button className="subtle-action" onClick={() => setSection('Cadastros')}>Gerenciar cadastros <ArrowRight size={15} /></button></div><table className="data-table"><thead><tr><th>Organização</th><th>Contato principal</th><th>Cadastro</th><th>Classificação</th><th /></tr></thead><tbody>{partners.slice(0, 3).map(p => <tr key={p.id}><td><strong>{p.name}</strong><small>{p.email}</small></td><td>{p.contact}</td><td>Hoje · 09:42</td><td>{p.persona ? 'Classificado' : 'Aguardando classificação'}</td><td><button className="table-more" onClick={() => setClientProfile(clientUsers.find(person => person.idUsuario === p.userId) || null)}><MoreHorizontal size={19} /></button></td></tr>)}</tbody></table></section></>}
         {section === 'Reservas' && <>
-          <CrmTitle eyebrow="AGENDA DO HUB" title="Reservas" description="Revise solicitações e acompanhe a ocupação dos espaços." />
+          <CrmTitle title="Reservas" description="Revise solicitações e acompanhe a ocupação dos espaços." />
           <div className="crm-panel">
-            <div className="panel-heading"><div><div className="eyebrow">FILA DE APROVAÇÃO</div><h2>{pending.length} solicitações pendentes</h2></div><button type="button" className="subtle-action" aria-expanded={reservationFiltersOpen} onClick={() => setReservationFiltersOpen(value => !value)}><Filter size={15} /> {reservationFiltersOpen ? 'Ocultar filtros' : 'Filtrar'}</button></div>
+            <div className="panel-heading"><div><Title as="h2" emoji="👋">{pending.length} solicitações pendentes</Title></div><button type="button" className="subtle-action" aria-expanded={reservationFiltersOpen} onClick={() => setReservationFiltersOpen(value => !value)}><Filter size={15} /> {reservationFiltersOpen ? 'Ocultar filtros' : 'Filtrar'}</button></div>
             {reservationFiltersOpen && <div className="crm-filter-panel" aria-label="Filtros de reservas"><label>Status<select value={reservationStatusFilter} onChange={event => setReservationStatusFilter(event.target.value)}><option>Todas</option><option>Pendente</option><option>Confirmada</option><option>Cancelada</option><option>Excede cota</option></select></label><label>Data<input type="date" value={reservationDateFilter} onChange={event => setReservationDateFilter(event.target.value)} /></label><label>Espaço<select value={reservationSpaceFilter} onChange={event => setReservationSpaceFilter(event.target.value)}><option value="">Todos os espaços</option>{spaces.map(space => <option key={space.idEspaco} value={space.idEspaco}>{space.nomeEspaco}</option>)}</select></label><button type="button" className="table-action" onClick={() => { setReservationStatusFilter('Todas'); setReservationDateFilter(''); setReservationSpaceFilter('') }}>Limpar filtros</button></div>}
             <div className="crm-filter-count">{filteredReservations.length} de {reservations.length} reservas</div>
             <div className="crm-reservations">{filteredReservations.map(item => {
               const day = item.dataReserva ? new Date(`${item.dataReserva}T12:00:00`) : null
               return <div className="crm-reservation" key={item.idReserva}>
                 <div className="res-date-block"><strong>{day?.toLocaleDateString('pt-BR', { day: '2-digit' }) || '--'}</strong><small>{day?.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase() || ''}</small></div>
-                <div className="crm-res-main"><strong>{item.tituloEvento}</strong><small>{item.espaco} · {item.horarioInicio}–{item.horarioFim} · {item.solicitante}{item.quantidadeParticipantes ? ` · ${item.quantidadeParticipantes} visitantes` : ''}</small></div>
+                <div className="crm-res-main"><strong>{item.tituloEvento}</strong><small>{item.espaco} · {item.horarioInicio}-{item.horarioFim} · {item.solicitante}{item.quantidadeParticipantes ? ` · ${item.quantidadeParticipantes} visitantes` : ''}</small></div>
                 {item.excedeCota && <span className="quota-exceeded-badge">Excede cota · negociar</span>}
-                <span className={`status-pill ${item.statusReserva === 'Confirmada' ? 'status-confirmed' : item.statusReserva === 'Cancelada' ? 'status-cancelled' : 'status-pending'}`}><i />{item.statusReserva}</span>
-                {item.statusReserva === 'Pendente' && <button className="decision-button compact-decision" onClick={() => approve(item)}><Check size={14} /> {item.excedeCota && !item.dataNegociacao ? 'Negociar' : 'Aprovar'}</button>}
+                <span className={`status-pill ${item.statusReserva === 'Confirmada' ? 'status-confirmed' : item.statusReserva === 'Cancelada' ? 'status-cancelled' : 'status-pending'}`}><i />{reservationStatusLabel(item.statusReserva)}</span>
+                {item.statusReserva === 'Pendente' && <button className="decision-button compact-decision" disabled={approvingReservationId !== null} onClick={() => approve(item)}><Check size={14} /> {approvingReservationId === item.idReserva ? 'Aprovando...' : item.excedeCota && !item.dataNegociacao ? 'Negociar' : 'Aprovar'}</button>}
                 {item.statusReserva !== 'Cancelada' && <button className="table-action" onClick={() => editReservation(item)}>Editar</button>}
                 {item.statusReserva !== 'Cancelada' && <button className="table-action table-action-danger" onClick={() => { setReservationCancelTarget(item); setReservationCancelReason(''); setReservationCancelError('') }}>Cancelar</button>}
               </div>
             })}</div>
           </div>
         </>}
-        {section === 'Cadastros' && <><CrmTitle eyebrow="REDE INPETU" title="Cadastros e ficha do cliente" description="Consulte dados, histórico e ações de cada cadastro em uma ficha única." action={<Button icon={Plus} onClick={() => { setRegistrationCreateError(''); setRegistrationCreateOpen(true) }}>Novo cadastro</Button>} /><div className="crm-panel"><div className="panel-heading"><div className="segmented-control"><button type="button" className={partnerScope === 'all' ? 'segment-active' : ''} aria-pressed={partnerScope === 'all'} onClick={() => setPartnerScope('all')}>Todos os cadastros</button><button type="button" className={partnerScope === 'pending' ? 'segment-active' : ''} aria-pressed={partnerScope === 'pending'} onClick={() => setPartnerScope('pending')}>Aguardando classificação <span>{partners.filter(p => !p.persona).length}</span></button></div><button type="button" className="subtle-action" onClick={exportPartners}><Download size={15} /> Exportar CSV</button></div><table className="data-table"><thead><tr><th>Organização</th><th>Responsável</th><th>E-mail</th><th>Ações</th></tr></thead><tbody>{filteredPartners.map(p => { return <tr key={p.userId || p.id}><td><strong>{p.name}</strong><small>{p.dataCadastro ? new Date(p.dataCadastro).toLocaleDateString('pt-BR') : 'Cadastro sem data'}</small></td><td><div className="team-person-cell"><Avatar user={clientUsers.find(person => person.idUsuario === p.userId) || { idUsuario: p.userId, nomeCompleto: p.contact }} tamanho={34} /><span>{p.contact}</span></div></td><td>{p.email}</td><td>{p.persona ? 'Classificado' : 'Aguardando classificação'}</td><td><button type="button" className="table-action client-profile-open" onClick={() => setClientProfile(clientUsers.find(person => person.idUsuario === p.userId) || null)}>Abrir ficha <ArrowRight size={14} /></button></td></tr> })}</tbody></table></div><div className="privacy-callout"><ShieldCheck size={18} /><span><strong>Dados internos</strong><small>Os dados detalhados do cadastro ficam disponíveis apenas para a equipe autorizada na ficha do solicitante.</small></span></div></>}
-        {section === 'Espaços' && <><CrmTitle eyebrow="LOTE 73 · SAPIENS PARQUE" title="Gestão de espaços" description="Mantenha o catálogo de ambientes atualizado e disponível." action={<Button icon={Plus} onClick={() => setSpaceModal(true)}>Novo espaço</Button>} /><div className="crm-panel"><table className="data-table"><thead><tr><th>Espaço</th><th>Tipo</th><th>Capacidade</th><th>Disponibilidade</th><th>Ativo</th></tr></thead><tbody>{spaces.map(space => <tr key={space.idEspaco}><td><strong>{space.nomeEspaco}</strong><small>{space.equipamentosDisponiveis}</small></td><td>{space.tipoEspaco}</td><td>{space.capacidadePessoas} pessoas</td><td>{space.ativo !== false ? <span className="availability-text"><i /> Disponível</span> : <span className="availability-text availability-unavailable"><i /> Indisponível<small>{space.motivoIndisponibilidade}</small><small>{unavailableDeadlineLabel(space.dataPrevisaoRetorno)}</small></span>}</td><td><button className={`toggle ${space.ativo !== false ? 'toggle-on' : ''}`} aria-label={`${space.ativo !== false ? 'Inativar' : 'Reativar'} ${space.nomeEspaco}`} aria-pressed={space.ativo !== false} onClick={() => toggleSpace(space)}><span /></button></td></tr>)}</tbody></table></div></>}
-        {section === 'Atendimento' && <><CrmTitle eyebrow="CENTRAL DE ATENDIMENTO" title="Dúvidas e mensagens" description="Acompanhe os contatos recebidos pelo portal público." /><div className="support-grid"><div className="crm-panel support-list"><div className="panel-heading"><div><div className="eyebrow">CAIXA DE ENTRADA</div><h2>{pendingQuestions.length} {pendingQuestions.length === 1 ? 'conversa aberta' : 'conversas abertas'}</h2></div><label className="ticket-filter">Status<select aria-label="Filtrar conversas por status" value={ticketStatusFilter} onChange={event => setTicketStatusFilter(event.target.value)}><option>Todas</option><option>Abertas</option><option>Respondidas</option></select></label></div>{filteredTickets.length ? filteredTickets.slice().sort((left, right) => new Date(right.dataEnvio).getTime() - new Date(left.dataEnvio).getTime()).map(ticket => <button className={`ticket-row ${selectedTicket?.idDuvida === ticket.idDuvida ? 'ticket-selected' : ''}`} key={ticket.idDuvida} onClick={() => setSelectedTicket(ticket)}><Avatar user={clientUsers.find(person => person.email?.toLowerCase() === ticket.emailContato?.toLowerCase())} nome={ticket.emailContato.split('@')[0].split(/[._-]/).join(' ')} tamanho={36} className="ticket-avatar" /><span><strong>{ticket.emailContato}</strong><small>{ticket.mensagemDuvida}</small><em>{new Date(ticket.dataEnvio).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</em></span></button>) : <div className="empty-state"><MessageCircle size={24} /><p>Nenhuma conversa recebida.</p></div>}</div><div className="crm-panel ticket-detail">{selectedTicket ? <><div className="ticket-detail-head"><div><span className={`status-pill ${selectedTicket.statusAtendimento === 'Respondida' ? 'status-confirmed' : 'status-pending'}`}><i />{selectedTicket.statusAtendimento}</span><small>{new Date(selectedTicket.dataEnvio).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</small></div>{selectedTicket.caminhoAnexo && <a className="table-action" href={`${API}/duvidas/${selectedTicket.idDuvida}/anexo`} target="_blank" rel="noreferrer"><Download size={15} /> Anexo</a>}</div><h2>{selectedTicket.emailContato}</h2><p>{selectedTicket.mensagemDuvida}</p>{selectedTicket.telefoneContato && <div className="ticket-sender"><Avatar user={clientUsers.find(person => person.email?.toLowerCase() === selectedTicket.emailContato?.toLowerCase())} nome={selectedTicket.emailContato.split('@')[0].split(/[._-]/).join(' ')} tamanho={36} className="ticket-avatar" /><span><strong>Telefone para retorno</strong><small>{selectedTicket.telefoneContato}</small></span></div>}<label>Sua resposta<textarea rows="5" value={answer} onChange={e => setAnswer(e.target.value)} placeholder="Escreva uma resposta para enviar por e-mail..." /></label><Button disabled={!answer.trim()} onClick={sendAnswer}><Mail size={16} /> Enviar resposta por e-mail</Button></> : <div className="empty-state"><MessageCircle size={24} /><p>Nenhuma dúvida recebida.</p></div>}</div></div></>
+        {section === 'Cadastros' && <><CrmTitle title="Cadastros e ficha do cliente" description="Consulte dados, histórico e ações de cada cadastro em uma ficha única." action={<Button icon={Plus} onClick={() => { setRegistrationCreateError(''); setRegistrationCreateOpen(true) }}>Novo cadastro</Button>} /><div className="crm-panel"><div className="panel-heading"><div className="segmented-control"><button type="button" className={partnerScope === 'all' ? 'segment-active' : ''} aria-pressed={partnerScope === 'all'} onClick={() => setPartnerScope('all')}>Todos os cadastros</button><button type="button" className={partnerScope === 'pending' ? 'segment-active' : ''} aria-pressed={partnerScope === 'pending'} onClick={() => setPartnerScope('pending')}>Aguardando classificação <span>{partners.filter(p => !p.persona).length}</span></button></div><button type="button" className="subtle-action" onClick={exportPartners}><Download size={15} /> Exportar CSV</button></div><table className="data-table"><thead><tr><th>Organização</th><th>Responsável</th><th>E-mail</th><th>Ações</th></tr></thead><tbody>{filteredPartners.map(p => { return <tr key={p.userId || p.id}><td><strong>{p.name}</strong><small>{p.dataCadastro ? new Date(p.dataCadastro).toLocaleDateString('pt-BR') : 'Cadastro sem data'}</small></td><td><div className="team-person-cell"><Avatar user={clientUsers.find(person => person.idUsuario === p.userId) || { idUsuario: p.userId, nomeCompleto: p.contact }} tamanho={34} /><span>{p.contact}</span></div></td><td>{p.email}</td><td>{p.persona ? 'Classificado' : 'Aguardando classificação'}</td><td><button type="button" className="table-action client-profile-open" onClick={() => setClientProfile(clientUsers.find(person => person.idUsuario === p.userId) || null)}>Abrir ficha <ArrowRight size={14} /></button></td></tr> })}</tbody></table></div><div className="privacy-callout"><ShieldCheck size={18} /><span><strong>Dados internos</strong><small>Os dados detalhados do cadastro ficam disponíveis apenas para a equipe autorizada na ficha do solicitante.</small></span></div></>}
+        {section === 'Espaços' && <><CrmTitle title="Gestão de espaços" description="Mantenha o catálogo de ambientes atualizado e disponível." action={<Button icon={Plus} onClick={() => setSpaceModal(true)}>Novo espaço</Button>} /><div className="crm-panel"><table className="data-table"><thead><tr><th>Espaço</th><th>Tipo</th><th>Capacidade</th><th>Disponibilidade</th><th>Ativo</th></tr></thead><tbody>{spaces.map(space => <tr key={space.idEspaco}><td><strong>{space.nomeEspaco}</strong><small>{space.equipamentosDisponiveis}</small></td><td>{space.tipoEspaco}</td><td>{space.capacidadePessoas} pessoas</td><td>{space.ativo !== false ? <span className="availability-text"><i /> Disponível</span> : <span className="availability-text availability-unavailable"><i /> Indisponível<small>{space.motivoIndisponibilidade}</small><small>{unavailableDeadlineLabel(space.dataPrevisaoRetorno)}</small></span>}</td><td><button className={`toggle ${space.ativo !== false ? 'toggle-on' : ''}`} aria-label={`${space.ativo !== false ? 'Inativar' : 'Reativar'} ${space.nomeEspaco}`} aria-pressed={space.ativo !== false} onClick={() => toggleSpace(space)}><span /></button></td></tr>)}</tbody></table></div></>}
+        {section === 'Atendimento' && <><CrmTitle title="Dúvidas e mensagens" description="Acompanhe os contatos recebidos pelo portal público." /><div className="support-grid"><div className="crm-panel support-list"><div className="panel-heading"><div><Title as="h2" emoji="✨">{pendingQuestions.length} {pendingQuestions.length === 1 ? 'conversa aberta' : 'conversas abertas'}</Title></div><label className="ticket-filter">Status<select aria-label="Filtrar conversas por status" value={ticketStatusFilter} onChange={event => setTicketStatusFilter(event.target.value)}><option>Todas</option><option>Abertas</option><option>Respondidas</option></select></label></div>{filteredTickets.length ? filteredTickets.slice().sort((left, right) => new Date(right.dataEnvio).getTime() - new Date(left.dataEnvio).getTime()).map(ticket => <button className={`ticket-row ${selectedTicket?.idDuvida === ticket.idDuvida ? 'ticket-selected' : ''}`} key={ticket.idDuvida} onClick={() => setSelectedTicket(ticket)}><Avatar user={clientUsers.find(person => person.email?.toLowerCase() === ticket.emailContato?.toLowerCase())} nome={ticket.emailContato.split('@')[0].split(/[._-]/).join(' ')} tamanho={36} className="ticket-avatar" /><span><strong>{ticket.emailContato}</strong><small>{ticket.mensagemDuvida}</small><em>{new Date(ticket.dataEnvio).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</em></span></button>) : <div className="empty-state"><MessageCircle size={24} /><p>Nenhuma conversa recebida.</p></div>}</div><div className="crm-panel ticket-detail">{selectedTicket ? <><div className="ticket-detail-head"><div><span className={`status-pill ${selectedTicket.statusAtendimento === 'Respondida' ? 'status-confirmed' : 'status-pending'}`}><i />{selectedTicket.statusAtendimento}</span><small>{new Date(selectedTicket.dataEnvio).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</small></div>{selectedTicket.caminhoAnexo && <a className="table-action" href={`${API}/duvidas/${selectedTicket.idDuvida}/anexo`} target="_blank" rel="noreferrer"><Download size={15} /> Anexo</a>}</div><Title as="h2" emoji="✨">{selectedTicket.emailContato}</Title><p>{selectedTicket.mensagemDuvida}</p>{selectedTicket.telefoneContato && <div className="ticket-sender"><Avatar user={clientUsers.find(person => person.email?.toLowerCase() === selectedTicket.emailContato?.toLowerCase())} nome={selectedTicket.emailContato.split('@')[0].split(/[._-]/).join(' ')} tamanho={36} className="ticket-avatar" /><span><strong>Telefone para retorno</strong><small>{selectedTicket.telefoneContato}</small></span></div>}<label>Sua resposta<textarea rows="5" value={answer} onChange={e => setAnswer(e.target.value)} placeholder="Escreva uma resposta para enviar por e-mail..." /></label><Button disabled={!answer.trim()} onClick={sendAnswer}><Mail size={16} /> Enviar resposta por e-mail</Button></> : <div className="empty-state"><MessageCircle size={24} /><p>Nenhuma dúvida recebida.</p></div>}</div></div></>
         }
-        {section === 'Auditoria' && <><CrmTitle eyebrow="TRANSPARÊNCIA E CONTROLE" title="Histórico de ações" description="Acompanhe quem fez cada alteração, quando aconteceu e qual registro foi afetado." /><div className="crm-panel audit-panel"><div className="audit-toolbar"><label className="audit-search"><Search size={17} /><input type="search" value={auditQuery} onChange={event => setAuditQuery(event.target.value)} placeholder="Buscar por responsável, ação ou registro" aria-label="Buscar no histórico de auditoria" /></label><label className="audit-filter-label">Ação<select value={auditActionFilter} onChange={event => setAuditActionFilter(event.target.value)} aria-label="Filtrar por ação"><option>Todas</option>{auditActions.map(action => <option key={action}>{action}</option>)}</select></label><span className="audit-result-count">{filteredAuditItems.length} {filteredAuditItems.length === 1 ? 'registro' : 'registros'}</span></div><div className="audit-table-wrap"><table className="data-table audit-table"><thead><tr><th>Data e hora</th><th>Responsável</th><th>Ação</th><th>Registro afetado</th><th>Detalhes</th></tr></thead><tbody>{filteredAuditItems.map((item, i) => <tr key={`${item.time}-${item.user}-${i}`}><td><span className="audit-time">{item.time}</span></td><td><strong className="audit-actor">{item.user}</strong></td><td><span className="audit-action"><i />{item.action}</span></td><td><strong className="audit-target">{item.target}</strong></td><td className="audit-detail">{item.detail}</td></tr>)}</tbody></table>{filteredAuditItems.length === 0 && <div className="audit-empty"><ListChecks size={22} /><strong>{auditItems.length ? 'Nenhum registro encontrado' : 'Ainda não há ações registradas'}</strong><span>{auditItems.length ? 'Tente ajustar a busca ou o filtro selecionado.' : 'As alterações realizadas pela equipe aparecerão aqui.'}</span></div>}</div></div></>}
-        {section === 'Equipe' && user.perfil === 1 && <><CrmTitle eyebrow="ACESSO RESTRITO · COORDENADOR" title="Equipe e permissões" description="Gerencie colaboradores e papéis de acesso ao InPETU Connect." /><div className="crm-panel"><table className="data-table"><thead><tr><th>Colaborador</th><th>E-mail</th><th>Perfil</th><th>Status</th><th /></tr></thead><tbody>{staff.map(person => { const isCurrentUser = person.email?.toLowerCase() === user.email?.toLowerCase(); return <tr key={person.idUsuario}><td><div className="team-person-cell"><Avatar user={person} tamanho={34} /><span><strong>{person.nomeCompleto}</strong><small>{person.cargoVinculo}</small></span></div></td><td>{person.email}</td><td>{['', 'Coordenador', 'Gestor de Espaços', 'Staff/Atendente'][person.idPerfil]}</td><td><span className={`status-pill ${person.ativo ? 'status-confirmed' : 'status-cancelled'}`}><i />{person.ativo ? 'Ativo' : 'Inativo'}</span></td><td>{isCurrentUser ? <span className="table-action-disabled" title="Você não pode alterar seu próprio perfil">Seu perfil</span> : <button className="table-action" onClick={() => setRoleTarget({ ...person })}>Gerenciar papel</button>}</td></tr> })}</tbody></table></div></>}
+        {section === 'Auditoria' && <><CrmTitle title="Histórico de ações" description="Acompanhe quem fez cada alteração, quando aconteceu e qual registro foi afetado." /><div className="crm-panel audit-panel"><div className="audit-toolbar"><label className="audit-search"><Search size={17} /><input type="search" value={auditQuery} onChange={event => setAuditQuery(event.target.value)} placeholder="Buscar por responsável, ação ou registro" aria-label="Buscar no histórico de auditoria" /></label><label className="audit-filter-label">Ação<select value={auditActionFilter} onChange={event => setAuditActionFilter(event.target.value)} aria-label="Filtrar por ação"><option>Todas</option>{auditActions.map(action => <option key={action}>{action}</option>)}</select></label><span className="audit-result-count">{filteredAuditItems.length} {filteredAuditItems.length === 1 ? 'registro' : 'registros'}</span></div><div className="audit-table-wrap"><table className="data-table audit-table"><thead><tr><th>Data e hora</th><th>Responsável</th><th>Ação</th><th>Registro afetado</th><th>Detalhes</th></tr></thead><tbody>{filteredAuditItems.map((item, i) => <tr key={`${item.time}-${item.user}-${i}`}><td><span className="audit-time">{item.time}</span></td><td><strong className="audit-actor">{item.user}</strong></td><td><span className="audit-action"><i />{item.action}</span></td><td><strong className="audit-target">{item.target}</strong></td><td className="audit-detail">{item.detail}</td></tr>)}</tbody></table>{filteredAuditItems.length === 0 && <div className="audit-empty"><ListChecks size={22} /><strong>{auditItems.length ? 'Nenhum registro encontrado' : 'Ainda não há ações registradas'}</strong><span>{auditItems.length ? 'Tente ajustar a busca ou o filtro selecionado.' : 'As alterações realizadas pela equipe aparecerão aqui.'}</span></div>}</div></div></>}
+        {section === 'Equipe' && user.perfil === 1 && <><CrmTitle title="Equipe e permissões" description="Gerencie colaboradores e papéis de acesso ao InPETU Connect." /><div className="crm-panel"><table className="data-table"><thead><tr><th>Colaborador</th><th>E-mail</th><th>Perfil</th><th>Status</th><th /></tr></thead><tbody>{staff.map(person => { const isCurrentUser = person.email?.toLowerCase() === user.email?.toLowerCase(); return <tr key={person.idUsuario}><td><div className="team-person-cell"><Avatar user={person} tamanho={34} /><span><strong>{person.nomeCompleto}</strong><small>{person.cargoVinculo}</small></span></div></td><td>{person.email}</td><td>{['', 'Coordenador', 'Gestor de Espaços', 'Staff/Atendente'][person.idPerfil]}</td><td><span className={`status-pill ${person.ativo ? 'status-confirmed' : 'status-cancelled'}`}><i />{person.ativo ? 'Ativo' : 'Inativo'}</span></td><td>{isCurrentUser ? <span className="table-action-disabled" title="Você não pode alterar seu próprio perfil">Seu perfil</span> : <button className="table-action" onClick={() => setRoleTarget({ ...person })}>Gerenciar papel</button>}</td></tr> })}</tbody></table></div></>}
       </div></main>{toast && <div className="toast"><Check size={17} />{toast}</div>}
     <Modal open={Boolean(reservationCancelTarget)} close={() => { if (!reservationCancelBusy) { setReservationCancelTarget(null); setReservationCancelError('') } }} title="Cancelar reserva">
-      <div className="cancel-summary"><span>RESERVA #{reservationCancelTarget?.idReserva}</span><strong>{reservationCancelTarget?.tituloEvento}</strong><small>{reservationCancelTarget?.dataReserva} · {reservationCancelTarget?.horarioInicio}–{reservationCancelTarget?.horarioFim}</small></div>
+      <div className="cancel-summary"><span>RESERVA #{reservationCancelTarget?.idReserva}</span><strong>{reservationCancelTarget?.tituloEvento}</strong><small>{reservationCancelTarget?.dataReserva} · {reservationCancelTarget?.horarioInicio}-{reservationCancelTarget?.horarioFim}</small></div>
       <p className="access-intro">O cancelamento da equipe é permitido em qualquer data. O solicitante e a equipe receberão uma notificação por e-mail e no painel.</p>
       <label className="reason-field">Motivo do cancelamento<textarea rows="4" maxLength={1000} required value={reservationCancelReason} onChange={event => { setReservationCancelReason(event.target.value); setReservationCancelError('') }} placeholder="Informe o motivo para manter no histórico" /></label>
       {reservationCancelError && <p className="form-message" role="alert">{reservationCancelError}</p>}
@@ -1844,6 +1970,10 @@ function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, set
         <p className="access-intro">As alterações são auditadas. Horários ocupados não podem ser salvos; se a nova duração ultrapassar a cota do cliente, a reserva volta para negociação manual.</p>
         <label>Título do encontro<input required maxLength={150} value={reservationEditForm.tituloEvento} onChange={event => setReservationEditForm({ ...reservationEditForm, tituloEvento: event.target.value })} /></label>
         <label>Descrição e finalidade<textarea required rows={3} value={reservationEditForm.descricaoFinalidade} onChange={event => setReservationEditForm({ ...reservationEditForm, descricaoFinalidade: event.target.value })} /></label>
+        <section className="reservation-contact-card" aria-label="Contato desta reserva">
+          <strong>Contato desta reserva</strong>
+          <label>Telefone para contato ou alteração<PhoneInput value={reservationEditForm.telefoneContato} onChange={telefoneContato => setReservationEditForm({ ...reservationEditForm, telefoneContato })} /><small>Celular informado pelo solicitante para assuntos desta reserva.</small></label>
+        </section>
         <label>Espaço<select value={reservationEditForm.idEspaco} onChange={event => setReservationEditForm({ ...reservationEditForm, idEspaco: event.target.value })}>{spaces.map(space => <option key={space.idEspaco} value={space.idEspaco}>{space.nomeEspaco}</option>)}</select></label>
         <label>Data<input required type="date" value={reservationEditForm.dataReserva} onChange={event => setReservationEditForm({ ...reservationEditForm, dataReserva: event.target.value })} /></label>
         <div className="form-row"><label>Início<input required type="time" value={reservationEditForm.horarioInicio} onChange={event => setReservationEditForm({ ...reservationEditForm, horarioInicio: event.target.value })} /></label><label>Fim<input required type="time" value={reservationEditForm.horarioFim} onChange={event => setReservationEditForm({ ...reservationEditForm, horarioFim: event.target.value })} /></label></div>
@@ -1895,10 +2025,10 @@ function LoginInline({ onLogin }) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   async function submit(event) { event.preventDefault(); setError(''); try { const result = await request('/auth/login', { method: 'POST', body: JSON.stringify({ email, senha: password }) }); const normalized = { ...result, perfil: Number(result.perfil ?? result.idPerfil ?? 4) }; storeUser(normalized); onLogin(normalized) } catch (e) { setError(e.message) } }
-  return <form className="form-stack" onSubmit={submit}><label>E-mail corporativo<input required type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="nome@inpetuhub.ufsc.br" /></label><label>Senha<input required type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Sua senha" /></label>{error && <p className="form-message">{error}</p>}<Button type="submit">Acessar painel <ArrowRight size={16} /></Button><p className="form-footnote"><ShieldCheck size={14} /> Acesso protegido por autenticação segura.</p></form>
+  return <form className="form-stack" onSubmit={submit}><label>E-mail corporativo<input required type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="nome@inpetuhub.ufsc.br" /></label><label>Senha<PasswordInput required value={password} onChange={e => setPassword(e.target.value)} placeholder="Sua senha" /></label>{error && <p className="form-message">{error}</p>}<Button type="submit">Acessar painel <ArrowRight size={16} /></Button><p className="form-footnote"><ShieldCheck size={14} /> Acesso protegido por autenticação segura.</p></form>
 }
 function Kpi({ icon: Icon, label, value, change, accent }) { return <article className="kpi-card"><div className={`kpi-icon kpi-${accent}`}><Icon size={18} /></div><span className="kpi-label">{label}</span><strong className="kpi-value">{value}</strong><small>{change}</small><ArrowUpRight className="kpi-trend" size={16} /></article> }
-function CrmTitle({ eyebrow, title, description, action }) { return <div className="crm-title-row"><div><div className="eyebrow">{eyebrow}</div><h1>{title}</h1><p>{description}</p></div>{action}</div> }
+function CrmTitle({ title, description, action }) { return <div className="crm-title-row"><div><Title as="h1" emoji={getTitleEmoji(title)}>{title}</Title><p>{description}</p></div>{action}</div> }
 function PersonaCombobox({ value, onChange }) {
   const [query, setQuery] = useState('')
   const options = Object.entries(personas).filter(([id, persona]) =>
@@ -1911,7 +2041,7 @@ function PersonaCombobox({ value, onChange }) {
         className="persona-combobox-input"
         displayValue={id => id ? `P${id} · ${personas[Number(id)]?.label || ''}` : ''}
         onChange={event => setQuery(event.target.value)}
-        placeholder="Selecione P1–P6"
+        placeholder="Selecione P1-P6"
       />
       <ChevronDown size={16} aria-hidden="true" />
       <ComboboxOptions className="persona-combobox-options">
@@ -1959,11 +2089,11 @@ function ClientProfileDialog({ client, reservations, tickets, auditItems, close,
   const hours = monthlyQuotaUsed(reservations, client.idUsuario)
   const personaChanged = Boolean(personaValue) && Number(personaValue) !== Number(client.idPersona || 0)
   const fields = [
-    ['E-mail', form.email || '—'],
+    ['E-mail', form.email || ','],
     ['Telefone / WhatsApp', form.telefone || 'Não informado'],
     ['Organização', form.organizacao || 'Não informada'],
     ['Vínculo / cargo', form.cargoVinculo || 'Não informado'],
-    ['Data de cadastro', client.dataCadastro ? new Date(client.dataCadastro).toLocaleString('pt-BR') : '—'],
+    ['Data de cadastro', client.dataCadastro ? new Date(client.dataCadastro).toLocaleString('pt-BR') : ','],
     ['Status', client.ativo === false ? 'Inativo' : 'Ativo'],
   ]
   async function save(event) {
@@ -2069,7 +2199,7 @@ function ClientProfileDialog({ client, reservations, tickets, auditItems, close,
           </form> : <button type="button" className="client-profile-action" onClick={() => { setResetOpen(true); setResetError('') }}>Redefinir senha</button>}
         </section>}
       </>}
-      {tab === 'Reservas' && <div className="client-history-list">{clientReservations.length ? clientReservations.map(item => <article key={item.idReserva}><div><strong>{item.tituloEvento}</strong><small>{item.dataReserva} · {item.horarioInicio}–{item.horarioFim} · {item.espaco || 'Espaço InPETU'}</small></div><span className={`status-pill ${item.statusReserva === 'Confirmada' ? 'status-confirmed' : item.statusReserva === 'Cancelada' ? 'status-cancelled' : 'status-pending'}`}><i />{item.statusReserva}</span>{item.excedeCota && <span className="quota-exceeded-badge">Excede cota</span>}</article>) : <p className="empty-inline">Este cliente ainda não possui reservas.</p>}</div>}
+      {tab === 'Reservas' && <div className="client-history-list">{clientReservations.length ? clientReservations.map(item => <article key={item.idReserva}><div><strong>{item.tituloEvento}</strong><small>{item.dataReserva} · {item.horarioInicio}-{item.horarioFim} · {item.espaco || 'Espaço InPETU'}</small></div><span className={`status-pill ${item.statusReserva === 'Confirmada' ? 'status-confirmed' : item.statusReserva === 'Cancelada' ? 'status-cancelled' : 'status-pending'}`}><i />{reservationStatusLabel(item.statusReserva)}</span>{item.excedeCota && <span className="quota-exceeded-badge">Excede cota</span>}</article>) : <p className="empty-inline">Este cliente ainda não possui reservas.</p>}</div>}
       {tab === 'Dúvidas' && <div className="client-history-list">{clientTickets.length ? clientTickets.map(ticket => <article key={ticket.idDuvida}><div><strong>{ticket.statusAtendimento} · {new Date(ticket.dataEnvio).toLocaleDateString('pt-BR')}</strong><small>{ticket.mensagemDuvida}</small>{ticket.respostaEquipe && <small>Resposta da equipe: {ticket.respostaEquipe}</small>}</div></article>) : <p className="empty-inline">Nenhuma dúvida vinculada a este e-mail.</p>}</div>}
       {tab === 'Auditoria' && <div className="client-history-list">{clientAudit.length ? clientAudit.map((item, index) => <article key={`${item.time}-${index}`}><div><strong>{item.action} · {item.time}</strong><small>{item.user} · {item.detail}</small></div></article>) : <p className="empty-inline">Nenhum registro de auditoria deste cliente.</p>}</div>}
     </div>
@@ -2116,7 +2246,7 @@ function AppInner({ onCodeSent, initialView = 'home' }) {
     }
     if (isCrmUser(nextUser)) {
       consumeLoginDestination()
-      setView('crm')
+      window.location.assign('/paineladm')
     } else {
       setView(consumeLoginDestination() || 'portal')
     }
@@ -2162,19 +2292,60 @@ function AppInner({ onCodeSent, initialView = 'home' }) {
       return
     }
     let active = true
+    let refreshing = false
+    let refreshTimer
+    const refreshReservations = async () => {
+      if (!active || refreshing) return
+      refreshing = true
+      try {
+        const items = await request('/reservas/minhas')
+        if (!Array.isArray(items)) throw new Error('A API retornou uma lista de reservas inválida.')
+        if (active) setMyReservations(items)
+      } catch (error) {
+        if (active && error.status === 401) {
+          clearStoredUser()
+          setUser(null)
+        } else if (active) {
+          setDataError(error.message)
+        }
+      } finally {
+        refreshing = false
+        if (active) {
+          setMyReservationsLoaded(true)
+          window.clearTimeout(refreshTimer)
+          refreshTimer = window.setTimeout(refreshReservations, 15_000)
+        }
+      }
+    }
+    const refreshNow = () => {
+      window.clearTimeout(refreshTimer)
+      refreshTimer = undefined
+      refreshReservations()
+    }
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') refreshNow()
+    }
     request('/auth/session')
       .then(session => {
         if (!active) return null
         const normalized = omitPersona({ ...session, perfil: Number(session.perfil ?? session.idPerfil ?? 4) })
         storeUser(normalized)
-        setUser(current => omitPersona({ ...current, ...normalized }))
+        setUser(current => {
+          const next = omitPersona({ ...current, ...normalized })
+          return current && Object.entries(normalized).every(([key, value]) => current[key] === value) ? current : next
+        })
         if (normalized.senhaTemporaria) {
           setView('password-change')
           return null
         }
-        return request('/reservas/minhas')
+        if (isCrmUser(normalized) && new URLSearchParams(window.location.search).get('legacyAdmin') !== '1') {
+          window.location.replace('/paineladm')
+          return null
+        }
+        window.addEventListener('focus', refreshNow)
+        document.addEventListener('visibilitychange', refreshWhenVisible)
+        return refreshReservations()
       })
-      .then(items => { if (active && items) { setMyReservations(items); setMyReservationsLoaded(true) } })
       .catch(error => {
         if (!active) return
         if (error.status === 401) {
@@ -2185,10 +2356,15 @@ function AppInner({ onCodeSent, initialView = 'home' }) {
         }
       })
       .finally(() => { if (active) setMyReservationsLoaded(true) })
-    return () => { active = false }
-  }, [user])
+    return () => {
+      active = false
+      window.clearTimeout(refreshTimer)
+      window.removeEventListener('focus', refreshNow)
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
+    }
+  }, [user?.idUsuario, user?.email])
   function updateCancel(item, reason) {
-    const update = items => items.map(r => r.idReserva === item.idReserva ? { ...r, statusReserva: 'Cancelada', motivoCancelamento: reason } : r)
+    const update = items => items.map(r => r.idReserva === item.idReserva ? { ...r, ...item, statusReserva: 'Cancelada', motivoCancelamento: reason } : r)
     setReservations(update); setMyReservations(update)
   }
   function updateSaved(reserva) {
@@ -2201,7 +2377,7 @@ function AppInner({ onCodeSent, initialView = 'home' }) {
     updateCurrentUser(updated)
     if (isCrmUser(updated)) {
       consumeLoginDestination()
-      setView('crm')
+      window.location.assign('/paineladm')
     } else {
       setView(consumeLoginDestination() || 'portal')
     }
@@ -2222,16 +2398,20 @@ function AppInner({ onCodeSent, initialView = 'home' }) {
       {view === 'access' && <AccessPage onLogin={completeLogin} onSignup={() => setView('signup')} />}
       {view === 'signup' && <SignupPage onBack={() => setView('access')} onCodeSent={onCodeSent} />}
       {!['access', 'signup'].includes(view) && <Footer setView={setView} />}
-      <BookingModal space={bookingSpace} close={() => setBookingSpace(null)} onSaved={updateSaved} openLogin={() => openLogin('calendar')} initialDate={bookingSchedule.date} initialTime={bookingSchedule.time} initialEndTime={bookingEndTime} />
+      <BookingModal space={bookingSpace} close={() => setBookingSpace(null)} onSaved={updateSaved} openLogin={() => openLogin('calendar')} initialDate={bookingSchedule.date} initialTime={bookingSchedule.time} initialEndTime={bookingEndTime} user={user} />
     </div>
   )
 }
 
 export default function App() {
-  const readLocation = () => ({
-    pathname: window.location.pathname.replace(/\/+$/, '') || '/',
-    view: new URLSearchParams(window.location.search).get('view') === 'signup' ? 'signup' : 'home',
-  })
+  const readLocation = () => {
+    const params = new URLSearchParams(window.location.search)
+    const requestedView = params.get('view')
+    return {
+      pathname: window.location.pathname.replace(/\/+$/, '') || '/',
+      view: params.get('legacyAdmin') === '1' ? 'crm' : ['signup', 'access'].includes(requestedView) ? requestedView : 'home',
+    }
+  }
   const [location, setLocation] = useState(readLocation)
   useEffect(() => {
     window.addEventListener('popstate', readLocation)

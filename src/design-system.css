@@ -58,3 +58,12 @@ body {
   color: var(--color-text);
   background: var(--color-background);
 }
+
+.title-emoji {
+  display: inline-block;
+  margin-inline-end: 0.35em;
+  font-family: var(--font-sans);
+  font-size: 0.82em;
+  line-height: 1;
+  vertical-align: 0.02em;
+}
