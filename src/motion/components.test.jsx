@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
-import { Reveal } from './components.jsx'
+import { Reveal, Stagger, StaggerItem } from './components.jsx'
 
 const originalIntersectionObserver = Object.getOwnPropertyDescriptor(window, 'IntersectionObserver')
 
@@ -35,5 +35,14 @@ describe('Reveal', () => {
 
     expect(screen.getByText('Conteúdo público')).toBeTruthy()
     expect(getComputedStyle(container.firstElementChild).opacity).not.toBe('0')
+  })
+})
+
+describe('Stagger', () => {
+  it('renders staggered content when IntersectionObserver is unavailable', () => {
+    delete window.IntersectionObserver
+    render(<Stagger><StaggerItem><p>Espaço disponível</p></StaggerItem></Stagger>)
+
+    expect(screen.getByText('Espaço disponível')).toBeTruthy()
   })
 })

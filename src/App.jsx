@@ -4,7 +4,7 @@ import { ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, Bell, Building2, C
 import { personas, personaQuotaLabel } from './personas.js'
 import { formatRelativeNotificationDate, normalizeNotificationMessage } from './notifications.js'
 import { BRAND_LOGOS } from './brand.js'
-import { Reveal } from './motion/index.js'
+import { Reveal, Stagger, StaggerItem } from './motion/index.js'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1'
 const omitPersona = user => {
@@ -782,13 +782,12 @@ function Home({ spaces, spacesLoaded, onConsultSpace, onSearchAvailability, onOp
       <div className="filter-row"><div className="filter-label"><SlidersHorizontal size={15} /> EXPLORE POR TIPO</div>{types.map(type => <button key={type} className={`filter-chip ${filter === type ? 'filter-chip-active' : ''}`} onClick={() => setFilter(type)}>{type}</button>)}</div>
       {!spacesLoaded && <p className="empty-inline" role="status">Carregando espaços...</p>}
       {spacesLoaded && spaces.length === 0 && <p className="empty-inline" role="status">Nenhum espaço cadastrado no momento.</p>}
-      <div className="space-grid">
+      <Stagger as="div" key={filter} className="space-grid">
         {filtered.map((space, index) => {
           const unavailable = space.ativo === false
           const guidedTourSpace = isGuidedTour(space.tipoEspaco)
-          return <Reveal
+          return <StaggerItem
             as="article"
-            delay={Math.min(index, 5) * 0.07}
             className={`space-card ${index === 0 ? 'space-card-featured' : ''} ${unavailable ? 'space-card-unavailable' : ''}`}
             key={space.idEspaco}
           >
@@ -816,9 +815,9 @@ function Home({ spaces, spacesLoaded, onConsultSpace, onSearchAvailability, onOp
                 {unavailable ? 'Ver motivo' : guidedTourSpace ? 'Solicitar visita' : 'Ver Horários'}
               </button>
             </div>
-          </Reveal>
+          </StaggerItem>
         })}
-      </div>
+      </Stagger>
     </Reveal>
     {gallerySpace && <RoomGallery space={gallerySpace} onClose={() => setGallerySpace(null)} onConsultSpace={onConsultSpace} />}
     <Reveal as="section" id="about" className="about-hub"><div className="about-copy"><Title as="h2">Sobre o <em>Hub</em></Title><p>O <strong>Centro de Inovação InPETU Hub</strong> está instalado no <strong>Lote 73 do Parque Tecnológico Sapiens Parque</strong>, em Canasvieiras, Florianópolis, conectando pesquisa, empreendedorismo e desenvolvimento tecnológico.</p><p>O Hub oferece infraestrutura compartilhada para capacitações, eventos, mentorias e visitas técnicas, com espaços que podem ser consultados e solicitados diretamente pelo InPETU Connect.</p><ul><li><Check size={15} /> Infraestrutura multimídia para encontros e capacitações</li><li><Check size={15} /> Agendamento digital e acompanhamento pela equipe</li><li><Check size={15} /> Atendimento dedicado e cuidado com seus dados</li></ul></div><aside className="ecosystem-cta"><strong>Conheça os espaços</strong><p>Consulte o calendário e encontre um ambiente para sua próxima atividade.</p><Button icon={ArrowRight} onClick={onOpenCalendar}>Ver disponibilidade</Button></aside></Reveal>
