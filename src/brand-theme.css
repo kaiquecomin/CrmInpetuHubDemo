@@ -247,8 +247,8 @@ select:focus-visible,
 }
 
 .public-app .reference-location {
-  border-color: rgb(255 255 255 / 38%);
-  background: rgb(24 31 55 / 42%);
+  border-color: rgb(250 250 250 / 40%);
+  background: rgb(24 31 55 / 76%);
 }
 
 .public-app .reference-hero :where(.availability-search, .hero-image-note) {
@@ -1028,5 +1028,21 @@ select:focus-visible,
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+@media (min-width: 375px) and (max-width: 720px) {
+  .public-app .logo-button .brand-logo {
+    width: clamp(90px, 26vw, 105px);
+  }
+
+  .public-app .reference-header-cta {
+    width: auto;
+    height: 34px;
+    min-height: 34px;
+    padding: 0 8px;
+    gap: 0.5rem;
+    font-size: 10px;
+    white-space: nowrap;
   }
 }

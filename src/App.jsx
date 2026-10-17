@@ -243,7 +243,7 @@ export function Logo({ variant = 'horizontalLight', className = '' }) {
   return <img className={`brand-logo brand-logo-${variant} ${className}`} src={BRAND_LOGOS[variant]} alt="InPETU hub" />
 }
 export function Button({ children, variant = 'primary', icon: Icon, className = '', ...props }) {
-  return <button className={`button button-${variant} ${className}`} {...props}>{Icon && <Icon size={17} strokeWidth={1.8} />}{children}</button>
+  return <button className={`button button-${variant} icon-text ${className}`} {...props}>{Icon && <Icon size={17} strokeWidth={1.8} />}{children}</button>
 }
 export function PhoneInput({ value, onChange, ...props }) {
   function handleChange(event) {
@@ -774,7 +774,7 @@ function Home({ spaces, spacesLoaded, onConsultSpace, onSearchAvailability, onOp
   return <>
     <Reveal as="section" className="hero-shell reference-hero">
       <div className="reference-hero-copy">
-        <div className="reference-location"><MapPin size={14} /> Lote 73 · Sapiens Parque · Florianópolis</div>
+        <div className="reference-location icon-text"><MapPin size={17} /><span>Lote 73 · Sapiens Parque · Florianópolis</span></div>
         <Title as="h1" className="reference-heading">Um espaço para suas ideias <em>ganharem vida.</em></Title>
         <p className="reference-description">Encontre o ambiente certo para se reunir, aprender e fazer acontecer no InPETU Hub.</p>
         <form id="availability-search" className="availability-search" onSubmit={event => { event.preventDefault(); onSearchAvailability(searchDate, searchType) }}>
@@ -798,8 +798,8 @@ function Home({ spaces, spacesLoaded, onConsultSpace, onSearchAvailability, onOp
         </div>}
       </Parallax>
     </Reveal>
-    <Reveal as="section" id="spaces" className="spaces-section"><div className="section-top"><div><Title as="h2">Nossos <em>Espaços</em></Title><p>Ambientes preparados para capacitações, eventos, mentorias e visitas técnicas.</p></div><button className="all-spaces-link" onClick={onOpenCalendar}>Abrir calendário completo <ArrowRight size={16} /></button></div>
-      <div className="filter-row"><div className="filter-label"><SlidersHorizontal size={15} /> EXPLORE POR TIPO</div>{types.map(type => <button key={type} className={`filter-chip ${filter === type ? 'filter-chip-active' : ''}`} onClick={() => setFilter(type)}>{type}</button>)}</div>
+    <Reveal as="section" id="spaces" className="spaces-section"><div className="section-top"><div><Title as="h2">Nossos <em>Espaços</em></Title><p>Ambientes preparados para capacitações, eventos, mentorias e visitas técnicas.</p></div><button className="all-spaces-link icon-text" onClick={onOpenCalendar}>Abrir calendário completo <ArrowRight size={16} /></button></div>
+      <div className="filter-row"><div className="filter-label icon-text"><SlidersHorizontal size={15} /> EXPLORE POR TIPO</div>{types.map(type => <button key={type} className={`filter-chip ${filter === type ? 'filter-chip-active' : ''}`} onClick={() => setFilter(type)}>{type}</button>)}</div>
       {!spacesLoaded && <p className="empty-inline" role="status">Carregando espaços...</p>}
       {spacesLoaded && spaces.length === 0 && <p className="empty-inline" role="status">Nenhum espaço cadastrado no momento.</p>}
       <Stagger as="div" key={filter} className="space-grid">
@@ -879,7 +879,7 @@ function BookingModal({ space, close, onSaved, openLogin, initialDate, initialTi
       <label>{guidedTour ? 'Data preferida da visita' : 'Data do encontro'}<input required type="date" min={localDateValue()} value={form.dataReserva} onChange={e => setForm({ ...form, dataReserva: e.target.value })} /></label><div className="field-pair"><label>{guidedTour ? 'Horário preferido de início' : 'Início'}<input required type="time" min="08:00" max="21:30" step="1800" value={form.horarioInicio} onChange={e => setForm({ ...form, horarioInicio: e.target.value })} /></label><label>{guidedTour ? 'Horário preferido de término' : 'Fim'}<input required type="time" min={form.horarioInicio || '08:30'} max="22:00" step="1800" value={form.horarioFim} onChange={e => setForm({ ...form, horarioFim: e.target.value })} /></label></div>
       {guidedTour && <label>Quantidade de visitantes<input required type="number" min="1" max={space?.capacidadePessoas || 20} value={form.quantidadeParticipantes} onChange={e => setForm({ ...form, quantidadeParticipantes: e.target.value })} /><small>Capacidade máxima: {space?.capacidadePessoas || 20} pessoas.</small></label>}
       <label>{guidedTour ? 'Nome do grupo ou da instituição' : 'Nome do encontro'}<input required maxLength="150" placeholder={guidedTour ? 'Ex.: Turma de Engenharia da UFSC' : 'Ex.: Oficina de prototipagem'} value={form.tituloEvento} onChange={e => setForm({ ...form, tituloEvento: e.target.value })} /></label><label>{guidedTour ? 'Objetivo ou observações da visita' : 'O que você está planejando?'}<textarea required rows="3" placeholder={guidedTour ? 'Conte brevemente o perfil do grupo e o que gostaria de conhecer' : 'Conte um pouco sobre o encontro'} value={form.descricaoFinalidade} onChange={e => setForm({ ...form, descricaoFinalidade: e.target.value })} /></label>
-      {message && <p className="form-message" role="alert">{message}</p>}<Button type="submit" disabled={busy}>{busy ? 'Enviando...' : guidedTour ? 'Enviar pedido de visita' : 'Continuar solicitação'} <ArrowRight size={16} /></Button><p className="form-footnote"><ShieldCheck size={14} /> Seus dados são tratados de acordo com a LGPD.</p>
+      {message && <p className="form-message" role="alert">{message}</p>}<Button type="submit" icon={ArrowRight} disabled={busy}>{busy ? 'Enviando...' : guidedTour ? 'Enviar pedido de visita' : 'Continuar solicitação'}</Button><p className="form-footnote icon-text"><ShieldCheck size={14} /> Seus dados são tratados de acordo com a LGPD.</p>
     </form>
   </Modal>
 }
@@ -902,7 +902,7 @@ export function LoginInline({ onLogin }) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   async function submit(event) { event.preventDefault(); setError(''); try { const result = await request('/auth/login', { method: 'POST', body: JSON.stringify({ email, senha: password }) }); const normalized = { ...result, perfil: Number(result.perfil ?? result.idPerfil ?? 4) }; storeUser(normalized); onLogin(normalized) } catch (e) { setError(e.message) } }
-  return <form className="form-stack" onSubmit={submit}><label>E-mail corporativo<input required type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="nome@inpetuhub.ufsc.br" /></label><label>Senha<PasswordInput required value={password} onChange={e => setPassword(e.target.value)} placeholder="Sua senha" /></label>{error && <p className="form-message">{error}</p>}<Button type="submit">Acessar painel <ArrowRight size={16} /></Button><p className="form-footnote"><ShieldCheck size={14} /> Acesso protegido por autenticação segura.</p></form>
+  return <form className="form-stack" onSubmit={submit}><label>E-mail corporativo<input required type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="nome@inpetuhub.ufsc.br" /></label><label>Senha<PasswordInput required value={password} onChange={e => setPassword(e.target.value)} placeholder="Sua senha" /></label>{error && <p className="form-message">{error}</p>}<Button type="submit" icon={ArrowRight}>Acessar painel</Button><p className="form-footnote icon-text"><ShieldCheck size={14} /> Acesso protegido por autenticação segura.</p></form>
 }
 export function Kpi({ icon: Icon, label, value, change, accent }) { return <article className="kpi-card"><div className={`kpi-icon kpi-${accent}`}><Icon size={18} /></div><span className="kpi-label">{label}</span><strong className="kpi-value">{value}</strong><small>{change}</small><ArrowUpRight className="kpi-trend" size={16} /></article> }
 export function CrmTitle({ title, description, action }) { return <div className="crm-title-row"><div><Title as="h1">{title}</Title><p>{description}</p></div>{action}</div> }
@@ -1082,7 +1082,7 @@ export function ClientProfileDialog({ client, reservations, tickets, auditItems,
     </div>
   </Modal>
 }
-function Footer({ setView }) { return <footer className="site-footer"><div className="footer-main"><div><Logo variant="horizontalDark" /><p>Espaço para ideias. Conexões para transformar.</p></div><div className="footer-links"><span>EXPLORE</span><button onClick={() => setView('home')}>Espaços</button><button onClick={() => setView('calendar')}>Disponibilidade</button><button onClick={() => setView('help')}>Fale conosco</button></div><div className="footer-address"><span>ENCONTRE A GENTE</span><p><MapPin size={15} /> Sapiens Parque · Lote 73<br />Rod. SC-401, 6001 · Florianópolis, SC</p><a href="https://maps.google.com/?q=Sapiens+Parque+Florianopolis" target="_blank" rel="noreferrer">Abrir mapa <ExternalLink size={13} /></a></div></div><div className="footer-bottom"><span>© 2026 InPETU Hub · UFSC</span><span><ShieldCheck size={14} /> Seus dados tratados com transparência, conforme a LGPD.</span><span>Ciência que aproxima. </span></div></footer> }
+function Footer({ setView }) { return <footer className="site-footer"><div className="footer-main"><div><Logo variant="horizontalDark" /><p>Espaço para ideias. Conexões para transformar.</p></div><div className="footer-links"><span>EXPLORE</span><button onClick={() => setView('home')}>Espaços</button><button onClick={() => setView('calendar')}>Disponibilidade</button><button onClick={() => setView('help')}>Fale conosco</button></div><div className="footer-address"><span>ENCONTRE A GENTE</span><p className="icon-text"><MapPin size={15} /><span>Sapiens Parque · Lote 73<br />Rod. SC-401, 6001 · Florianópolis, SC</span></p><a className="icon-text" href="https://maps.google.com/?q=Sapiens+Parque+Florianopolis" target="_blank" rel="noreferrer">Abrir mapa <ExternalLink size={13} /></a></div></div><div className="footer-bottom"><span>© 2026 InPETU Hub · UFSC</span><span className="icon-text"><ShieldCheck size={14} /> Seus dados tratados com transparência, conforme a LGPD.</span><span>Ciência que aproxima. </span></div></footer> }
 function ReadingProgress() {
   const progress = useScrollProgress()
   return <div className="reading-progress" aria-hidden="true"><span style={{ transform: `scaleX(${progress})` }} /></div>

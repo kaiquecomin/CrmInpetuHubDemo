@@ -37,7 +37,8 @@
 .public-app .reference-hero{position:relative;isolation:isolate;overflow:hidden;width:100%;max-width:none;min-height:590px;padding:55px max(32px,calc((100vw - 1216px)/2)) 58px;grid-template-columns:minmax(0,1.08fr) minmax(360px,.92fr);gap:56px;align-items:center;background:linear-gradient(116deg,#f7f9fc 0%,var(--color-brand-soft) 54%,var(--color-brand-soft) 100%)}
 .public-app .reference-hero:before{position:absolute;z-index:-1;content:"";width:540px;height:540px;right:-150px;top:-240px;border:1px solid #ffffffa6;border-radius:50%;box-shadow:0 0 0 55px #ffffff35,0 0 0 110px #ffffff22}
 .reference-hero-copy{padding:0;position:relative;z-index:1}
-.public-app .reference-location{width:max-content;padding:8px 13px;border:1px solid #d7e3f0;border-radius:30px;background:#ffffffa8;color:var(--color-brand);font-size:13px;letter-spacing:.15px;font-weight:650}
+.public-app .reference-location{width:fit-content;max-width:100%;display:inline-flex;flex-direction:row;align-items:center;gap:.5rem;padding:8px 13px;border:1px solid rgb(250 250 250 / 40%);border-radius:9999px;background:rgb(24 31 55 / 76%);color:#FAFAFA;font-size:13px;letter-spacing:.15px;font-weight:650;white-space:nowrap}
+.public-app .reference-location svg{width:17px;height:17px;flex-shrink:0;color:#FAFAFA}
 .public-app .reference-heading{max-width:620px;font:800 clamp(42px,4.5vw,58px)/1.08 var(--font-heading),sans-serif;letter-spacing:-1.5px;color:var(--color-brand);margin:25px 0 16px}
 .public-app .reference-heading em{color:var(--color-brand);font-style:normal}
 .public-app .reference-description{max-width:490px;font-size:14px;line-height:1.75;color:var(--color-text-muted);margin-bottom:25px}
@@ -200,6 +201,7 @@
   .account-description{font-size:13px}
   .account-page-signup{padding-top:27px}
 }
+@media(max-width:360px){.public-app .reference-location,.public-app .reference-location span{white-space:normal}}
 
   .catalog-controls-guided .catalog-fields{grid-template-columns:minmax(0,1fr) minmax(180px,.55fr)}
   .catalog-guided-notice{margin-top:14px;padding:12px 14px;border:1px solid #d7e7f2;border-radius:8px;background:#f1f7fb;color:var(--color-brand);font-size:13px;line-height:1.5}

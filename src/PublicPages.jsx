@@ -80,7 +80,7 @@ export function SignupPage({ onBack, onCodeSent }) {
         <label>Confirmar senha <span aria-hidden="true">*</span><PasswordInput required minLength={8} maxLength={64} autoComplete="new-password" value={form.confirmarSenha} onChange={e => setForm({ ...form, confirmarSenha: e.target.value })} /></label>
         {status && <p className="account-notice account-notice-error" role="alert">{status}</p>}
         {sendFailedEmail && <button className="button button-primary" type="button" disabled={resending} onClick={resendAfterSendFailure}>{resending ? 'Reenviando...' : 'Reenviar código'}</button>}
-        <Button type="submit">Criar conta <ArrowRight size={16} /></Button>
+        <Button type="submit" icon={ArrowRight}>Criar conta</Button>
       </form>
       <p className="account-signup"><button type="button" onClick={onBack}>Voltar para o acesso</button></p>
     </section>

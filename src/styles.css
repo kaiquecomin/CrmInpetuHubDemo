@@ -12,6 +12,31 @@
 
 * { box-sizing: border-box; }
 
+.icon-text,
+button:has(> svg),
+a:has(> svg),
+label:has(> svg),
+p.form-footnote:has(> svg) {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 100%;
+}
+
+.icon-text > svg,
+button:has(> svg) > svg,
+a:has(> svg) > svg,
+label:has(> svg) > svg,
+p.form-footnote:has(> svg) > svg {
+  display: block;
+  flex: 0 0 auto;
+}
+
+.button.icon-text {
+  justify-content: center;
+}
+
 html {
   scroll-behavior: smooth;
 }
