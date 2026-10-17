@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#181F37">
+  <title>Painel administrativo | InPETU Connect</title>
+  <link rel="icon" href="/brand/favicons/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="/brand/favicons/favicon-32x32.png">
+  <link rel="apple-touch-icon" href="/brand/favicons/apple-touch-icon.png">
+  <link rel="manifest" href="/brand/site.webmanifest">
+  <link rel="stylesheet" href="/css/brand-tokens.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/painel-administrativo.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <a class="brand" href="/paineladm" aria-label="InPETU hub — painel administrativo">
+        <img class="brand-mark" src="/brand/logos_transparentes/compacta/10_compacta_azul-escuro_hub-azul_transparente.png" alt="InPETU hub">
+      </a>
+      <p class="nav-caption">ESPAÇO DE TRABALHO</p>
+      <nav aria-label="Navegação do painel">
+        <a class="nav-item active" href="/paineladm" aria-current="page">
+          <span aria-hidden="true">▦</span> Visão geral
+        </a>
+        <span class="nav-item upcoming"><span aria-hidden="true">▣</span> Reservas <small>em migração</small></span>
+        <span class="nav-item upcoming"><span aria-hidden="true">♧</span> Cadastros <small>em migração</small></span>
+        <span class="nav-item upcoming"><span aria-hidden="true">⌂</span> Espaços <small>em migração</small></span>
+        <span class="nav-item upcoming"><span aria-hidden="true">✉</span> Atendimento <small>em migração</small></span>
+        <span class="nav-item upcoming"><span aria-hidden="true">☷</span> Auditoria <small>em migração</small></span>
+      </nav>
+      <div class="sidebar-bottom">
+        <p>Esta é a primeira área convertida para páginas renderizadas pelo servidor.</p>
+        <a class="legacy-link" href="/?legacyAdmin=1">Abrir painel completo atual</a>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="crumb"><span>InPETU Connect</span><span aria-hidden="true">/</span><strong>Visão geral</strong></div>
+        <div class="user-chip"><span class="avatar" aria-hidden="true" th:text="${#strings.substring(nome, 0, 1).toUpperCase()}">E</span>
+          <span><strong th:text="${nome}">Equipe</strong><small>Equipe InPETU</small></span>
+        </div>
+      </header>
+
+      <section class="content">
+        <div class="greeting">
+          <div>
+            <p class="eyebrow" th:text="${hojeLabel}">Hoje</p>
+            <h1>Olá, <span th:text="${nome}">equipe</span></h1>
+            <p>Resumo da operação do Lote 73 para hoje.</p>
+          </div>
+          <time class="date-pill" th:datetime="${hoje}" th:text="${hojeFormatada}">17/10/2026</time>
+        </div>
+
+        <section class="metrics" aria-label="Indicadores">
+          <article class="metric"><span class="metric-icon mint" aria-hidden="true">▣</span><p>Reservas hoje</p><strong th:text="${reservasHoje}">0</strong><small>Confirmadas ou pendentes</small></article>
+          <article class="metric"><span class="metric-icon amber" aria-hidden="true">◷</span><p>Aguardando aprovação</p><strong th:text="${reservasPendentes}">0</strong><small>Solicitações pendentes</small></article>
+          <article class="metric"><span class="metric-icon blue" aria-hidden="true">⌂</span><p>Espaços disponíveis</p><strong th:text="${espacosAtivos}">0</strong><small>Ativos no catálogo</small></article>
+          <article class="metric"><span class="metric-icon coral" aria-hidden="true">♧</span><p>Organizações</p><strong th:text="${organizacoes}">0</strong><small>Registradas no sistema</small></article>
+        </section>
+
+        <section class="schedule">
+          <div class="section-heading">
+            <div><p class="eyebrow">AGENDA DO DIA</p><h2>Reservas de hoje</h2></div>
+            <span class="date-label" th:text="${hojeFormatada}">17/10/2026</span>
+          </div>
+          <div class="empty" th:if="${#lists.isEmpty(agenda)}">
+            <span aria-hidden="true">☼</span>
+            <strong>Nenhuma reserva para hoje</strong>
+            <p>As novas solicitações aparecerão nesta agenda.</p>
+          </div>
+          <div class="table-wrap" th:if="${!#lists.isEmpty(agenda)}">
+            <table>
+              <thead><tr><th>HORÁRIO</th><th>EVENTO</th><th>ESPAÇO</th><th>SOLICITANTE</th><th>STATUS</th></tr></thead>
+              <tbody>
+                <tr th:each="reserva : ${agenda}">
+                  <td class="time" th:text="|${reserva.inicio} – ${reserva.fim}|">09:00 – 10:00</td>
+                  <td class="event" th:text="${reserva.evento}">Evento</td>
+                  <td th:text="${reserva.espaco}">Espaço</td>
+                  <td th:text="${reserva.solicitante}">Solicitante</td>
+                  <td><span class="status" th:classappend="${reserva.status == 'Pendente'} ? ' pending' : ' confirmed'" th:text="${reserva.status}">Confirmada</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <div class="migration-note" th:if="${duvidasPendentes > 0}">
+          <strong th:text="|${duvidasPendentes} dúvida(s) aguardando resposta|">Dúvidas aguardando resposta</strong>
+          <span>A área de atendimento ainda está disponível no painel completo atual.</span>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

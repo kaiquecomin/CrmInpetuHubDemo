@@ -5,7 +5,7 @@
 .public-app .logo-button{display:flex;align-items:center;gap:10px}
 .public-app .reference-logo-icon{width:36px;height:36px;display:grid;place-items:center;background:var(--color-brand);color:white;border-radius:9px}
 .public-app .reference-brand-copy{display:flex;flex-direction:column;gap:3px}
-.public-app .reference-brand-copy strong{font:700 13px Montserrat,sans-serif;color:var(--color-brand)}
+.public-app .reference-brand-copy strong{font:700 13px var(--font-heading), sans-serif;color:var(--color-brand)}
 .public-app .reference-brand-copy small{font-size:13px;letter-spacing:1px;color:var(--color-text-muted)}
 .public-app .main-nav{gap:28px}
 .public-app .main-nav button{font-size:13px;color:var(--color-brand)}
@@ -38,7 +38,7 @@
 .public-app .reference-hero:before{position:absolute;z-index:-1;content:"";width:540px;height:540px;right:-150px;top:-240px;border:1px solid #ffffffa6;border-radius:50%;box-shadow:0 0 0 55px #ffffff35,0 0 0 110px #ffffff22}
 .reference-hero-copy{padding:0;position:relative;z-index:1}
 .public-app .reference-location{width:max-content;padding:8px 13px;border:1px solid #d7e3f0;border-radius:30px;background:#ffffffa8;color:var(--color-brand);font-size:13px;letter-spacing:.15px;font-weight:650}
-.public-app .reference-heading{max-width:620px;font:800 clamp(42px,4.5vw,58px)/1.08 Montserrat,sans-serif;letter-spacing:-1.5px;color:var(--color-brand);margin:25px 0 16px}
+.public-app .reference-heading{max-width:620px;font:800 clamp(42px,4.5vw,58px)/1.08 var(--font-heading),sans-serif;letter-spacing:-1.5px;color:var(--color-brand);margin:25px 0 16px}
 .public-app .reference-heading em{color:var(--color-brand);font-style:normal}
 .public-app .reference-description{max-width:490px;font-size:14px;line-height:1.75;color:var(--color-text-muted);margin-bottom:25px}
 .availability-search{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.84fr) auto;align-items:end;gap:10px;padding:13px;background:#fff;border:1px solid #e0e6ed;border-radius:14px;box-shadow:0 14px 36px rgba(20, 91, 77, .1);max-width:720px}
@@ -48,7 +48,7 @@
 .reference-stats{max-width:620px;margin:27px 0 0;padding-top:18px;border-top:1px solid #d9e2ec;display:flex;gap:0}
 .reference-stats>div{min-width:0;flex:1;display:flex;flex-direction:column;gap:5px;padding:0 14px;border-left:1px solid #d9e2ec}
 .reference-stats>div:first-child{padding-left:0;border-left:0}
-.reference-stats dt{font:750 19px/1.1 Montserrat,sans-serif;color:var(--color-brand)}
+.reference-stats dt{font:750 19px/1.1 var(--font-heading),sans-serif;color:var(--color-brand)}
 .reference-stats dd{margin:0;color:var(--color-text-muted);font-size:13px}
 .reference-hero-images{height:460px;position:relative;min-width:0}
 .reference-hero-images img{display:block;position:absolute;object-fit:cover;border:5px solid #fff;box-shadow:0 22px 55px rgba(20, 91, 77, .16)}
@@ -67,26 +67,26 @@
 .public-app .filter-chip{border-radius:7px;border-color:#d9e1ea;color:var(--color-text-muted)}
 .public-app .filter-chip-active,.public-app .filter-chip:hover{background:var(--color-brand-soft);border-color:var(--color-border);color:var(--color-brand)}
 .public-app .space-grid{gap:17px}
-.public-app .space-card{border:1px solid #e4e9ef;border-radius:12px;overflow:hidden;box-shadow:0 3px 12px rgba(20, 91, 77, .04)}
+.public-app .space-card{border:1px solid #e4e9ef;border-radius:12px;overflow:hidden;box-shadow:0 3px 12px rgba(24, 31, 55, .05)x rgba(20, 91, 77, .04)}
 .public-app .space-card:hover{box-shadow:0 12px 28px rgba(20, 91, 77, .11)}
 .public-app .space-image{height:175px}
 .public-app .space-info h3{color:var(--color-brand)}
 .public-app .space-cta{color:var(--color-brand);border-color:#edf0f4}
 .public-app .availability-dot{background:#eff7ef;color:#39754a}
 .about-hub{width:100%;padding:62px max(32px,calc((100vw - 1216px)/2));background:#f4f7fb;display:grid;grid-template-columns:1.12fr .88fr;gap:70px;align-items:center;scroll-margin-top:82px}
-.about-copy h2{font:700 31px/1.2 Montserrat,sans-serif;color:var(--color-brand);margin:12px 0 16px}
+.about-copy h2{font:700 31px/1.2 var(--font-heading),sans-serif;color:var(--color-brand);margin:12px 0 16px}
 .about-copy>p{max-width:700px;color:var(--color-text-muted);font-size:13px;line-height:1.85;margin-bottom:13px}
 .about-copy>p strong{color:var(--color-brand)}
 .about-copy ul{padding:0;margin:19px 0 0;list-style:none;display:grid;gap:10px}
 .about-copy li{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--color-brand)}
 .about-copy li svg{color:#287348;flex:none}
 .ecosystem-panel{padding:9px 0 0;border-left:1px solid #dce4ee;padding-left:37px}
-.ecosystem-panel h3{display:flex;align-items:center;gap:9px;font:700 14px Montserrat,sans-serif;color:var(--color-brand);margin:0 0 17px}
+.ecosystem-panel h3{display:flex;align-items:center;gap:9px;font:700 14px var(--font-heading),sans-serif;color:var(--color-brand);margin:0 0 17px}
 .ecosystem-panel h3 svg{color:var(--color-brand)}
 .partner-list{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
 .partner-list span{min-height:40px;display:grid;place-items:center;padding:6px 8px;background:#fff;border:1px solid #e3e9f0;border-radius:7px;color:var(--color-brand);font-size:13px;font-weight:700;text-align:center}
 .ecosystem-cta{border-top:1px solid #dce4ee;margin-top:20px;padding-top:15px}
-.ecosystem-cta>strong{font:700 14px Montserrat;color:var(--color-brand)}
+.ecosystem-cta>strong{font:700 14px var(--font-heading),sans-serif;color:var(--color-brand)}
 .ecosystem-cta p{font-size:13px;color:var(--color-text-muted);margin:6px 0 12px}
 .ecosystem-cta .button{min-height:38px;font-size:13px}
 .public-app .site-footer{background:var(--color-brand-strong);color:#f5f7fb;padding-top:37px}
@@ -96,7 +96,7 @@
 .public-app:has(.account-page){min-height:100vh;background:#f6f8fb}
 .account-page{min-height:calc(100vh - 66px);padding:48px 20px 64px;background:#f6f8fb;display:flex;flex-direction:column;align-items:center}
 .account-page-heading{text-align:center;margin:0 0 25px}
-.account-page-heading h1{margin:0 0 7px;color:var(--color-brand);font:700 27px/1.2 Montserrat,sans-serif;letter-spacing:-.5px}
+.account-page-heading h1{margin:0 0 7px;color:var(--color-brand);font:700 27px/1.2 var(--font-heading),sans-serif;letter-spacing:-.5px}
 .account-page-heading p{margin:0;color:var(--color-brand);font-size:13px}
 .account-card{width:min(100%,420px);padding:26px;background:#fff;border:1px solid #dce3eb;border-radius:14px;box-shadow:0 12px 25px rgba(20, 91, 77, .07)}
 .account-tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;background:#f0f3f8;border-radius:10px;margin:0 0 29px}
@@ -126,7 +126,7 @@
 .verification-card .account-form{gap:16px}
 .verification-card .account-page-heading strong{color:var(--color-brand)}
 .verification-code{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
-.verification-code input{width:100%;height:54px;padding:0;text-align:center;border:1px solid #cbd5e2;border-radius:10px;background:#fff;color:var(--color-brand);font:700 22px Montserrat,sans-serif}
+.verification-code input{width:100%;height:54px;padding:0;text-align:center;border:1px solid #cbd5e2;border-radius:10px;background:#fff;color:var(--color-brand);font:700 22px var(--font-heading),sans-serif}
 .verification-code input:focus{outline:2px solid rgba(20, 91, 77, .2);border-color:var(--color-brand)}
 .verification-expiry{margin:0;text-align:center;color:var(--color-text-muted);font-size:13px}
 .verification-expired{color:#a84b34}

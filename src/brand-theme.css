@@ -1,0 +1,694 @@
+@import url("https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap");
+
+html,
+body {
+  background: var(--color-seasalt);
+  color: var(--color-oxford-blue);
+  font-family: var(--font-body) !important;
+}
+
+body :where(*) {
+  font-family: var(--font-body) !important;
+}
+
+body :where(h1, h2, h3, h4, h5, h6, .hero-stamp strong, .metric strong, .kpi-value) {
+  font-family: var(--font-heading) !important;
+}
+
+body :where(button, input, textarea, select) {
+  font-family: var(--font-body) !important;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid var(--color-brand-accessible) !important;
+  outline-offset: 3px;
+}
+
+.public-app,
+.crm-layout,
+.crm-login {
+  background: var(--color-seasalt);
+  color: var(--color-oxford-blue);
+}
+
+.site-header,
+.public-app .site-header {
+  height: 76px;
+  border-bottom: 1px solid var(--color-border);
+  background: rgb(250 250 250 / 96%);
+}
+
+.public-app .header-inner {
+  max-width: 1320px;
+  padding-inline: clamp(16px, 4vw, 48px);
+}
+
+.logo-button {
+  min-width: 0;
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-control);
+}
+
+.brand-logo {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  object-position: center;
+  filter: none;
+}
+
+.logo-button .brand-logo {
+  width: clamp(148px, 15vw, 205px);
+}
+
+.public-app .main-nav button {
+  color: var(--color-text-muted);
+  font-weight: 700;
+}
+
+.public-app .main-nav button:hover,
+.public-app .main-nav .nav-active {
+  color: var(--color-oxford-blue);
+}
+
+.public-app .main-nav .nav-active::after {
+  height: 3px;
+  background: var(--color-french-blue);
+}
+
+.public-app .reference-header-cta,
+.button-primary,
+.crm-layout .primary-action,
+.crm-layout .button-primary {
+  border: 1px solid var(--color-brand-accessible);
+  border-radius: 999px;
+  background: var(--color-brand-accessible);
+  color: #FFFFFF;
+  font-weight: 700;
+}
+
+.public-app .reference-header-cta:hover,
+.button-primary:hover:not(:disabled),
+.crm-layout .primary-action:hover:not(:disabled),
+.crm-layout .button-primary:hover:not(:disabled) {
+  background: var(--color-oxford-blue);
+  border-color: var(--color-oxford-blue);
+}
+
+.button-outline,
+.button-light,
+.button-danger,
+.public-app .reference-header-cta,
+.filter-chip,
+.crm-layout .table-action,
+.crm-layout .subtle-action,
+.crm-return-home,
+.crm-icon,
+.crm-sidebar-toggle {
+  border-radius: 999px;
+}
+
+.button-outline {
+  border-color: var(--color-border);
+  color: var(--color-oxford-blue);
+}
+
+.button-outline:hover:not(:disabled) {
+  border-color: var(--color-french-blue);
+  background: var(--color-brand-soft);
+}
+
+.button-light {
+  background: var(--color-brand-soft);
+  color: var(--color-oxford-blue);
+}
+
+.button-danger {
+  background: var(--color-danger);
+  color: #FFFFFF;
+}
+
+.button-danger:hover:not(:disabled) {
+  background: #821F1B;
+}
+
+.public-app .reference-hero {
+  min-height: 570px;
+  background: linear-gradient(120deg, var(--color-french-blue), var(--color-oxford-blue));
+  color: #FFFFFF;
+}
+
+.public-app .reference-hero-copy,
+.public-app .reference-hero-copy :where(h1, p, .reference-location, .reference-stats dt, .reference-stats dd) {
+  color: #FFFFFF;
+}
+
+.public-app .reference-hero-copy .reference-heading em {
+  color: #FFFFFF;
+}
+
+.public-app .reference-location {
+  border-color: rgb(255 255 255 / 38%);
+  background: rgb(24 31 55 / 30%);
+}
+
+.public-app .reference-hero :where(.availability-search, .hero-image-note) {
+  color: var(--color-oxford-blue);
+}
+
+.public-app .reference-hero-images img {
+  border-radius: var(--radius-panel);
+}
+
+.public-app .section-top h2,
+.public-app .about-copy h2,
+.public-app .reference-heading,
+.public-app .reference-heading em,
+.inner-page h1,
+.public-app .inner-page h1 em {
+  color: var(--color-oxford-blue);
+}
+
+.public-app .reference-heading {
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+}
+
+.public-app .reference-heading em,
+.public-app .section-top h2 em,
+.inner-page h1 em {
+  color: var(--color-french-blue);
+}
+
+.public-app .reference-description,
+.public-app .section-top p,
+.public-app .about-copy p,
+.public-app .portal-welcome p {
+  color: var(--color-text-muted);
+}
+
+.public-app .space-card,
+.public-app .portal-summary-card,
+.public-app .portal-upcoming,
+.account-card,
+.help-form,
+.dialog-panel,
+.crm-layout .kpi-card,
+.crm-layout .panel,
+.crm-layout .table-panel,
+.crm-layout .crm-card,
+.crm-layout .crm-section {
+  border-color: var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.public-app .space-card {
+  overflow: hidden;
+}
+
+.public-app .space-card:hover {
+  box-shadow: var(--shadow-panel);
+}
+
+.public-app .filter-chip,
+.public-app .filter-chip-active {
+  border-radius: 999px;
+}
+
+.public-app .filter-chip-active,
+.public-app .filter-chip:hover {
+  border-color: var(--color-french-blue);
+  background: var(--color-brand-soft);
+  color: var(--color-oxford-blue);
+}
+
+.account-page {
+  max-width: 100%;
+  min-height: calc(100vh - 76px);
+  padding: clamp(24px, 6vh, 64px) 20px;
+  background:
+    radial-gradient(ellipse at 50% 0, rgb(0 119 204 / 8%), transparent 45%),
+    var(--color-seasalt);
+}
+
+.account-brand {
+  width: min(100%, 320px);
+  margin: 0 auto 26px;
+  padding: 10px;
+}
+
+.account-brand .brand-logo {
+  max-height: 126px;
+  object-fit: contain;
+}
+
+.account-page-heading {
+  margin-bottom: 24px;
+}
+
+.account-page-heading h1 {
+  color: var(--color-oxford-blue);
+  font-size: clamp(1.8rem, 3.5vw, 2.4rem);
+  letter-spacing: -0.035em;
+}
+
+.account-page-heading p,
+.account-description {
+  color: var(--color-text-muted);
+}
+
+.account-card,
+.account-card-signup {
+  width: min(100%, 480px);
+  padding: clamp(22px, 4vw, 36px);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel);
+}
+
+.account-form label,
+.help-form label {
+  color: var(--color-oxford-blue);
+  font-weight: 700;
+}
+
+.account-form input,
+.account-form select,
+.account-form textarea,
+.help-form input,
+.help-form select,
+.help-form textarea,
+.crm-layout input,
+.crm-layout select,
+.crm-layout textarea,
+.availability-search input,
+.availability-search select {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-oxford-blue);
+}
+
+.account-form input::placeholder,
+.help-form input::placeholder,
+.help-form textarea::placeholder,
+.crm-layout input::placeholder,
+.crm-layout textarea::placeholder {
+  color: #596477;
+  opacity: 1;
+}
+
+.account-signup button,
+.account-signup a,
+.verification-resend,
+.public-app .reference-login,
+.public-app .profile-menu button,
+.public-app .footer-address a {
+  color: var(--color-brand-accessible);
+  font-weight: 700;
+}
+
+.account-security,
+.form-footnote {
+  color: var(--color-text-muted);
+}
+
+.account-notice-error,
+.form-message {
+  border-color: #E9B6B2;
+  background: var(--color-danger-soft);
+  color: #821F1B;
+}
+
+.account-notice-success,
+.success-note {
+  border-color: #E7F4EC;
+  background: var(--color-success-soft);
+  color: #176B45;
+}
+
+.public-app .site-footer {
+  padding-block: 48px 24px;
+  background: var(--color-oxford-blue);
+  color: #FFFFFF;
+}
+
+.public-app .footer-main,
+.public-app .footer-bottom {
+  color: #FFFFFF;
+}
+
+.public-app .footer-main > div > p,
+.public-app .footer-address p,
+.public-app .footer-bottom span {
+  color: #E2E7F0;
+}
+
+.public-app .footer-links button,
+.public-app .footer-address a {
+  color: #FFFFFF;
+}
+
+.public-app .footer-links button:hover,
+.public-app .footer-address a:hover {
+  color: #A8D7FF;
+}
+
+.public-app .footer-bottom {
+  border-color: rgb(255 255 255 / 22%);
+}
+
+.crm-login {
+  min-height: 100vh;
+}
+
+.crm-login-visual {
+  background: linear-gradient(135deg, var(--color-french-blue), var(--color-oxford-blue));
+  color: #FFFFFF;
+}
+
+.crm-login-visual > .brand-logo {
+  width: min(100%, 390px);
+  max-height: 180px;
+  margin-bottom: auto;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.crm-login-visual h1,
+.crm-login-visual h1 em,
+.crm-login-visual p,
+.crm-login-visual small {
+  color: #FFFFFF;
+}
+
+.crm-login-form {
+  background: var(--color-seasalt);
+}
+
+.crm-login-form h2 {
+  color: var(--color-oxford-blue);
+}
+
+.crm-layout {
+  background: var(--color-background);
+}
+
+.crm-sidebar {
+  background: var(--color-oxford-blue);
+  border-color: var(--color-oxford-blue);
+  color: #FFFFFF;
+}
+
+.crm-logo-button {
+  display: flex;
+  width: 100%;
+  min-height: 62px;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 10px 12px;
+  overflow: hidden;
+}
+
+.crm-logo-button .brand-logo {
+  width: min(100%, 190px);
+  max-height: 56px;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.crm-sidebar-collapsed .crm-logo-button {
+  justify-content: center;
+}
+
+.crm-sidebar-collapsed .crm-logo-button .brand-logo {
+  width: 40px;
+  max-height: 44px;
+  object-position: center;
+}
+
+.crm-sidebar .workspace-label,
+.crm-sidebar .sidebar-help small {
+  color: #D2D9E5;
+}
+
+.crm-sidebar .crm-nav button,
+.crm-sidebar .crm-return-home,
+.crm-sidebar .sidebar-help {
+  color: #FFFFFF;
+}
+
+.crm-sidebar .crm-nav button:hover,
+.crm-sidebar .crm-nav .crm-nav-active {
+  border-radius: var(--radius-control);
+  background: #26334F;
+  color: #FFFFFF;
+}
+
+.crm-sidebar .crm-nav .crm-nav-active svg,
+.crm-sidebar .crm-nav button:hover svg {
+  color: #A8D7FF;
+}
+
+.crm-sidebar .crm-return-home,
+.crm-sidebar .sidebar-help button {
+  border-color: #52617C;
+  background: transparent;
+  color: #FFFFFF;
+}
+
+.crm-sidebar .sidebar-help {
+  border-color: #52617C;
+  background: #202B46;
+}
+
+.crm-sidebar .sidebar-help button:hover {
+  background: #2C3A59;
+}
+
+.crm-main {
+  color: var(--color-oxford-blue);
+}
+
+.crm-topbar {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+}
+
+.crm-topbar .breadcrumbs strong,
+.crm-title-row h1,
+.crm-greeting h1,
+.crm-layout h2,
+.crm-layout h3 {
+  color: var(--color-oxford-blue);
+}
+
+.crm-layout .kpi-card,
+.crm-layout .crm-panel,
+.crm-layout .data-card,
+.crm-layout .table-wrap,
+.crm-layout .crm-table-wrap {
+  border-color: var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.crm-layout :where(table th) {
+  background: var(--color-surface-muted);
+  color: var(--color-oxford-blue);
+}
+
+.crm-layout :where(table td) {
+  border-color: var(--color-border);
+  color: var(--color-oxford-blue);
+}
+
+.crm-layout :where(.status-pill, .status, .badge) {
+  border-radius: 999px;
+}
+
+.crm-layout .status-pending,
+.crm-layout .status-pill.status-pending {
+  border-color: #F3D5AB;
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+.crm-layout .status-confirmed,
+.crm-layout .status-pill.status-confirmed {
+  border-color: #B5D8C2;
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.crm-layout .status-cancelled,
+.crm-layout .status-pill.status-cancelled {
+  border-color: #E9B6B2;
+  background: var(--color-danger-soft);
+  color: #821F1B;
+}
+
+.crm-layout .crm-icon,
+.crm-layout .crm-sidebar-toggle,
+.crm-layout .icon-button {
+  color: var(--color-oxford-blue);
+}
+
+.crm-layout .crm-icon:hover,
+.crm-layout .crm-sidebar-toggle:hover,
+.crm-layout .icon-button:hover {
+  background: var(--color-brand-soft);
+}
+
+.dialog-panel {
+  border-radius: var(--radius-panel);
+  background: var(--color-surface);
+  color: var(--color-oxford-blue);
+  box-shadow: var(--shadow-panel);
+}
+
+.dialog-heading {
+  border-color: var(--color-border);
+}
+
+.toast {
+  border: 1px solid #B5D8C2;
+  border-radius: var(--radius-control);
+  background: var(--color-success-soft);
+  color: #176B45;
+  box-shadow: var(--shadow-panel);
+}
+
+.public-app .notification-panel,
+.public-app .profile-menu,
+.crm-layout .notification-panel,
+.crm-layout .crm-profile-menu-items,
+.crm-layout .table-filter-panel {
+  border-color: var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  color: var(--color-oxford-blue);
+  box-shadow: var(--shadow-panel);
+}
+
+@media (max-width: 900px) {
+  .public-app .header-inner {
+    padding-inline: 20px;
+  }
+
+  .public-app .reference-hero {
+    min-height: auto;
+    padding: 64px clamp(20px, 5vw, 48px);
+  }
+
+  .crm-topbar {
+    gap: 10px;
+  }
+}
+
+@media (max-width: 720px) {
+  .public-app .site-header {
+    height: 68px;
+  }
+
+  .logo-button .brand-logo {
+    width: 148px;
+  }
+
+  .public-app .header-inner {
+    padding-inline: 16px;
+  }
+
+  .public-app .reference-hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 32px;
+    padding: 42px 18px;
+  }
+
+  .public-app .reference-heading {
+    font-size: clamp(2.2rem, 10vw, 3rem);
+  }
+
+  .public-app .reference-hero-images {
+    height: clamp(260px, 72vw, 380px);
+  }
+
+  .account-page {
+    min-height: calc(100vh - 68px);
+    padding: 28px 16px 40px;
+  }
+
+  .account-brand {
+    width: min(100%, 280px);
+    margin-bottom: 18px;
+  }
+
+  .account-brand .brand-logo {
+    max-height: 108px;
+  }
+
+  .crm-login {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .crm-login-visual {
+    min-height: 310px;
+    padding: 28px 24px;
+  }
+
+  .crm-login-visual > .brand-logo {
+    width: min(100%, 300px);
+    max-height: 130px;
+  }
+
+  .crm-login-form {
+    padding: 32px 24px;
+  }
+
+  .crm-sidebar {
+    background: var(--color-oxford-blue);
+  }
+
+  .crm-layout .crm-topbar {
+    padding-inline: 14px;
+  }
+
+  .crm-layout .crm-content {
+    padding: 20px 14px;
+  }
+
+  .crm-layout .crm-title-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .crm-layout :where(table th, table td) {
+    padding: 12px 10px;
+  }
+
+  .public-app .site-footer {
+    padding-inline: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

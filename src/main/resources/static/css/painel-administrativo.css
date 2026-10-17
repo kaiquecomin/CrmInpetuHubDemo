@@ -1,0 +1,209 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--brand-seasalt);
+  color: var(--brand-oxford-blue);
+  font-family: var(--font-body);
+}
+
+.layout {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 272px minmax(0, 1fr);
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  padding: 1.5rem;
+  background: var(--brand-seasalt);
+  border-right: 1px solid var(--brand-border);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 108px;
+  padding: 1rem;
+  border-radius: var(--brand-radius-card);
+  background: white;
+}
+
+.brand-mark {
+  display: block;
+  width: min(100%, 148px);
+  height: auto;
+  object-fit: contain;
+}
+
+.sidebar nav {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.sidebar nav a {
+  padding: 0.8rem 1rem;
+  border-radius: var(--brand-radius-control);
+  color: var(--brand-muted);
+  font-weight: 700;
+  text-decoration: none;
+  transition: color 150ms ease, background-color 150ms ease;
+}
+
+.sidebar nav a:hover,
+.sidebar nav a:focus-visible {
+  outline: none;
+  background: var(--brand-blue-soft);
+  color: var(--brand-action);
+}
+
+.content {
+  min-width: 0;
+  padding: clamp(1.25rem, 3vw, 2.75rem);
+}
+
+.content h1,
+.content h2,
+.content h3 {
+  color: var(--brand-oxford-blue);
+  font-family: var(--font-heading);
+}
+
+.content a:not(.button) {
+  color: var(--brand-action);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+.button {
+  min-height: 2.75rem;
+  padding: 0.65rem 1.1rem;
+  border: 1px solid transparent;
+  border-radius: var(--brand-radius-control);
+  background: var(--brand-action);
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+button:hover,
+.button:hover {
+  background: var(--brand-action-hover);
+}
+
+button:disabled,
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+input,
+select,
+textarea {
+  min-height: 2.75rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--brand-border-strong);
+  border-radius: var(--brand-radius-control);
+  background: white;
+  color: var(--brand-oxford-blue);
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible,
+.button:focus-visible,
+a:focus-visible {
+  outline: 3px solid var(--brand-focus);
+  outline-offset: 2px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+}
+
+th,
+td {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--brand-border);
+  text-align: left;
+}
+
+th {
+  color: var(--brand-oxford-blue);
+  font-family: var(--font-heading);
+}
+
+tr:hover td {
+  background: var(--brand-blue-soft);
+}
+
+.card,
+.panel,
+.modal-content {
+  border: 1px solid var(--brand-border);
+  border-radius: var(--brand-radius-card);
+  background: white;
+  box-shadow: var(--brand-shadow-card);
+}
+
+@media (max-width: 760px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    gap: 1rem;
+    padding: 1rem;
+    border-right: 0;
+    border-bottom: 1px solid var(--brand-border);
+  }
+
+  .brand {
+    justify-content: flex-start;
+    min-height: 72px;
+    padding: 0.5rem;
+    background: transparent;
+  }
+
+  .brand-mark {
+    width: 64px;
+  }
+
+  .sidebar nav {
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  }
+
+  .content {
+    padding: 1rem;
+  }
+
+  table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
