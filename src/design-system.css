@@ -1,0 +1,60 @@
+@theme {
+  --font-sans: "Montserrat", ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  --color-background: #f4f7f3;
+  --color-surface: #ffffff;
+  --color-surface-muted: #eaf2eb;
+  --color-border: #dbe5dd;
+  --color-text: #193b30;
+  --color-text-muted: #65756d;
+  --color-brand: #145b4d;
+  --color-brand-strong: #123b34;
+  --color-brand-soft: #e6f1e9;
+  --color-success: #247348;
+  --color-success-soft: #e8f4e9;
+  --color-warning: #996800;
+  --color-warning-soft: #fff4d7;
+  --color-danger: #a9352e;
+  --color-danger-soft: #fff0ed;
+  --color-info: #275d73;
+  --color-info-soft: #e8f2f5;
+  --radius-control: 0.625rem;
+  --radius-card: 1rem;
+  --radius-panel: 1.5rem;
+  --space-section: clamp(3.5rem, 7vw, 6rem);
+  --space-content: clamp(1rem, 3vw, 2rem);
+  --shadow-card: 0 12px 32px rgb(25 59 48 / 8%);
+  --shadow-panel: 0 24px 64px rgb(25 59 48 / 12%);
+  --font-body: var(--font-sans);
+  --ink: var(--color-text);
+  --muted: var(--color-text-muted);
+  --line: var(--color-border);
+  --paper: var(--color-background);
+  --surface: var(--color-surface);
+  --green: var(--color-brand);
+  --green-dark: var(--color-brand-strong);
+  --green-soft: var(--color-brand-soft);
+  --ref-ink: var(--color-text);
+  --ref-muted: var(--color-text-muted);
+  --ref-blue: var(--color-brand);
+  --ref-blue-dark: var(--color-brand-strong);
+  --ref-line: var(--color-border);
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  background: var(--color-background);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+html {
+  font-family: var(--font-sans);
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  background: var(--color-background);
+}
