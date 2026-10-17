@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface DuvidaAtendimentoRepository extends JpaRepository<DuvidaAtendimento, Integer> {
+    long countByStatusAtendimento(String statusAtendimento);
+
     boolean existsByEmailContatoAndMensagemDuvida(String emailContato, String mensagemDuvida);
 
     @Modifying

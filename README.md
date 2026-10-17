@@ -40,7 +40,7 @@ npm run dev
 
 Com a aplicação no ar, o portal fica em `http://localhost:5173` e a API em `http://localhost:8080/api/v1`.
 
-Para testar com dados fictícios, use `scripts/start-local-demo.ps1`. Se `scripts/local-secrets.ps1` existir, o script usa os valores definidos nele e pergunta apenas os que faltarem; as senhas digitadas não são exibidas. O script aponta a API somente para um MySQL em `localhost`. O arquivo real de segredos é ignorado pelo Git; o guia para cadastrar as contas de teste está em [docs/passbolt-local-test-access.md](./docs/passbolt-local-test-access.md). Nunca grave senhas no repositório.
+Para testar com dados fictícios, use `scripts/start-local-demo.ps1`. Se `scripts/local-secrets.ps1` existir, o script usa os valores definidos nele e pergunta apenas os que faltarem; as senhas digitadas não são exibidas. O script gera segredos aleatórios temporários para JWT, OTP e limitação de tentativas a cada execução, e aponta a API somente para um MySQL em `localhost`. O arquivo real de segredos é ignorado pelo Git; o guia para cadastrar as contas de teste está em [docs/passbolt-local-test-access.md](./docs/passbolt-local-test-access.md). Nunca grave senhas no repositório.
 
 ### Variáveis de ambiente
 

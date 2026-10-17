@@ -13,5 +13,12 @@ public record ReservaEdicaoRequest(
         @NotNull LocalTime horarioInicio,
         @NotNull LocalTime horarioFim,
         @NotNull Integer idEspaco,
-        Integer quantidadeParticipantes) {
+        Integer quantidadeParticipantes,
+        @Size(max = 20) String telefoneContato) {
+    public ReservaEdicaoRequest(String tituloEvento, String descricaoFinalidade, LocalDate dataReserva,
+            LocalTime horarioInicio, LocalTime horarioFim, Integer idEspaco,
+            Integer quantidadeParticipantes) {
+        this(tituloEvento, descricaoFinalidade, dataReserva, horarioInicio, horarioFim,
+                idEspaco, quantidadeParticipantes, null);
+    }
 }

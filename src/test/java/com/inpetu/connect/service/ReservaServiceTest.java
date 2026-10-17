@@ -107,11 +107,12 @@ class ReservaServiceTest {
                 .thenReturn(false);
         when(reservas.save(any(Reserva.class))).thenAnswer(invocation -> invocation.getArgument(0));
         ReservaRequest request = new ReservaRequest("Oficina", "Encontro de teste", LocalDate.now().plusDays(1),
-                LocalTime.of(9, 0), LocalTime.of(10, 0), 2, null);
+                LocalTime.of(9, 0), LocalTime.of(10, 0), 2, null, "48999999999");
 
         Reserva reserva = service.criar(request, "visitante@exemplo.com");
 
         assertEquals("Pendente", reserva.getStatusReserva());
+        assertEquals("48999999999", reserva.getTelefoneContato());
         verify(reservas).save(reserva);
     }
 
@@ -437,8 +438,9 @@ class ReservaServiceTest {
         when(reservas.findById(14)).thenReturn(Optional.of(reserva));
         when(reservas.save(any(Reserva.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        service.cancelar(14, "Mudança de agenda", "visitante@exemplo.com");
+        Reserva atualizada = service.cancelar(14, "Mudança de agenda", "visitante@exemplo.com");
 
+        assertSame(reserva, atualizada);
         assertEquals("Cancelada", reserva.getStatusReserva());
         ArgumentCaptor<com.inpetu.connect.model.LogAuditoria> logCaptor =
                 ArgumentCaptor.forClass(com.inpetu.connect.model.LogAuditoria.class);

@@ -162,7 +162,7 @@ class AuthControllerTest {
         org.junit.jupiter.api.Assertions.assertTrue(cookie.contains("HttpOnly"));
         org.junit.jupiter.api.Assertions.assertTrue(cookie.contains("Secure"));
         org.junit.jupiter.api.Assertions.assertTrue(cookie.contains("SameSite=Strict"));
-        org.junit.jupiter.api.Assertions.assertTrue(cookie.contains("Path=/api/v1"));
+        org.junit.jupiter.api.Assertions.assertTrue(cookie.contains("Path=/"));
     }
 
     @Test
@@ -176,6 +176,8 @@ class AuthControllerTest {
         org.junit.jupiter.api.Assertions.assertTrue(cookie.contains("Max-Age=0"));
         org.junit.jupiter.api.Assertions.assertTrue(cookie.contains("HttpOnly"));
         org.junit.jupiter.api.Assertions.assertTrue(cookie.contains("Secure"));
+        org.junit.jupiter.api.Assertions.assertTrue(response.getHeaders("Set-Cookie").stream()
+            .anyMatch(value -> value.contains("Path=/api/v1") && value.contains("Max-Age=0")));
     }
 
     private CadastroPublicoRequest signup(String email) {

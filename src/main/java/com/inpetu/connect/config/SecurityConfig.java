@@ -48,7 +48,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/v1/auth/session").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/v1/espacos/**", "/api/v1/ecossistema", "/api/v1/ecossistema/*/logo").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/duvidas").permitAll()
-                .requestMatchers("/confirmar", "/verificar-email").permitAll()
+                .requestMatchers("/confirmar", "/verificar-email", "/paineladm").permitAll()
                 .requestMatchers("/api/v1/dev/email-preview").permitAll()
                 .requestMatchers("/api/**").authenticated()
                 .anyRequest().permitAll())

@@ -11,6 +11,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.time.YearMonth;
 import java.util.ArrayList;
@@ -18,6 +19,7 @@ import java.util.List;
 
 @Service
 public class ReservaService {
+    private static final ZoneId ZONA_INPETU = ZoneId.of("America/Sao_Paulo");
     private final ReservaRepository reservas;
     private final EspacoRepository espacos;
     private final UsuarioRepository usuarios;
@@ -77,6 +79,8 @@ public class ReservaService {
         reserva.setHorarioFim(request.horarioFim());
         reserva.setIdEspaco(espaco.getIdEspaco());
         reserva.setQuantidadeParticipantes(request.quantidadeParticipantes());
+        reserva.setTelefoneContato(request.telefoneContato() == null || request.telefoneContato().isBlank()
+                ? null : request.telefoneContato().trim());
         reserva.setIdSolicitante(solicitante.getIdUsuario());
         reserva.setDataSolicitacao(solicitadaEm);
         double horasPedido = horas(request.horarioInicio(), request.horarioFim());
@@ -132,6 +136,8 @@ public class ReservaService {
         reserva.setHorarioFim(request.horarioFim());
         reserva.setIdEspaco(espaco.getIdEspaco());
         reserva.setQuantidadeParticipantes(request.quantidadeParticipantes());
+        reserva.setTelefoneContato(request.telefoneContato() == null || request.telefoneContato().isBlank()
+                ? null : request.telefoneContato().trim());
         reserva.setExcedeCota(excedeCota);
         if (excedeCota) {
             reserva.setStatusReserva("Pendente");
@@ -149,7 +155,7 @@ public class ReservaService {
     }
 
     @Transactional
-    public void cancelar(Integer id, String motivo, String email) {
+    public Reserva cancelar(Integer id, String motivo, String email) {
         if (motivo == null || motivo.isBlank())
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "O motivo do cancelamento é obrigatório.");
         Usuario responsavel = usuarioAtivo(email);
@@ -160,7 +166,7 @@ public class ReservaService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Você não pode cancelar esta reserva.");
         if ("Cancelada".equals(reserva.getStatusReserva()))
             throw new ResponseStatusException(HttpStatus.CONFLICT, "A reserva já foi cancelada.");
-        long diasAntecedencia = ChronoUnit.DAYS.between(LocalDate.now(), reserva.getDataReserva());
+        long diasAntecedencia = ChronoUnit.DAYS.between(LocalDate.now(ZONA_INPETU), reserva.getDataReserva());
         if (!equipe && diasAntecedencia < 15)
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     "O cancelamento pelo solicitante deve ser feito com pelo menos 15 dias de antecedência. Procure a equipe para solicitar uma exceção.");
@@ -181,6 +187,7 @@ public class ReservaService {
                 "A reserva \"" + reserva.getTituloEvento() + "\" para " + reserva.getDataReserva()
                         + " (" + reserva.getHorarioInicio() + "–" + reserva.getHorarioFim()
                         + ") foi cancelada. Motivo: " + motivo.trim());
+        return reserva;
     }
 
     @Transactional

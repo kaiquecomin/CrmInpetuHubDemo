@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.Optional;
 
 public interface EspacoRepository extends JpaRepository<Espaco, Integer> {
+    long countByAtivoTrue();
+
     List<Espaco> findByAtivoTrueOrderByNomeEspaco();
     List<Espaco> findAllByOrderByNomeEspaco();
     Optional<Espaco> findByNomeEspacoIgnoreCase(String nomeEspaco);

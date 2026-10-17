@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Collection;
 
 public interface ReservaRepository extends JpaRepository<Reserva, Integer> {
+    long countByStatusReserva(String statusReserva);
+
     @Query("select (count(r) > 0) from Reserva r where r.idEspaco = :espaco and r.dataReserva = :data and r.statusReserva in ('Confirmada', 'Pendente') and r.horarioInicio < :fim and r.horarioFim > :inicio")
     boolean existeConflito(@Param("espaco") Integer espaco, @Param("data") LocalDate data,
             @Param("inicio") LocalTime inicio, @Param("fim") LocalTime fim);

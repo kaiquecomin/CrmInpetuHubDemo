@@ -2,6 +2,7 @@ package com.inpetu.connect.controller;
 
 import com.inpetu.connect.dto.ReservaRequest;
 import com.inpetu.connect.dto.ReservaSolicitanteResumo;
+import com.inpetu.connect.dto.CancelamentoRequest;
 import com.inpetu.connect.model.Reserva;
 import com.inpetu.connect.repository.ReservaRepository;
 import com.inpetu.connect.service.ReservaService;
@@ -45,5 +46,25 @@ class ReservaControllerTest {
         assertFalse(java.util.Arrays.stream(ReservaSolicitanteResumo.class.getRecordComponents())
                 .anyMatch(component -> component.getName().equals("excedeCota")
                         || component.getName().equals("idPersona")));
+    }
+
+    @Test
+    void cancelamentoRetornaStatusAtualizadoEContatoDaReserva() {
+        ReservaService service = mock(ReservaService.class);
+        ReservaRepository repository = mock(ReservaRepository.class);
+        Authentication authentication = mock(Authentication.class);
+        Reserva reserva = new Reserva();
+        reserva.setIdReserva(15);
+        reserva.setIdSolicitante(7);
+        reserva.setStatusReserva("Cancelada");
+        reserva.setTelefoneContato("48999999999");
+        when(authentication.getName()).thenReturn("solicitante@example.test");
+        when(service.cancelar(15, "Mudança de agenda", "solicitante@example.test")).thenReturn(reserva);
+
+        ReservaSolicitanteResumo result = new ReservaController(service, repository).cancelar(15,
+                new CancelamentoRequest("Mudança de agenda"), authentication);
+
+        assertEquals("Cancelada", result.statusReserva());
+        assertEquals("48999999999", result.telefoneContato());
     }
 }

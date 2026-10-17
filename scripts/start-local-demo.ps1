@@ -52,6 +52,19 @@ function Set-TemporaryEnvironment([string] $name, [string] $value) {
     if ($secretNames -notcontains $name) { $script:secretNames += $name }
 }
 
+function New-TemporarySecret {
+    $bytes = [byte[]]::new(48)
+    $generator = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    try {
+        $generator.GetBytes($bytes)
+        return [Convert]::ToBase64String($bytes)
+    }
+    finally {
+        [Array]::Clear($bytes, 0, $bytes.Length)
+        $generator.Dispose()
+    }
+}
+
 try {
     foreach ($name in $managedSecretNames) {
         Remove-Item -Path "Env:$name" -ErrorAction SilentlyContinue
@@ -86,11 +99,9 @@ try {
     }
     Set-TemporaryEnvironment 'DEMO_ADMIN_PASSWORD' ([Environment]::GetEnvironmentVariable('INPETU_DEMO_PASSWORD_ADMIN', 'Process'))
 
-    $random = [byte[]]::new(48)
-    $generator = [System.Security.Cryptography.RandomNumberGenerator]::Create()
-    try { $generator.GetBytes($random) } finally { $generator.Dispose() }
-    Set-TemporaryEnvironment 'JWT_SECRET' ([Convert]::ToBase64String($random))
-    [Array]::Clear($random, 0, $random.Length)
+    Set-TemporaryEnvironment 'JWT_SECRET' (New-TemporarySecret)
+    Set-TemporaryEnvironment 'OTP_SECRET' (New-TemporarySecret)
+    Set-TemporaryEnvironment 'APP_RATE_LIMIT_SECRET' (New-TemporarySecret)
     Set-TemporaryEnvironment 'SPRING_PROFILES_ACTIVE' 'dev,demo'
 
     Push-Location $repoRoot

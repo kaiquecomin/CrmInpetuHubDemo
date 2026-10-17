@@ -78,12 +78,23 @@ public class AuthController {
     @PostMapping("/auth/logout")
     public ResponseEntity<Void> logout(HttpServletResponse response) {
         response.addHeader(HttpHeaders.SET_COOKIE, jwtCookie("", Duration.ZERO).toString());
+        response.addHeader(HttpHeaders.SET_COOKIE, ResponseCookie.from("inpetu-token", "")
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Strict")
+                .path("/api/v1")
+                .maxAge(Duration.ZERO)
+                .build().toString());
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/auth/session")
-    public Map<String, Object> session(Authentication authentication) {
+    public Map<String, Object> session(Authentication authentication, HttpServletResponse servletResponse) {
         Usuario cadastro = usuarios.findByEmailIgnoreCase(authentication.getName()).orElseThrow();
+        var user = users.loadUserByUsername(cadastro.getEmail());
+        servletResponse.addHeader(HttpHeaders.SET_COOKIE,
+                jwtCookie(jwt.gerar(user, cadastro.getVersaoToken() == null ? 0 : cadastro.getVersaoToken()),
+                        Duration.ofMillis(jwt.expirationMs())).toString());
         return sessionPayload(cadastro);
     }
 
@@ -92,7 +103,7 @@ public class AuthController {
             .httpOnly(true)
             .secure(true)
             .sameSite("Strict")
-            .path("/api/v1")
+            .path("/")
             .maxAge(maxAge)
             .build();
     }
@@ -139,6 +150,7 @@ public class AuthController {
         payload.put("nome", cadastro.getNomeCompleto());
         payload.put("perfil", cadastro.getIdPerfil());
         payload.put("email", cadastro.getEmail());
+        payload.put("telefone", cadastro.getTelefone());
         payload.put("idUsuario", cadastro.getIdUsuario());
         payload.put("senhaTemporaria", Boolean.TRUE.equals(cadastro.getSenhaTemporaria()));
         var foto = fotos.findById(cadastro.getIdUsuario()).orElse(null);

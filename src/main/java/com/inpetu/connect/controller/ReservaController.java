@@ -34,8 +34,9 @@ public class ReservaController {
     public Reserva registrarNegociacao(@PathVariable Integer id, @Valid @RequestBody NegociacaoCotaRequest request, Authentication auth) {
         return service.registrarNegociacao(id, request.observacao(), auth.getName());
     }
-    @DeleteMapping("/{id}/cancelar") public void cancelar(@PathVariable Integer id, @Valid @RequestBody CancelamentoRequest request, Authentication auth) {
-        service.cancelar(id, request.motivoCancelamento(), auth.getName());
+    @DeleteMapping("/{id}/cancelar") public ReservaSolicitanteResumo cancelar(@PathVariable Integer id,
+            @Valid @RequestBody CancelamentoRequest request, Authentication auth) {
+        return ReservaSolicitanteResumo.from(service.cancelar(id, request.motivoCancelamento(), auth.getName()));
     }
     @PostMapping("/{id}/aprovar") @PreAuthorize("hasAnyRole('COORDENADOR','GESTOR_ESPACOS')")
     public Reserva aprovar(@PathVariable Integer id, Authentication auth) { return service.aprovar(id, auth.getName()); }

@@ -11,5 +11,13 @@ public record ReservaRequest(
     @NotNull LocalTime horarioInicio,
     @NotNull LocalTime horarioFim,
     @NotNull Integer idEspaco,
-    @Min(1) Integer quantidadeParticipantes
-) {}
+    @Min(1) Integer quantidadeParticipantes,
+    @Size(max = 20) String telefoneContato
+) {
+    public ReservaRequest(String tituloEvento, String descricaoFinalidade, LocalDate dataReserva,
+            LocalTime horarioInicio, LocalTime horarioFim, Integer idEspaco,
+            Integer quantidadeParticipantes) {
+        this(tituloEvento, descricaoFinalidade, dataReserva, horarioInicio, horarioFim,
+                idEspaco, quantidadeParticipantes, null);
+    }
+}

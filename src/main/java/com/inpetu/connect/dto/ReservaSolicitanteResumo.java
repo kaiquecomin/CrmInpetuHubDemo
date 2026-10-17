@@ -17,12 +17,14 @@ public record ReservaSolicitanteResumo(
         String statusReserva,
         Integer idEspaco,
         Integer idSolicitante,
-        LocalDateTime dataSolicitacao) {
+        LocalDateTime dataSolicitacao,
+        String telefoneContato) {
 
     public static ReservaSolicitanteResumo from(Reserva reserva) {
         return new ReservaSolicitanteResumo(reserva.getIdReserva(), reserva.getTituloEvento(),
                 reserva.getDescricaoFinalidade(), reserva.getDataReserva(), reserva.getHorarioInicio(),
                 reserva.getHorarioFim(), reserva.getQuantidadeParticipantes(), reserva.getStatusReserva(),
-                reserva.getIdEspaco(), reserva.getIdSolicitante(), reserva.getDataSolicitacao());
+                reserva.getIdEspaco(), reserva.getIdSolicitante(), reserva.getDataSolicitacao(),
+                reserva.getTelefoneContato());
     }
 }

@@ -18,6 +18,7 @@ public class Reserva {
     @Column(name = "status_reserva", nullable = false, length = 30) private String statusReserva = "Pendente";
     @Column(name = "id_espaco", nullable = false) private Integer idEspaco;
     @Column(name = "id_solicitante", nullable = false) private Integer idSolicitante;
+    @Column(name = "telefone_contato", length = 20) private String telefoneContato;
     @Column(name = "data_solicitacao", nullable = false) private LocalDateTime dataSolicitacao = LocalDateTime.now();
     @Column(name = "id_usuario_aprovador") private Integer idUsuarioAprovador;
     @Column(name = "data_aprovacao") private LocalDateTime dataAprovacao;
