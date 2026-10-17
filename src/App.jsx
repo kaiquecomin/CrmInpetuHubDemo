@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Combobox, ComboboxInput, ComboboxOption, ComboboxOptions, Dialog, DialogPanel, DialogTitle, Menu, MenuButton, MenuItem, MenuItems, Tab, TabGroup, TabList, TabPanel, TabPanels, Transition, TransitionChild } from '@headlessui/react'
 import { ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, Bell, Building2, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, Clock3, DoorOpen, Download, Eye, EyeOff, ExternalLink, FileText, Filter, GraduationCap, Home as HomeIcon, LayoutDashboard, ListChecks, LockKeyhole, Mail, MapPin, Menu as MenuIcon, MessageCircle, MoreHorizontal, Plus, Search, ShieldCheck, SlidersHorizontal, Users, X } from 'lucide-react'
 import { personas, personaQuotaLabel } from './personas.js'
+import { formatRelativeNotificationDate, normalizeNotificationMessage } from './notifications.js'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1'
 const omitPersona = user => {
@@ -17,6 +18,29 @@ const clearStoredUser = () => localStorage.removeItem('inpetu-user')
 const isCrmUser = user => [1, 2, 3].includes(Number(user?.perfil ?? user?.idPerfil))
 const LOGIN_RETURN_VIEW_KEY = 'inpetu-login-return-view'
 const internalViews = new Set(['calendar', 'reservations'])
+const routeViews = {
+  '/meu-portal': 'portal',
+  '/minhas-reservas': 'reservations',
+  '/agendar': 'calendar',
+  '/login': 'access',
+  '/cadastro': 'signup',
+  '/contato': 'help',
+}
+const viewPaths = {
+  home: '/?view=home',
+  portal: '/meu-portal',
+  reservations: '/minhas-reservas',
+  calendar: '/agendar',
+  access: '/login',
+  signup: '/cadastro',
+  help: '/contato',
+  'password-change': '/?view=password-change',
+  crm: '/?legacyAdmin=1',
+}
+const getDefaultView = () => {
+  const storedUser = getStoredUser()
+  return storedUser?.senhaTemporaria ? 'password-change' : storedUser ? (isCrmUser(storedUser) ? 'crm' : 'portal') : 'home'
+}
 const rememberLoginDestination = view => {
   if (internalViews.has(view)) sessionStorage.setItem(LOGIN_RETURN_VIEW_KEY, view)
 }
@@ -280,6 +304,12 @@ function RoomPhoto({ space, alt, className = '' }) {
     }}
   />
 }
+const notificationIcons = {
+  RESERVA_CRIADA: CalendarDays,
+  RESERVA_APROVADA: Check,
+  RESERVA_CANCELADA: X,
+  COTA_EXCEDIDA: CircleHelp,
+}
 function NotificationCenter({ user }) {
   const [items, setItems] = useState([])
   const [open, setOpen] = useState(false)
@@ -346,10 +376,15 @@ function NotificationCenter({ user }) {
     {open && <section className="notification-popover" aria-label="Notificações">
       <div className="notification-heading"><strong>Notificações</strong><div><button type="button" onClick={markAllRead} disabled={!unread}>Marcar todas como lidas</button><button type="button" className="notification-close" aria-label="Fechar notificações" onClick={() => setOpen(false)}><X size={16} /></button></div></div>
       {error && <p className="notification-error" role="alert">{error}</p>}
-      {items.length ? <div className="notification-list">{items.slice(0, 12).map(item => <button type="button" key={item.idNotificacao} className={`notification-item ${item.lida ? '' : 'notification-unread'}`} onClick={() => markRead(item)}>
-        <span><strong>{item.titulo}</strong><small>{item.mensagem}</small><time>{new Date(item.dataHora).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</time>{item.statusEmail !== 'ENVIADO' && <em>E-mail {item.statusEmail === 'DESATIVADO' ? 'desativado' : 'não enviado , verifique a configuração SMTP'}</em>}</span>
+      {items.length ? <div className="notification-list">{items.slice(0, 12).map(item => {
+        const Icon = notificationIcons[item.tipo] || Bell
+        const typeClass = String(item.tipo || 'geral').toLocaleLowerCase('pt-BR').replaceAll('_', '-')
+        return <button type="button" key={item.idNotificacao} className={`notification-item ${item.lida ? '' : 'notification-unread'}`} onClick={() => markRead(item)}>
+        <span className={`notification-type-icon notification-type-${typeClass}`} aria-hidden="true"><Icon size={18} /></span>
+        <span><strong>{item.titulo}</strong><small>{normalizeNotificationMessage(item.mensagem)}</small><time dateTime={item.dataHora} title={new Date(item.dataHora).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}>{formatRelativeNotificationDate(item.dataHora)}</time>{item.statusEmail !== 'ENVIADO' && <em>E-mail {item.statusEmail === 'DESATIVADO' ? 'desativado' : 'não enviado: verifique a configuração de envio'}</em>}</span>
         {!item.lida && <i aria-label="Não lida" />}
-      </button>)}</div> : <p className="notification-empty">Você não tem notificações.</p>}
+      </button>
+      })}</div> : <p className="notification-empty">Você não tem notificações.</p>}
     </section>}
   </div>
 }
@@ -710,7 +745,7 @@ function RoomGallery({ space, onClose, onConsultSpace }) {
         </button>)}
       </div>}
       <div className="room-gallery-caption">
-        <div><small>{space.tipoEspaco}</small><Title as="h3" emoji="✨">{space.nomeEspaco}</Title><p>Capacidade para até {space.capacidadePessoas || ','} pessoas</p></div>
+        <div><small>{space.tipoEspaco}</small><Title as="h3" emoji="✨">{space.nomeEspaco}</Title><p>{space.capacidadePessoas ? `Capacidade para até ${space.capacidadePessoas} pessoas` : 'Capacidade não informada'}</p></div>
         <Button icon={CalendarDays} onClick={() => { onClose(); onConsultSpace(space) }}>Ver horários</Button>
       </div>
     </div>
@@ -767,7 +802,7 @@ function Home({ spaces, spacesLoaded, onConsultSpace, onSearchAvailability, onOp
       </div>
       <div className="reference-hero-images">
         {heroSpace && <RoomPhoto key={heroSpace.idEspaco} className="reference-hero-photo" space={heroSpace} alt={`Foto de ${heroSpace.nomeEspaco}`} />}
-        <div className="hero-image-note"><span><Building2 size={18} /></span><div><strong>{heroSpace?.nomeEspaco || 'Seu próximo encontro começa aqui'}</strong><small>Até {heroSpace?.capacidadePessoas || ','} pessoas · InPETU Hub</small></div></div>
+        <div className="hero-image-note"><span><Building2 size={18} /></span><div><strong>{heroSpace?.nomeEspaco || 'Seu próximo encontro começa aqui'}</strong><small>{heroSpace?.capacidadePessoas ? `Até ${heroSpace.capacidadePessoas} pessoas · InPETU Hub` : 'Consulte nossos ambientes no InPETU Hub'}</small></div></div>
         {showcaseSpaces.length > 1 && <div className="hero-image-controls">
           <span>{String(heroIndex + 1).padStart(2, '0')} <i /> {String(showcaseSpaces.length).padStart(2, '0')}</span>
           <button type="button" onClick={() => setHeroIndex(index => (index - 1 + showcaseSpaces.length) % showcaseSpaces.length)} aria-label="Espaço anterior"><ChevronLeft size={18} /></button>
@@ -1401,6 +1436,8 @@ function CalendarPage({ spaces, spacesLoaded, onReserve, initialDate, initialKin
 }
 function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, setReservations }) {
   const [section, setSection] = useState('Visão geral')
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const [profileDetailsOpen, setProfileDetailsOpen] = useState(false)
   const [dashboardDate, setDashboardDate] = useState(localDateValue())
@@ -1456,6 +1493,13 @@ function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, set
   const [auditQuery, setAuditQuery] = useState('')
   const [auditActionFilter, setAuditActionFilter] = useState('Todas')
   const nav = [{ name: 'Visão geral', icon: LayoutDashboard }, { name: 'Reservas', icon: CalendarDays }, { name: 'Cadastros', icon: Users }, { name: 'Espaços', icon: DoorOpen }, { name: 'Atendimento', icon: CircleHelp }, { name: 'Auditoria', icon: ListChecks }, ...(user?.perfil === 1 ? [{ name: 'Equipe', icon: ShieldCheck }] : [])]
+  function toggleSidebar() {
+    if (window.matchMedia?.('(max-width: 720px)').matches) {
+      setMobileSidebarOpen(open => !open)
+      return
+    }
+    setSidebarCollapsed(collapsed => !collapsed)
+  }
   const notify = text => { setToast(text); window.setTimeout(() => setToast(''), 3200) }
   useEffect(() => {
     if (!user) return
@@ -1944,8 +1988,8 @@ function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, set
   )
   const auditActions = [...new Set(auditItems.map(item => item.action))]
   if (!user) return <div className="crm-login"><div className="crm-login-visual"><Logo inverse /><div><Title as="h1" emoji="👋">O ecossistema,<br /><em>em movimento.</em></Title><p>Gestão inteligente dos encontros e espaços do Lote 73.</p><div className="crm-location"><MapPin size={17} />Sapiens Parque · Florianópolis</div></div><small>AMBIENTE DE GESTÃO INTERNA</small></div><div className="crm-login-form"><button type="button" className="crm-return-home" onClick={onReturnHome}><ArrowLeft size={16} /> Voltar ao site inicial</button><Title as="h2" emoji="👋">Acesso ao painel</Title><p>Entre com sua conta da equipe para gerenciar reservas, espaços e cadastros.</p><LoginInline onLogin={setUser} /></div></div>
-  return <div className="crm-layout"><aside className="crm-sidebar"><button className="crm-logo-button" onClick={() => setSection('Visão geral')}><Logo /></button><div className="workspace-label">ESPAÇO DE TRABALHO</div><nav className="crm-nav">{nav.map(({ name, icon: Icon }) => <button key={name} className={section === name ? 'crm-nav-active' : ''} onClick={() => setSection(name)}><Icon size={18} /><span>{name}</span>{name === 'Reservas' && pending.length > 0 && <b>{pending.length}</b>}</button>)}</nav><div className="sidebar-spacer" /><button type="button" className="crm-return-home crm-sidebar-return" onClick={onReturnHome}><HomeIcon size={16} /> Voltar ao site inicial</button><div className="sidebar-help"><span><CircleHelp size={17} /></span><strong>Chamados de usuários</strong><small>Acompanhe e responda pedidos de suporte.</small><button onClick={() => { setSection('Atendimento'); setSelectedTicket(pendingQuestions[0] || tickets[0] || null) }}>Abrir chamados <ArrowRight size={14} /></button></div><Menu as="div" className="crm-profile-menu"><MenuButton type="button" className="profile-button"><Avatar user={user} tamanho={38} /><span><strong>{user.nome || 'Equipe InPETU'}</strong><small>{user.perfil === 1 ? 'Coordenador' : user.perfil === 2 ? 'Gestor de espaços' : 'Atendimento'}</small></span><MoreHorizontal size={18} aria-hidden="true" /></MenuButton><MenuItems className="crm-profile-menu-items"><MenuItem><button type="button" onClick={onReturnHome}><HomeIcon size={15} /> Voltar ao site</button></MenuItem><MenuItem><button type="button" onClick={logout}><DoorOpen size={15} /> Sair da conta</button></MenuItem></MenuItems></Menu></aside>
-    <main className="crm-main"><header className="crm-topbar"><div className="breadcrumbs"><span>InPETU Connect</span><span>/</span><strong>{section}</strong></div><label className="global-search"><Search size={16} /><input placeholder="Buscar em tudo" value={search} onChange={e => setSearch(e.target.value)} /><kbd>⌘ K</kbd></label><NotificationCenter user={user} /><button type="button" className="crm-icon" aria-label="Ajuda" onClick={() => setHelpOpen(true)}><CircleHelp size={18} /></button><Menu as="div" className="crm-topbar-profile"><MenuButton type="button" className="crm-avatar" aria-label={`Perfil de ${user.nome || 'usuário'}`}><Avatar user={user} tamanho={36} /></MenuButton><MenuItems className="crm-profile-menu-items crm-topbar-profile-items"><MenuItem><button type="button" onClick={() => setProfileDetailsOpen(true)}>Meu perfil</button></MenuItem><MenuItem><button type="button" onClick={onReturnHome}><HomeIcon size={15} /> Voltar ao site</button></MenuItem><MenuItem><button type="button" onClick={logout}><DoorOpen size={15} /> Sair da conta</button></MenuItem></MenuItems></Menu></header>
+  return <div className={`crm-layout ${sidebarCollapsed ? 'crm-sidebar-collapsed' : ''} ${mobileSidebarOpen ? 'crm-mobile-sidebar-open' : ''}`}><button type="button" className="crm-sidebar-backdrop" aria-label="Fechar menu lateral" onClick={() => setMobileSidebarOpen(false)} /><aside className="crm-sidebar"><button type="button" className="crm-logo-button" aria-label={'Vis\u00e3o geral'} onClick={() => setSection('Visão geral')}><Logo /></button><div className="workspace-label">ESPAÇO DE TRABALHO</div><nav className="crm-nav">{nav.map(({ name, icon: Icon }) => <button type="button" key={name} aria-label={name} className={section === name ? 'crm-nav-active' : ''} onClick={() => { setSection(name); setMobileSidebarOpen(false) }} ><Icon size={18} /><span>{name}</span>{name === 'Reservas' && pending.length > 0 && <b>{pending.length}</b>}</button>)}</nav><div className="sidebar-spacer" /><button type="button" className="crm-return-home crm-sidebar-return" aria-label="Voltar ao site inicial" onClick={onReturnHome}><HomeIcon size={16} /> Voltar ao site inicial</button><div className="sidebar-help"><span><CircleHelp size={17} /></span><strong>Chamados de usuários</strong><small>Acompanhe e responda pedidos de suporte.</small><button onClick={() => { setSection('Atendimento'); setSelectedTicket(pendingQuestions[0] || tickets[0] || null) }}>Abrir chamados <ArrowRight size={14} /></button></div><Menu as="div" className="crm-profile-menu"><MenuButton type="button" className="profile-button" aria-label={`Perfil de ${user.nome || 'Equipe InPETU'}`}><Avatar user={user} tamanho={38} /><span><strong>{user.nome || 'Equipe InPETU'}</strong><small>{user.perfil === 1 ? 'Coordenador' : user.perfil === 2 ? 'Gestor de espaços' : 'Atendimento'}</small></span><MoreHorizontal size={18} aria-hidden="true" /></MenuButton><MenuItems className="crm-profile-menu-items"><MenuItem><button type="button" onClick={onReturnHome}><HomeIcon size={15} /> Voltar ao site</button></MenuItem><MenuItem><button type="button" onClick={logout}><DoorOpen size={15} /> Sair da conta</button></MenuItem></MenuItems></Menu></aside>
+    <main className="crm-main"><header className="crm-topbar"><button type="button" className="crm-sidebar-toggle" aria-label="Alternar menu lateral" aria-expanded={window.matchMedia?.('(max-width: 720px)').matches ? mobileSidebarOpen : !sidebarCollapsed} onClick={toggleSidebar}><MenuIcon size={19} /></button><div className="breadcrumbs"><span>InPETU Connect</span><span>/</span><strong>{section}</strong></div><label className="global-search"><Search size={16} /><input placeholder="Buscar em tudo" value={search} onChange={e => setSearch(e.target.value)} /><kbd>⌘ K</kbd></label><NotificationCenter user={user} /><button type="button" className="crm-icon" aria-label="Ajuda" onClick={() => setHelpOpen(true)}><CircleHelp size={18} /></button><Menu as="div" className="crm-topbar-profile"><MenuButton type="button" className="crm-avatar" aria-label={`Perfil de ${user.nome || 'usuário'}`}><Avatar user={user} tamanho={36} /></MenuButton><MenuItems className="crm-profile-menu-items crm-topbar-profile-items"><MenuItem><button type="button" onClick={() => setProfileDetailsOpen(true)}>Meu perfil</button></MenuItem><MenuItem><button type="button" onClick={onReturnHome}><HomeIcon size={15} /> Voltar ao site</button></MenuItem><MenuItem><button type="button" onClick={logout}><DoorOpen size={15} /> Sair da conta</button></MenuItem></MenuItems></Menu></header>
       <Modal open={helpOpen} close={() => setHelpOpen(false)} title="Ajuda do painel"><p className="access-intro">Use o menu lateral para acessar visão geral, reservas, cadastros, espaços, atendimento e auditoria.</p><p className="access-intro">Para consultar dúvidas enviadas pelos usuários e responder chamados, abra a área de Atendimento.</p><Button onClick={() => { setSection('Atendimento'); setHelpOpen(false) }}>Abrir atendimento <ArrowRight size={16} /></Button></Modal>
       <ProfileDialog open={profileDetailsOpen} close={() => setProfileDetailsOpen(false)} user={user} onUserUpdate={updated => { const next = omitPersona({ ...user, ...updated }); storeUser(next); setUser(next); setStaff(items => items.map(person => person.idUsuario === next.idUsuario ? { ...person, ...updated } : person)); setClientUsers(items => items.map(person => person.idUsuario === next.idUsuario ? { ...person, ...updated } : person)) }} />
       <div className="crm-content">{crmDataError && <div className="form-message" role="alert">{crmDataError}</div>}{section === 'Visão geral' && <><div className="crm-greeting"><div><Title as="h1" emoji="👋">Bom dia, {user.nome?.split(' ')[0] || 'equipe'} {isDashboardToday && <span>☀</span>}</Title><p>{isDashboardToday ? 'O Lote 73 está em movimento. Veja o que precisa de atenção.' : 'Visualizando reservas e ocupação desta data.'}</p></div><div className="date-navigation" aria-label="Navegação da agenda"><button type="button" className="date-step" aria-label="Dia anterior" onClick={() => shiftDashboardDate(-1)}><ChevronLeft size={16} /></button><label className="date-button"><CalendarDays size={16} /><span>{isDashboardToday ? 'Hoje · ' : ''}{selectedDay.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')}</span><input aria-label="Selecionar data da agenda" type="date" value={dashboardDate} onChange={event => setDashboardDate(event.target.value)} /></label><button type="button" className="date-step" aria-label="Próximo dia" onClick={() => shiftDashboardDate(1)}><ChevronRight size={16} /></button>{!isDashboardToday && <button type="button" className="date-today" onClick={() => setDashboardDate(todayKey)}>Hoje</button>}</div></div><div className="kpi-grid"><Kpi icon={CalendarDays} label="Reservas no dia" value={String(selectedReservations.length).padStart(2, '0')} change={`${occupiedSpaces.size} espaços com agenda nesta data`} accent="mint" /><Kpi icon={Clock3} label="Aguardando aprovação" value={String(pending.length).padStart(2, '0')} change="Precisam da sua atenção" accent="yellow" /><Kpi icon={DoorOpen} label="Ocupação do Lote 73" value={`${occupancyRate}%`} change={`${occupiedSpaces.size} de ${activeSpaces.length} espaços ocupados nesta data`} accent="blue" /><Kpi icon={MessageCircle} label="Dúvidas em aberto" value={String(pendingQuestions.length).padStart(2, '0')} change={`${tickets.length} chamados recebidos`} accent="coral" /></div><div className="dashboard-columns"><section className="crm-panel conflict-panel"><div className="panel-heading"><div><Title as="h2" emoji="👋">Solicitações pendentes <span className="heading-count">{selectedPending.length}</span></Title></div><button className="subtle-action" onClick={() => setSection('Reservas')}>Ver todas <ArrowRight size={15} /></button></div>{selectedPending.length ? selectedPending.map(item => <div className="conflict-card" key={item.idReserva}><div className="conflict-card-top"><span className="conflict-icon"><CalendarDays size={16} /></span><span className="conflict-date">{new Date(`${item.dataReserva}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '').toUpperCase()} · {item.horarioInicio}-{item.horarioFim}</span><span className="pending-indicator">EM ANÁLISE</span></div><strong>{item.tituloEvento}</strong><div className="conflict-meta"><span>{item.espaco}</span><span className="meta-dot" />{item.solicitante}</div>{item.telefoneContato && <small className="reservation-contact-inline">Contato: {formatBrazilianPhone(item.telefoneContato)}</small>}<div className="conflict-actions"><button className="decision-button" disabled={approvingReservationId !== null} onClick={() => approve(item)}><Check size={15} /> {approvingReservationId === item.idReserva ? 'Aprovando...' : 'Aprovar solicitação'}</button><button className="decision-secondary" onClick={() => notify('Solicite um motivo antes de recusar esta reserva.')}>Recusar</button></div></div>) : <div className="empty-inline"><Check size={18} />Nenhuma solicitação pendente nesta data.</div>}</section><section className="crm-panel today-panel"><div className="panel-heading"><div><Title as="h2" emoji="👋">Agenda do dia</Title></div><button className="icon-button" onClick={() => setSection('Reservas')} aria-label="Abrir agenda"><ArrowUpRight size={18} /></button></div>  <div className="day-timeline">{selectedReservations.map(item => <div className="timeline-event" key={item.idReserva}><span>{item.horarioInicio}</span><i className={`timeline-mark ${item.statusReserva === 'Pendente' ? 'pendente' : ''}`} /><div><strong>{item.tituloEvento}</strong><small>{item.espaco || 'Espaço InPETU'} · {item.statusReserva}</small></div></div>)}{selectedReservations.length === 0 && <div className="empty-inline">Nenhuma reserva nesta data.</div>}</div><button className="full-width-link" onClick={() => setSection('Reservas')}>Abrir agenda completa <ArrowRight size={15} /></button></section></div><section className="crm-panel recent-panel"><div className="panel-heading"><div><Title as="h2" emoji="👋">Cadastros recentes</Title></div><button className="subtle-action" onClick={() => setSection('Cadastros')}>Gerenciar cadastros <ArrowRight size={15} /></button></div><table className="data-table"><thead><tr><th>Organização</th><th>Contato principal</th><th>Cadastro</th><th>Classificação</th><th /></tr></thead><tbody>{partners.slice(0, 3).map(p => <tr key={p.id}><td><strong>{p.name}</strong><small>{p.email}</small></td><td>{p.contact}</td><td>Hoje · 09:42</td><td>{p.persona ? 'Classificado' : 'Aguardando classificação'}</td><td><button className="table-more" onClick={() => setClientProfile(clientUsers.find(person => person.idUsuario === p.userId) || null)}><MoreHorizontal size={19} /></button></td></tr>)}</tbody></table></section></>}
@@ -2107,7 +2151,7 @@ function ClientProfileDialog({ client, reservations, tickets, auditItems, close,
   const hours = monthlyQuotaUsed(reservations, client.idUsuario)
   const personaChanged = Boolean(personaValue) && Number(personaValue) !== Number(client.idPersona || 0)
   const fields = [
-    ['E-mail', form.email || ','],
+    ['E-mail', form.email || 'Não informado'],
     ['Telefone / WhatsApp', form.telefone || 'Não informado'],
     ['Organização', form.organizacao || 'Não informada'],
     ['Vínculo / cargo', form.cargoVinculo || 'Não informado'],
@@ -2224,12 +2268,16 @@ function ClientProfileDialog({ client, reservations, tickets, auditItems, close,
   </Modal>
 }
 function Footer({ setView }) { return <footer className="site-footer"><div className="footer-main"><div><Logo inverse /><p>Espaço para ideias. Conexões para transformar.</p></div><div className="footer-links"><span>EXPLORE</span><button onClick={() => setView('home')}>Espaços</button><button onClick={() => setView('calendar')}>Disponibilidade</button><button onClick={() => setView('help')}>Fale conosco</button></div><div className="footer-address"><span>ENCONTRE A GENTE</span><p><MapPin size={15} /> Sapiens Parque · Lote 73<br />Rod. SC-401, 6001 · Florianópolis, SC</p><a href="https://maps.google.com/?q=Sapiens+Parque+Florianopolis" target="_blank" rel="noreferrer">Abrir mapa <ExternalLink size={13} /></a></div></div><div className="footer-bottom"><span>© 2026 InPETU Hub · UFSC</span><span><ShieldCheck size={14} /> Seus dados tratados com transparência, conforme a LGPD.</span><span>Ciência que aproxima. <span className="footer-heart">✳</span></span></div></footer> }
-function AppInner({ onCodeSent, initialView = 'home' }) {
-  const [view, setView] = useState(() => {
-    if (initialView !== 'home') return initialView
-    const storedUser = getStoredUser()
-    return storedUser?.senhaTemporaria ? 'password-change' : storedUser ? (isCrmUser(storedUser) ? 'crm' : 'portal') : 'home'
-  })
+function AppInner({ onCodeSent, onNavigate, initialView = 'default' }) {
+  const [view, setCurrentView] = useState(() => initialView === 'default' ? getDefaultView() : initialView)
+  useEffect(() => {
+    setCurrentView(initialView === 'default' ? getDefaultView() : initialView)
+  }, [initialView])
+  function setView(nextView) {
+    setCurrentView(nextView)
+    const path = viewPaths[nextView]
+    if (path) onNavigate(path)
+  }
   const [spaces, setSpaces] = useState([])
   const [spacesLoaded, setSpacesLoaded] = useState(false)
   const [reservations, setReservations] = useState([])
@@ -2409,9 +2457,9 @@ function AppInner({ onCodeSent, initialView = 'home' }) {
       <Header view={view} setView={setView} openLogin={() => setView('access')} onOpenCalendar={openCalendar} user={user} onLogout={logout} onUserUpdate={updateCurrentUser} />
       {dataError && <p className="form-message" role="alert">{dataError} Atualize a página para tentar novamente.</p>}
       {view === 'home' && <Home spaces={spaces} spacesLoaded={spacesLoaded} onConsultSpace={showSpaceAvailability} setSignupOpen={() => setView('signup')} onOpenCalendar={openCalendar} onSearchAvailability={(date, kind) => { setCalendarQuery({ date, kind, spaceId: '' }); setView('calendar'); window.scrollTo({ top: 0, behavior: 'smooth' }) }} />}
-      {view === 'portal' && user && <PortalHome user={user} items={myReservations} reservationsLoaded={myReservationsLoaded} onOpenCalendar={openCalendar} onOpenReservations={() => setView('reservations')} />}
+      {view === 'portal' && user ? <PortalHome user={user} items={myReservations} reservationsLoaded={myReservationsLoaded} onOpenCalendar={openCalendar} onOpenReservations={() => setView('reservations')} /> : view === 'portal' && <AccessPage onLogin={completeLogin} onSignup={() => setView('signup')} />}
       {view === 'calendar' && <CalendarPage spaces={spaces} spacesLoaded={spacesLoaded} onReserve={openBooking} initialDate={calendarQuery.date || localDateValue()} initialKind={calendarQuery.kind} initialSpaceId={calendarQuery.spaceId} availabilityVersion={availabilityVersion} />}
-      {view === 'reservations' && <ReservationsPage items={myReservations} onCancel={updateCancel} />}
+      {view === 'reservations' && user ? <ReservationsPage items={myReservations} onCancel={updateCancel} /> : view === 'reservations' && <AccessPage onLogin={completeLogin} onSignup={() => setView('signup')} />}
       {view === 'help' && <HelpPage />}
       {view === 'access' && <AccessPage onLogin={completeLogin} onSignup={() => setView('signup')} />}
       {view === 'signup' && <SignupPage onBack={() => setView('access')} onCodeSent={onCodeSent} />}
@@ -2425,9 +2473,12 @@ export default function App() {
   const readLocation = () => {
     const params = new URLSearchParams(window.location.search)
     const requestedView = params.get('view')
+    const pathname = window.location.pathname.replace(/\/+$/, '') || '/'
     return {
-      pathname: window.location.pathname.replace(/\/+$/, '') || '/',
-      view: params.get('legacyAdmin') === '1' ? 'crm' : ['signup', 'access'].includes(requestedView) ? requestedView : 'home',
+      pathname,
+      view: params.get('legacyAdmin') === '1'
+        ? 'crm'
+        : routeViews[pathname] || (pathname === '/' && ['home', 'portal', 'reservations', 'calendar', 'signup', 'access', 'help', 'password-change'].includes(requestedView) ? requestedView : 'default'),
     }
   }
   const [location, setLocation] = useState(readLocation)
@@ -2451,7 +2502,7 @@ export default function App() {
       onConfirmed={() => navigate('/', true)}
     />
   }
-  return <AppInner initialView={location.view} onCodeSent={email => {
+  return <AppInner initialView={location.view} onNavigate={navigate} onCodeSent={email => {
     sessionStorage.setItem('inpetu-code-email', email)
     sessionStorage.setItem('inpetu-code-sent-at', String(Date.now()))
     navigate('/verificar-email')

@@ -125,6 +125,70 @@ body {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.public-app .portal-home {
+  max-width: 1160px;
+}
+
+.public-app .portal-welcome {
+  margin: 8px 0 24px;
+  padding: clamp(24px, 4vw, 40px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: linear-gradient(120deg, var(--color-brand-soft), var(--color-surface) 72%);
+  box-shadow: var(--shadow-card);
+}
+
+.public-app .portal-welcome h1 {
+  font-size: clamp(30px, 4vw, 42px);
+}
+
+.public-app .portal-summary-grid {
+  gap: 18px;
+}
+
+.public-app .portal-summary-card,
+.public-app .portal-upcoming {
+  border-color: var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.public-app .portal-summary-card {
+  min-height: 170px;
+  padding: 24px;
+}
+
+.public-app .portal-summary-card > strong {
+  font-size: 36px;
+}
+
+.public-app .portal-upcoming {
+  padding: clamp(20px, 3vw, 32px);
+}
+
+.public-app .portal-section-heading h2 {
+  font-size: clamp(22px, 2.4vw, 28px);
+}
+
+.public-app .portal-upcoming-list article {
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+}
+
+.public-app .portal-date {
+  min-width: 52px;
+  border-radius: var(--radius-control);
+  background: var(--color-brand-soft);
+}
+
+.public-app .portal-empty {
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-muted);
+}
+
 [data-reveal] {
   opacity: 0;
   transform: translateY(16px);
@@ -179,5 +243,346 @@ body {
   [data-reveal] {
     opacity: 1;
     transform: none;
+  }
+}
+
+.crm-layout {
+  color: var(--color-text);
+  background: var(--color-background);
+}
+
+.crm-sidebar {
+  background: var(--color-brand-strong);
+  border-color: rgb(255 255 255 / 12%);
+  transition: width 220ms ease, padding 220ms ease, transform 220ms ease;
+}
+
+.crm-layout .crm-nav button {
+  min-height: 44px;
+  border-radius: var(--radius-control);
+  color: rgb(255 255 255 / 82%);
+}
+
+.crm-layout .crm-nav button:hover,
+.crm-layout .crm-nav button.crm-nav-active {
+  background: rgb(255 255 255 / 12%);
+  color: var(--color-surface);
+}
+
+.crm-layout .crm-nav button.crm-nav-active {
+  border-left-color: var(--color-brand-soft);
+}
+
+.crm-layout .workspace-label,
+.crm-layout .sidebar-help small,
+.crm-layout .sidebar-help strong,
+.crm-layout .crm-profile-menu .profile-button {
+  color: rgb(255 255 255 / 78%);
+}
+
+.crm-layout .crm-profile-menu .profile-button:hover,
+.crm-layout .crm-profile-menu .profile-button:focus-visible {
+  background: rgb(255 255 255 / 10%);
+}
+
+.crm-sidebar-collapsed .crm-sidebar {
+  width: 76px;
+  padding-right: 10px;
+  padding-left: 10px;
+}
+
+.crm-sidebar-collapsed .crm-main {
+  margin-left: 76px;
+}
+
+.crm-sidebar-collapsed .workspace-label,
+.crm-sidebar-collapsed .sidebar-help,
+.crm-sidebar-collapsed .crm-logo-button .brand > span:last-child,
+.crm-sidebar-collapsed .crm-sidebar-return,
+.crm-sidebar-collapsed .crm-profile-menu .profile-button > span {
+  display: none;
+}
+
+.crm-sidebar-collapsed .crm-logo-button,
+.crm-sidebar-collapsed .crm-nav button,
+.crm-sidebar-collapsed .crm-profile-menu .profile-button {
+  justify-content: center;
+}
+
+.crm-sidebar-collapsed .crm-nav button {
+  position: relative;
+  padding: 0;
+}
+
+.crm-layout .crm-main {
+  min-width: 0;
+  background: var(--color-background);
+  transition: margin-left 220ms ease;
+}
+
+.crm-layout .crm-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  min-height: 68px;
+  border-bottom-color: var(--color-border);
+  background: rgb(255 255 255 / 96%);
+  backdrop-filter: blur(14px);
+}
+
+.crm-sidebar-toggle {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.crm-sidebar-backdrop {
+  display: none;
+}
+
+.crm-sidebar-toggle:hover {
+  background: var(--color-brand-soft);
+  color: var(--color-brand);
+}
+
+.notification-popover {
+  width: min(420px, calc(100vw - 24px));
+  border-color: var(--color-border);
+  border-radius: var(--radius-card);
+  color: var(--color-text);
+  box-shadow: var(--shadow-panel);
+}
+
+.notification-heading,
+.notification-item {
+  border-color: var(--color-border);
+}
+
+.notification-item {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) 8px;
+  align-items: start;
+  gap: 12px;
+  color: var(--color-text);
+}
+
+.notification-item > span:nth-child(2) {
+  min-width: 0;
+}
+
+.notification-item:hover,
+.notification-unread {
+  background: var(--color-surface-muted);
+}
+
+.notification-item small {
+  overflow-wrap: anywhere;
+  color: var(--color-text);
+}
+
+.notification-item time {
+  color: var(--color-text-muted);
+}
+
+.notification-type-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-control);
+  background: var(--color-brand-soft);
+  color: var(--color-brand);
+}
+
+.notification-type-reserva-aprovada {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+.notification-type-reserva-cancelada {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.notification-type-cota-excedida {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+.crm-layout .crm-content {
+  max-width: 1560px;
+  padding: clamp(24px, 4vw, 48px);
+  color: var(--color-text);
+}
+
+.crm-layout .crm-title-row h1,
+.crm-layout .crm-greeting h1 {
+  color: var(--color-text);
+  font-size: clamp(28px, 3vw, 38px);
+}
+
+.crm-layout .crm-title-row p,
+.crm-layout .crm-greeting p {
+  color: var(--color-text-muted);
+}
+
+.crm-layout .kpi-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.crm-layout .crm-panel,
+.crm-layout .kpi-card {
+  border-color: var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.crm-layout .kpi-label,
+.crm-layout .kpi-card > small,
+.crm-layout .data-table th,
+.crm-layout .data-table td,
+.crm-layout .crm-title-row p {
+  color: var(--color-text-muted);
+}
+
+.crm-layout .kpi-value,
+.crm-layout .data-table td strong,
+.crm-layout .panel-heading h2,
+.crm-layout .crm-res-main > strong {
+  color: var(--color-text);
+}
+
+.crm-layout .button-primary,
+.crm-layout .decision-button {
+  background: var(--color-brand);
+  color: var(--color-surface);
+}
+
+.crm-layout .button-primary:hover:not(:disabled),
+.crm-layout .decision-button:hover:not(:disabled) {
+  background: var(--color-brand-strong);
+}
+
+.crm-layout :is(.table-action, .subtle-action, .full-width-link) {
+  color: var(--color-brand);
+}
+
+.crm-layout .data-table {
+  min-width: 760px;
+}
+
+.crm-layout .crm-panel:has(.data-table) {
+  overflow-x: auto;
+}
+
+.crm-layout :is(.crm-panel, .kpi-card, .crm-icon, .decision-button, .decision-secondary):focus-visible {
+  outline-color: var(--color-brand);
+}
+
+@media (max-width: 900px) {
+  .crm-layout .crm-content {
+    padding: 24px;
+  }
+}
+
+@media (max-width: 720px) {
+  .crm-layout.crm-mobile-sidebar-open .crm-sidebar-backdrop {
+    position: fixed;
+    z-index: 110;
+    inset: 0;
+    display: block;
+    border: 0;
+    background: rgb(18 59 52 / 40%);
+  }
+
+  .crm-layout .crm-sidebar {
+    position: fixed;
+    z-index: 120;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 236px;
+    transform: translateX(-105%);
+  }
+
+  .crm-layout.crm-mobile-sidebar-open .crm-sidebar {
+    transform: translateX(0);
+    box-shadow: var(--shadow-panel);
+  }
+
+  .crm-layout .crm-main,
+  .crm-sidebar-collapsed .crm-main {
+    margin-left: 0;
+  }
+
+  .crm-layout .crm-topbar {
+    min-height: 64px;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 10px 16px;
+  }
+
+  .crm-layout .global-search {
+    order: 5;
+    flex: 1 0 100%;
+  }
+
+  .crm-layout .crm-content {
+    padding: 20px 16px 36px;
+  }
+
+  .crm-layout .crm-title-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .crm-layout .dashboard-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .public-app .portal-welcome {
+    gap: 16px;
+    padding: 22px 18px;
+  }
+
+  .public-app .portal-summary-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .public-app .portal-summary-card {
+    min-height: 0;
+    padding: 18px;
+  }
+
+  .public-app .portal-upcoming {
+    padding: 18px;
+  }
+
+  .public-app .portal-upcoming-list article {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .public-app .portal-upcoming-list .status-pill {
+    margin-left: 66px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .crm-sidebar,
+  .crm-layout .crm-main {
+    transition: none;
   }
 }

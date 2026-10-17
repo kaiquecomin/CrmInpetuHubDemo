@@ -34,6 +34,7 @@ import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -103,6 +104,13 @@ class CadastroConfirmacaoFluxoTest {
         mvc.perform(get("/verificar-email"))
             .andExpect(status().isOk())
             .andExpect(forwardedUrl("/index.html"));
+
+        for (String route : List.of(
+                "/meu-portal", "/minhas-reservas", "/agendar", "/login", "/cadastro", "/contato")) {
+            mvc.perform(get(route))
+                .andExpect(status().isOk())
+                .andExpect(forwardedUrl("/index.html"));
+        }
 
         mvc.perform(get("/index.html"))
             .andExpect(status().isOk())
