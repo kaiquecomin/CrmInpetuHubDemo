@@ -80,11 +80,11 @@ describe('Avatar', () => {
 })
 
 describe('Title', () => {
-  it('renders an accessible heading with its semantic emoji before the text', () => {
-    render(<Title as="h2" emoji="🎉">Minhas reservas</Title>)
+  it('renders an accessible heading without decorative emoji', () => {
+    render(<Title as="h2">Minhas reservas</Title>)
 
     const heading = screen.getByRole('heading', { name: 'Minhas reservas', level: 2 })
-    expect(heading.firstElementChild.getAttribute('aria-hidden')).toBe('true')
-    expect(heading.firstElementChild.textContent).toBe('📅')
+    expect(heading.querySelector('.title-emoji')).toBeNull()
+    expect(heading.textContent).toBe('Minhas reservas')
   })
 })

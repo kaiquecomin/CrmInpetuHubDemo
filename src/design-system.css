@@ -59,15 +59,6 @@ body {
   background: var(--color-background);
 }
 
-.title-emoji {
-  display: inline-block;
-  margin-inline-end: 0.35em;
-  font-family: var(--font-sans);
-  font-size: 0.82em;
-  line-height: 1;
-  vertical-align: 0.02em;
-}
-
 .public-app {
   --ref-ink: var(--color-text);
   --ref-muted: var(--color-text-muted);
