@@ -50,6 +50,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.forwardedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -117,7 +118,8 @@ class CadastroConfirmacaoFluxoTest {
             .andExpect(content().string(org.hamcrest.Matchers.containsString("id=\"root\"")));
 
         mvc.perform(get("/api/v1/auth/session"))
-            .andExpect(status().isForbidden());
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.codigo").value("SESSAO_EXPIRADA"));
     }
 
     @Test

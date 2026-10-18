@@ -13,6 +13,7 @@ import com.inpetu.connect.repository.UsuarioFotoRepository;
 import com.inpetu.connect.repository.UsuarioRepository;
 import com.inpetu.connect.security.JwtService;
 import com.inpetu.connect.service.CadastroPublicoService;
+import com.inpetu.connect.service.PasswordResetService;
 import com.inpetu.connect.security.LoginAttemptService;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -45,6 +46,7 @@ class AuthControllerTest {
     private final CadastroPendenteRepository pendentes = mock(CadastroPendenteRepository.class);
     private final EventoCadastroRepository eventos = mock(EventoCadastroRepository.class);
     private final PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
+    private final PasswordResetService passwordResetService = mock(PasswordResetService.class);
     private final CadastroPublicoService cadastroPublicoService = new CadastroPublicoService(
         usuarios,
         organizacoes,
@@ -83,7 +85,9 @@ class AuthControllerTest {
         passwordEncoder,
         new LoginAttemptService(5, 60),
         "",
-        cadastroPublicoService);
+        cadastroPublicoService,
+        passwordResetService,
+        true);
 
     @Test
     void duplicateAndNewPublicEmailsReceiveIdenticalAcceptedResponse() {
@@ -178,6 +182,44 @@ class AuthControllerTest {
         org.junit.jupiter.api.Assertions.assertTrue(cookie.contains("Secure"));
         org.junit.jupiter.api.Assertions.assertTrue(response.getHeaders("Set-Cookie").stream()
             .anyMatch(value -> value.contains("Path=/api/v1") && value.contains("Max-Age=0")));
+    }
+
+    @Test
+    void cookieSecureCanBeDisabledForLocalDevelopment() {
+        AuthController localController = new AuthController(
+            authentication,
+            jwt,
+            userDetails,
+            usuarios,
+            fotos,
+            organizacoes,
+            passwordEncoder,
+            new LoginAttemptService(5, 60),
+            "",
+            cadastroPublicoService,
+            passwordResetService,
+            false);
+        String password = randomSecret();
+        String jwtToken = randomSecret();
+        UserDetails principal = User.withUsername("coord@example.test").password(randomSecret()).roles("COORDENADOR").build();
+        Usuario coordinator = new Usuario();
+        coordinator.setNomeCompleto("Coordinator");
+        coordinator.setEmail("coord@example.test");
+        coordinator.setIdPerfil(1);
+        when(userDetails.loadUserByUsername("coord@example.test")).thenReturn(principal);
+        when(jwt.gerar(principal, 0)).thenReturn(jwtToken);
+        when(jwt.expirationMs()).thenReturn(3_600_000L);
+        when(usuarios.findByEmail("coord@example.test")).thenReturn(Optional.of(coordinator));
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setRemoteAddr("127.0.0.1");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        localController.login(new LoginRequest("coord@example.test", password), request, response);
+
+        String cookie = response.getHeader("Set-Cookie");
+        org.junit.jupiter.api.Assertions.assertTrue(cookie.contains("HttpOnly"));
+        org.junit.jupiter.api.Assertions.assertTrue(cookie.contains("SameSite=Strict"));
+        org.junit.jupiter.api.Assertions.assertFalse(cookie.contains("Secure"));
     }
 
     private CadastroPublicoRequest signup(String email) {

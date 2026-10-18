@@ -16,5 +16,10 @@ public class SpaWebConfig implements WebMvcConfigurer {
         registry.addViewController("/login").setViewName("forward:/index.html");
         registry.addViewController("/cadastro").setViewName("forward:/index.html");
         registry.addViewController("/contato").setViewName("forward:/index.html");
+        registry.addViewController("/mural").setViewName("forward:/index.html");
+        registry.addViewController("/{path:^(?!api$|assets$|uploads$)[^\\.]+}")
+            .setViewName("forward:/index.html");
+        registry.addViewController("/{path:^(?!api$|assets$|uploads$)[^\\.]+}/{subpath:[^\\.]+}")
+            .setViewName("forward:/index.html");
     }
 }

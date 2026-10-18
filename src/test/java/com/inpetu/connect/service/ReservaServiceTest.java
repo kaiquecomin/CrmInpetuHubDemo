@@ -227,8 +227,12 @@ class ReservaServiceTest {
 
         assertTrue(reserva.getExcedeCota());
         assertEquals("Pendente", reserva.getStatusReserva());
+        ArgumentCaptor<String> notificationMessage = ArgumentCaptor.forClass(String.class);
         verify(notificacoes).enviar(anyList(), eq("COTA_EXCEDIDA"), eq("Reserva excede a cota mensal"),
-                contains("cota mensal de 30.0 horas"));
+                notificationMessage.capture());
+        assertTrue(notificationMessage.getValue().length() <= 255);
+        assertTrue(notificationMessage.getValue().contains("cota mensal de 30.0 horas"));
+        assertTrue(notificationMessage.getValue().contains("Negociação manual necessária"));
         ArgumentCaptor<LogAuditoria> log = ArgumentCaptor.forClass(LogAuditoria.class);
         verify(auditoria).save(log.capture());
         assertEquals("CRIACAO", log.getValue().getAcao());

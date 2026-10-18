@@ -21,6 +21,7 @@ class SecurityConfigTest {
         assertEquals("http://127.0.0.1:5173", configuration.checkOrigin("http://127.0.0.1:5173"));
         assertNull(configuration.checkOrigin("http://localhost:5174"));
         assertTrue(configuration.getAllowCredentials());
+        assertTrue(configuration.getExposedHeaders().contains("Retry-After"));
         assertNull(configuration.checkOrigin("*"));
     }
 }

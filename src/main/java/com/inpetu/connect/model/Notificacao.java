@@ -26,8 +26,7 @@ public class Notificacao {
     @Column(nullable = false, length = 150)
     private String titulo;
 
-    @Lob
-    @Column(nullable = false)
+    @Column(nullable = false, length = 1000)
     private String mensagem;
 
     @Column(nullable = false)

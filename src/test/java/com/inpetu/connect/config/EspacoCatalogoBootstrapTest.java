@@ -16,7 +16,7 @@ import static org.mockito.Mockito.*;
 
 class EspacoCatalogoBootstrapTest {
     @Test
-    void updatesExistingRoomsCreatesMissingRoomsAndIsIdempotent() throws Exception {
+    void preservesExistingRoomsCreatesMissingRoomsAndIsIdempotent() throws Exception {
         EspacoRepository repository = mock(EspacoRepository.class);
         List<Espaco> rooms = new ArrayList<>(List.of(
             room(1, "Auditório Principal", "Auditório", 80, "Projetor e som"),
@@ -40,21 +40,33 @@ class EspacoCatalogoBootstrapTest {
         ApplicationRunner runner = new EspacoCatalogoBootstrap().atualizarCatalogoDeEspacos(repository);
         ApplicationArguments args = mock(ApplicationArguments.class);
         runner.run(args);
+        Espaco auditorium = find(rooms, "Auditório Principal");
+        auditorium.setNomeEspaco("Auditório personalizado");
+        auditorium.setTipoEspaco("Eventos");
+        auditorium.setCapacidadePessoas(40);
+        auditorium.setArquivoImagem("custom.jpg");
+        auditorium.setAtivo(false);
+        auditorium.setMotivoIndisponibilidade("Em manutenção");
+        auditorium.setDescricao("Alteração persistente.");
         runner.run(args);
 
         assertEquals(11, rooms.size());
-        assertEquals(9, rooms.stream().filter(room -> Boolean.TRUE.equals(room.getAtivo())).count());
-        assertFalse(find(rooms, "Sala de Aula 1").getAtivo());
-        assertEquals("Fora do catálogo atual; histórico e reservas preservados.",
-            find(rooms, "Sala de Aula 1").getMotivoIndisponibilidade());
-        assertFalse(find(rooms, "Visita Guiada").getAtivo());
-        assertEquals(1, find(rooms, "Auditório").getIdEspaco());
-        assertEquals(114, find(rooms, "Auditório").getCapacidadePessoas());
-        assertEquals("Projetor e som", find(rooms, "Auditório").getEquipamentosDisponiveis());
-        assertEquals(3, find(rooms, "Coworking").getIdEspaco());
-        assertEquals(35, find(rooms, "Coworking").getCapacidadePessoas());
-        assertEquals(4, find(rooms, "Sala de Reunião 1 (coworking)").getIdEspaco());
-        assertEquals(5, find(rooms, "Sala de Reunião 2 (coworking)").getIdEspaco());
+        assertEquals(10, rooms.stream().filter(room -> Boolean.TRUE.equals(room.getAtivo())).count());
+        assertFalse(auditorium.getAtivo());
+        assertEquals("Auditório personalizado", auditorium.getNomeEspaco());
+        assertEquals("Eventos", auditorium.getTipoEspaco());
+        assertEquals(40, auditorium.getCapacidadePessoas());
+        assertEquals("custom.jpg", auditorium.getArquivoImagem());
+        assertEquals("Em manutenção", auditorium.getMotivoIndisponibilidade());
+        assertEquals("Alteração persistente.", auditorium.getDescricao());
+        assertEquals("auditorio", auditorium.getCodigoCatalogo());
+        assertTrue(find(rooms, "Sala de Aula 1").getAtivo());
+        assertTrue(find(rooms, "Visita Guiada").getAtivo());
+        assertEquals("Projetor e som", auditorium.getEquipamentosDisponiveis());
+        assertEquals(3, find(rooms, "Área de Coworking").getIdEspaco());
+        assertEquals(24, find(rooms, "Área de Coworking").getCapacidadePessoas());
+        assertEquals(4, find(rooms, "Sala de Reunião 1").getIdEspaco());
+        assertEquals(5, find(rooms, "Sala de Reunião 2").getIdEspaco());
         assertEquals("6 sofás", find(rooms, "Sala Maker VIA").getEquipamentosDisponiveis());
         assertEquals("7 sofás, 1 arquibancada", find(rooms, "Sala VIA hub").getEquipamentosDisponiveis());
         assertEquals("image/jpeg", find(rooms, "Sala Distrito de Inovação").getTipoImagem());

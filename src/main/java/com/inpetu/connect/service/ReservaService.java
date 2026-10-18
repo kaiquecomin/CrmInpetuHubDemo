@@ -297,13 +297,11 @@ public class ReservaService {
     private void notificarExcedente(Reserva reserva, Usuario solicitante, double limite, double horasPedido) {
         YearMonth mes = YearMonth.from(reserva.getDataReserva());
         double total = horasReservadas(solicitante.getIdUsuario(), reserva.getDataReserva(), null);
-        String mensagem = "A reserva \"" + reserva.getTituloEvento() + "\" do solicitante "
-                + solicitante.getNomeCompleto() + " (persona P" + solicitante.getIdPersona()
-                + ") excede a cota mensal de " + limite + " horas. Total solicitado no mês: "
+        String mensagem = "A reserva excede a cota mensal de " + limite + " horas. Total no mês: "
                 + String.format(java.util.Locale.forLanguageTag("pt-BR"), "%.1f", total)
-                + " h (inclui " + String.format(java.util.Locale.forLanguageTag("pt-BR"), "%.1f", horasPedido)
-                + " h nesta solicitação). A equipe deve negociar com o solicitante antes da aprovação. Período: "
-                + mes + ".";
+                + " h; nesta solicitação: "
+                + String.format(java.util.Locale.forLanguageTag("pt-BR"), "%.1f", horasPedido)
+                + " h. Negociação manual necessária antes da aprovação. Período: " + mes + ".";
         notificacoes.enviar(usuarios.findAllByAtivoTrueAndIdPerfilLessThan(4), "COTA_EXCEDIDA",
                 "Reserva excede a cota mensal", mensagem);
     }

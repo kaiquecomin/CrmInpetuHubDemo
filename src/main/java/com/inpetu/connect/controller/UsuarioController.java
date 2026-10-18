@@ -32,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.beans.factory.annotation.Value;
 import jakarta.servlet.http.HttpServletResponse;
 import javax.imageio.ImageIO;
 import java.awt.Graphics2D;
@@ -62,6 +63,8 @@ public class UsuarioController {
     private final UsuarioFotoRepository fotos;
     private final JwtService jwt;
     private final UserDetailsService userDetailsService;
+    @Value("${app.cookie.secure:true}")
+    private boolean cookieSecure = true;
     public UsuarioController(UsuarioRepository usuarios, LogAuditoriaRepository auditoria,
             OrganizacaoRepository organizacoes, DuvidaAtendimentoRepository duvidas, PasswordEncoder passwordEncoder,
             UsuarioFotoRepository fotos, JwtService jwt, UserDetailsService userDetailsService) {
@@ -241,7 +244,7 @@ public class UsuarioController {
         var principal = userDetailsService.loadUserByUsername(usuario.getEmail());
         String token = jwt.gerar(principal, usuario.getVersaoToken());
         response.addHeader(HttpHeaders.SET_COOKIE, ResponseCookie.from("inpetu-token", token)
-                .httpOnly(true).secure(true).sameSite("Strict").path("/api/v1")
+                .httpOnly(true).secure(cookieSecure).sameSite("Strict").path("/api/v1")
                 .maxAge(java.time.Duration.ofMillis(jwt.expirationMs())).build().toString());
         return ResponseEntity.noContent().build();
     }
@@ -324,6 +327,7 @@ public class UsuarioController {
         usuario.setIdOrganizacao(organizacao.getIdOrganizacao());
         usuario.setIdPersona(null);
         usuario.setAtivo(true);
+        usuario.setSenhaTemporaria(true);
         Usuario criado = usuarios.save(usuario);
         registrar("usuario", criado.getIdUsuario(), "CADASTRO_CRIADO",
             "Cadastro criado pela equipe para " + organizacao.getNomeOrganizacao(), auth.getName());

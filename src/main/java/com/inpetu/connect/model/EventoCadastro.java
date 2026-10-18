@@ -36,6 +36,9 @@ public class EventoCadastro {
 
     public enum TipoEvento {
         CADASTRO,
-        ENVIO
+        ENVIO,
+        RESET_ENVIO,
+        RESET_TENTATIVA,
+        RESET_SUCESSO
     }
 }

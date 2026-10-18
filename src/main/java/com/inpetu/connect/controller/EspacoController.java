@@ -1,40 +1,51 @@
 package com.inpetu.connect.controller;
 
 import com.inpetu.connect.model.Espaco;
+import com.inpetu.connect.model.EspacoFoto;
+import com.inpetu.connect.model.LogAuditoria;
+import com.inpetu.connect.model.Usuario;
 import com.inpetu.connect.dto.EspacoStatusRequest;
+import com.inpetu.connect.dto.EspacoCriacaoRequest;
 import com.inpetu.connect.repository.*;
+import com.inpetu.connect.service.ImageUploadService;
+import com.inpetu.connect.service.ImageUploadService.StoredImage;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.http.*;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
-import javax.imageio.ImageIO;
-import javax.imageio.ImageReader;
-import javax.imageio.stream.ImageInputStream;
-import java.io.IOException;
-import java.io.InputStream;
 import java.time.LocalDate;
 import java.nio.file.*;
 import java.util.*;
 
 @RestController @RequestMapping("/api/v1/espacos")
 public class EspacoController {
-    private static final long MAX_IMAGE_SIZE = 5L * 1024 * 1024;
-    private static final int MAX_IMAGE_PIXELS = 16_000_000;
-    private final EspacoRepository espacos; private final ReservaRepository reservas;
+    private final EspacoRepository espacos;
+    private final ReservaRepository reservas;
+    private final EspacoFotoRepository fotos;
+    private final LogAuditoriaRepository auditoria;
+    private final UsuarioRepository usuarios;
     private final Path imageDirectory;
     public EspacoController(
         EspacoRepository espacos,
         ReservaRepository reservas,
+        EspacoFotoRepository fotos,
+        LogAuditoriaRepository auditoria,
+        UsuarioRepository usuarios,
         @Value("${app.upload.dir:uploads/inpetu}") String uploadDirectory
     ) {
         this.espacos = espacos;
         this.reservas = reservas;
+        this.fotos = fotos;
+        this.auditoria = auditoria;
+        this.usuarios = usuarios;
         this.imageDirectory = Path.of(uploadDirectory).toAbsolutePath().normalize().resolve("espacos");
     }
     @GetMapping public List<Espaco> listar() { return espacos.findAllByOrderByNomeEspaco(); }
@@ -44,22 +55,7 @@ public class EspacoController {
         if (espaco.getArquivoImagem() == null || espaco.getTipoImagem() == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Este espaço não possui imagem.");
         }
-        String nomeArquivo = espaco.getArquivoImagem();
-        Path caminhoNome = Path.of(nomeArquivo);
-        if (caminhoNome.getNameCount() != 1 || !caminhoNome.getFileName().toString().equals(nomeArquivo)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Imagem do espaço não encontrada.");
-        }
-        Path arquivo = imageDirectory.resolve(nomeArquivo).normalize();
-        Resource imagem = Files.isRegularFile(arquivo) && arquivo.getParent().equals(imageDirectory)
-            ? new FileSystemResource(arquivo)
-            : new ClassPathResource("static/images/rooms/" + nomeArquivo);
-        if (!imagem.isReadable()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Imagem do espaço não encontrada.");
-        }
-        return ResponseEntity.ok()
-            .contentType(MediaType.parseMediaType(Objects.requireNonNull(espaco.getTipoImagem())))
-            .header(HttpHeaders.CACHE_CONTROL, "public, max-age=3600")
-            .body(imagem);
+        return respostaImagem(espaco.getArquivoImagem(), espaco.getTipoImagem());
     }
     @GetMapping("/{id}/agenda") public List<?> agenda(@PathVariable Integer id, @RequestParam LocalDate data) {
         return reservas.findByIdEspacoAndDataReservaOrderByHorarioInicio(id, data).stream()
@@ -73,9 +69,16 @@ public class EspacoController {
     }
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasAnyRole('COORDENADOR','GESTOR_ESPACOS')")
-    public Espaco criarJson(@RequestBody Espaco espaco) {
-        validarDados(espaco.getNomeEspaco(), espaco.getTipoEspaco(), espaco.getCapacidadePessoas());
-        espaco.setIdEspaco(null);
+    public Espaco criarJson(@Valid @RequestBody EspacoCriacaoRequest request) {
+        validarDados(request.nomeEspaco(), request.tipoEspaco(), request.capacidadePessoas());
+        Espaco espaco = new Espaco();
+        espaco.setNomeEspaco(request.nomeEspaco().trim());
+        espaco.setTipoEspaco(request.tipoEspaco().trim());
+        espaco.setCapacidadePessoas(request.capacidadePessoas());
+        espaco.setEquipamentosDisponiveis(normalizarTexto(request.equipamentosDisponiveis()));
+        espaco.setDescricao(normalizarTexto(request.descricao()));
+        espaco.setExigeAprovacaoManual(request.exigeAprovacaoManual());
+        espaco.setAtivo(true);
         return espacos.save(espaco);
     }
 
@@ -103,6 +106,148 @@ public class EspacoController {
             apagarImagem(espaco.getArquivoImagem());
             throw ex;
         }
+    }
+
+    @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('COORDENADOR','GESTOR_ESPACOS')")
+    @Transactional
+    public Espaco atualizar(
+        @PathVariable Integer id,
+        @RequestParam String nomeEspaco,
+        @RequestParam String tipoEspaco,
+        @RequestParam Integer capacidadePessoas,
+        @RequestParam(required = false) String equipamentosDisponiveis,
+        @RequestParam(required = false) String descricao,
+        @RequestParam(defaultValue = "false") Boolean exigeAprovacaoManual,
+        @RequestPart(value = "imagem", required = false) MultipartFile imagem,
+        Authentication authentication
+    ) {
+        validarDados(nomeEspaco, tipoEspaco, capacidadePessoas);
+        validarTextoOpcional(equipamentosDisponiveis, "Os equipamentos devem ter até 2000 caracteres.");
+        validarTextoOpcional(descricao, "A descrição deve ter até 2000 caracteres.");
+
+        Espaco espaco = buscar(id);
+        String imagemAnterior = espaco.getArquivoImagem();
+        espaco.setNomeEspaco(nomeEspaco.trim());
+        espaco.setTipoEspaco(tipoEspaco.trim());
+        espaco.setCapacidadePessoas(capacidadePessoas);
+        espaco.setEquipamentosDisponiveis(normalizarTexto(equipamentosDisponiveis));
+        espaco.setDescricao(normalizarTexto(descricao));
+        espaco.setExigeAprovacaoManual(Boolean.TRUE.equals(exigeAprovacaoManual));
+        salvarImagem(espaco, imagem);
+
+        try {
+            Espaco atualizado = espacos.save(espaco);
+            registrarAuditoria(authentication, id, "EDICAO_ESPACO",
+                "Dados do espaço atualizados: " + atualizado.getNomeEspaco() + ".");
+            apagarImagemSeNaoEstaEmUso(imagemAnterior, atualizado.getArquivoImagem());
+            return atualizado;
+        } catch (RuntimeException ex) {
+            if (imagem != null && !imagem.isEmpty() && !Objects.equals(imagemAnterior, espaco.getArquivoImagem())) {
+                apagarImagem(espaco.getArquivoImagem());
+            }
+            throw ex;
+        }
+    }
+
+    @GetMapping("/{id}/fotos")
+    public List<EspacoFoto> listarFotos(@PathVariable Integer id) {
+        buscar(id);
+        return fotos.findAllByIdEspacoOrderByOrdemAscIdEspacoFotoAsc(id);
+    }
+
+    @GetMapping("/{id}/fotos/{fotoId}/imagem")
+    public ResponseEntity<Resource> obterFoto(@PathVariable Integer id, @PathVariable Integer fotoId) {
+        buscar(id);
+        EspacoFoto foto = buscarFoto(id, fotoId);
+        return respostaImagem(foto.getArquivo(), foto.getTipoImagem());
+    }
+
+    @PostMapping(value = "/{id}/fotos", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('COORDENADOR','GESTOR_ESPACOS')")
+    @Transactional
+    public EspacoFoto adicionarFoto(
+        @PathVariable Integer id,
+        @RequestPart("imagem") MultipartFile imagem,
+        @RequestParam(required = false) String legenda,
+        Authentication authentication
+    ) {
+        Espaco espaco = buscar(id);
+        validarTextoOpcional(legenda, "A legenda deve ter até 200 caracteres.", 200);
+        if (imagem == null || imagem.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selecione uma imagem para adicionar.");
+        }
+        StoredImage imagemArmazenada = ImageUploadService.store(imagem, imageDirectory);
+        String arquivo = imagemArmazenada.fileName();
+        String tipoImagem = imagemArmazenada.contentType();
+        List<EspacoFoto> atuais = fotos.findAllByIdEspacoOrderByOrdemAscIdEspacoFotoAsc(id);
+
+        EspacoFoto foto = new EspacoFoto();
+        foto.setIdEspaco(id);
+        foto.setArquivo(arquivo);
+        foto.setTipoImagem(tipoImagem);
+        foto.setLegenda(normalizarTexto(legenda));
+        foto.setOrdem(atuais.size());
+        try {
+            EspacoFoto salva = fotos.save(foto);
+            if (espaco.getArquivoImagem() == null || espaco.getArquivoImagem().isBlank()) {
+                espaco.setArquivoImagem(arquivo);
+                espaco.setTipoImagem(tipoImagem);
+                espacos.save(espaco);
+            }
+            registrarAuditoria(authentication, id, "ADICAO_FOTO_ESPACO",
+                "Foto adicionada ao espaço " + espaco.getNomeEspaco() + ".");
+            return salva;
+        } catch (RuntimeException ex) {
+            apagarImagem(arquivo);
+            throw ex;
+        }
+    }
+
+    @DeleteMapping("/{id}/fotos/{fotoId}")
+    @PreAuthorize("hasAnyRole('COORDENADOR','GESTOR_ESPACOS')")
+    @Transactional
+    public ResponseEntity<Void> removerFoto(
+        @PathVariable Integer id,
+        @PathVariable Integer fotoId,
+        Authentication authentication
+    ) {
+        Espaco espaco = buscar(id);
+        EspacoFoto foto = buscarFoto(id, fotoId);
+        List<EspacoFoto> restantes = fotos.findAllByIdEspacoOrderByOrdemAscIdEspacoFotoAsc(id).stream()
+            .filter(item -> !item.getIdEspacoFoto().equals(fotoId))
+            .toList();
+        fotos.delete(foto);
+        if (Objects.equals(espaco.getArquivoImagem(), foto.getArquivo())) {
+            EspacoFoto proximaCapa = restantes.stream().findFirst().orElse(null);
+            espaco.setArquivoImagem(proximaCapa == null ? null : proximaCapa.getArquivo());
+            espaco.setTipoImagem(proximaCapa == null ? null : proximaCapa.getTipoImagem());
+            espacos.save(espaco);
+        }
+        registrarAuditoria(authentication, id, "REMOCAO_FOTO_ESPACO",
+            "Foto removida do espaço " + espaco.getNomeEspaco() + ".");
+        apagarImagemSeNaoEstaEmUso(foto.getArquivo(), espaco.getArquivoImagem());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{id}/fotos/{fotoId}/capa")
+    @PreAuthorize("hasAnyRole('COORDENADOR','GESTOR_ESPACOS')")
+    @Transactional
+    public Espaco definirCapa(
+        @PathVariable Integer id,
+        @PathVariable Integer fotoId,
+        Authentication authentication
+    ) {
+        Espaco espaco = buscar(id);
+        EspacoFoto foto = buscarFoto(id, fotoId);
+        String imagemAnterior = espaco.getArquivoImagem();
+        espaco.setArquivoImagem(foto.getArquivo());
+        espaco.setTipoImagem(foto.getTipoImagem());
+        Espaco atualizado = espacos.save(espaco);
+        registrarAuditoria(authentication, id, "DEFINICAO_CAPA_ESPACO",
+            "Capa do espaço " + espaco.getNomeEspaco() + " alterada.");
+        apagarImagemSeNaoEstaEmUso(imagemAnterior, atualizado.getArquivoImagem());
+        return atualizado;
     }
 
     @PatchMapping("/{id}/status") @PreAuthorize("hasAnyRole('COORDENADOR','GESTOR_ESPACOS')")
@@ -136,58 +281,68 @@ public class EspacoController {
 
     private void salvarImagem(Espaco espaco, MultipartFile imagem) {
         if (imagem == null || imagem.isEmpty()) return;
-        if (imagem.getSize() > MAX_IMAGE_SIZE) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A imagem deve ter até 5 MB.");
+        StoredImage imagemArmazenada = ImageUploadService.store(imagem, imageDirectory);
+        espaco.setArquivoImagem(imagemArmazenada.fileName());
+        espaco.setTipoImagem(imagemArmazenada.contentType());
+    }
+
+    private String salvarImagem(MultipartFile imagem) {
+        if (imagem == null || imagem.isEmpty()) return null;
+        return ImageUploadService.store(imagem, imageDirectory).fileName();
+    }
+
+    private ResponseEntity<Resource> respostaImagem(String nomeArquivo, String tipoImagem) {
+        Path arquivo = ImageUploadService.resolve(imageDirectory, nomeArquivo);
+        Resource imagem = Files.isRegularFile(arquivo) && arquivo.getParent().equals(imageDirectory)
+            ? new FileSystemResource(arquivo)
+            : new ClassPathResource("static/images/rooms/" + nomeArquivo);
+        if (!imagem.isReadable()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Imagem do espaço não encontrada.");
         }
-        String contentType = imagem.getContentType();
-        String extensao = switch (contentType == null ? "" : contentType.toLowerCase(Locale.ROOT)) {
-            case "image/png" -> ".png";
-            case "image/jpeg" -> ".jpg";
-            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Envie a imagem em formato PNG ou JPG.");
-        };
-        String tipoImagem = extensao.equals(".png") ? "image/png" : "image/jpeg";
-        try (InputStream enviado = imagem.getInputStream();
-             ImageInputStream input = ImageIO.createImageInputStream(enviado)) {
-            if (input == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "O arquivo enviado não é uma imagem válida.");
-            Iterator<ImageReader> leitores = ImageIO.getImageReaders(input);
-            if (!leitores.hasNext()) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "O arquivo enviado não é uma imagem válida.");
-            ImageReader leitor = leitores.next();
-            try {
-                leitor.setInput(input, true, true);
-                String formato = leitor.getFormatName().toLowerCase(Locale.ROOT);
-                if ((extensao.equals(".png") && !formato.equals("png"))
-                    || (extensao.equals(".jpg") && !List.of("jpeg", "jpg").contains(formato))) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "O conteúdo do arquivo não corresponde ao formato informado.");
-                }
-                long pixels = (long) leitor.getWidth(0) * leitor.getHeight(0);
-                if (pixels <= 0 || pixels > MAX_IMAGE_PIXELS) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A imagem excede as dimensões permitidas.");
-                }
-                String nomeArquivo = UUID.randomUUID() + extensao;
-                Files.createDirectories(imageDirectory);
-                try (InputStream conteudo = imagem.getInputStream()) {
-                    Files.copy(conteudo, imageDirectory.resolve(nomeArquivo));
-                }
-                espaco.setArquivoImagem(nomeArquivo);
-                espaco.setTipoImagem(tipoImagem);
-            } finally {
-                leitor.dispose();
-            }
-        } catch (IOException ex) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Não foi possível salvar a imagem do espaço.");
+        return ResponseEntity.ok()
+            .contentType(MediaType.parseMediaType(Objects.requireNonNull(tipoImagem)))
+            .header(HttpHeaders.CACHE_CONTROL, "public, max-age=3600")
+            .body(imagem);
+    }
+
+    private EspacoFoto buscarFoto(Integer id, Integer fotoId) {
+        return fotos.findByIdEspacoAndIdEspacoFoto(id, fotoId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Foto do espaço não encontrada."));
+    }
+
+    private void validarTextoOpcional(String texto, String mensagem) {
+        validarTextoOpcional(texto, mensagem, 2000);
+    }
+
+    private void validarTextoOpcional(String texto, String mensagem, int limite) {
+        if (texto != null && texto.trim().length() > limite) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, mensagem);
+        }
+    }
+
+    private String normalizarTexto(String texto) {
+        return texto == null || texto.isBlank() ? null : texto.trim();
+    }
+
+    private void registrarAuditoria(Authentication authentication, Integer idEspaco, String acao, String detalhes) {
+        Usuario usuario = usuarios.findByEmail(authentication.getName())
+            .orElseThrow(() -> new IllegalStateException("Não foi possível identificar o usuário responsável pela alteração."));
+        LogAuditoria registro = new LogAuditoria();
+        registro.setTabelaAfetada("espaco");
+        registro.setIdRegistroAfetado(idEspaco);
+        registro.setAcao(acao);
+        registro.setDetalhesAlteracao(detalhes);
+        registro.setIdUsuarioResponsavel(usuario.getIdUsuario());
+        auditoria.save(registro);
+    }
+
+    private void apagarImagemSeNaoEstaEmUso(String nomeArquivo, String imagemPreservada) {
+        if (nomeArquivo != null && !Objects.equals(nomeArquivo, imagemPreservada) && !fotos.existsByArquivo(nomeArquivo)) {
+            apagarImagem(nomeArquivo);
         }
     }
 
     private void apagarImagem(String nomeArquivo) {
-        if (nomeArquivo == null) return;
-        Path arquivo = imageDirectory.resolve(nomeArquivo).normalize();
-        if (!arquivo.getParent().equals(imageDirectory)) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "O caminho da imagem armazenada é inválido.");
-        }
-        try {
-            Files.deleteIfExists(arquivo);
-        } catch (IOException ex) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Não foi possível remover a imagem não salva.");
-        }
+        ImageUploadService.delete(imageDirectory, nomeArquivo);
     }
 }

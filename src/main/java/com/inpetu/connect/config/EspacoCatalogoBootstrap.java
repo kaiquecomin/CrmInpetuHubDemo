@@ -8,13 +8,13 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
 @Configuration(proxyBeanMethods = false)
 public class EspacoCatalogoBootstrap {
     private record EspacoInicial(
+        String codigo,
         String nome,
         String tipo,
         int capacidade,
@@ -24,61 +24,48 @@ public class EspacoCatalogoBootstrap {
     ) {}
 
     private static final List<EspacoInicial> CATALOGO = List.of(
-        new EspacoInicial("Auditório", "Auditório", 114, null, "auditorio.jpg", "Auditório Principal"),
-        new EspacoInicial("Sala de reunião", "Sala de reunião", 16, null, "sala-reuniao.jpg", null),
-        new EspacoInicial("Coworking", "Coworking", 35, null, "coworking.jpg", "Área de Coworking"),
-        new EspacoInicial("Sala de Reunião 1 (coworking)", "Sala de reunião", 6, null, "sala-reuniao-1-coworking.jpg", "Sala de Reunião 1"),
-        new EspacoInicial("Sala de Reunião 2 (coworking)", "Sala de reunião", 6, null, "sala-reuniao-2-coworking.jpg", "Sala de Reunião 2"),
-        new EspacoInicial("Sala Pré-incubação", "Sala Pré-incubação", 34, null, "sala-pre-incubacao.jpg", null),
-        new EspacoInicial("Sala Maker VIA", "Sala Maker VIA", 32, "6 sofás", "sala-maker-via.jpg", null),
-        new EspacoInicial("Sala VIA hub", "Sala VIA hub", 15, "7 sofás, 1 arquibancada", "sala-via-hub.jpg", null),
-        new EspacoInicial("Sala Distrito de Inovação", "Sala Distrito de Inovação", 42, null, "sala-distrito-inovacao.jpg", null)
+        new EspacoInicial("auditorio", "Auditório", "Auditório", 114, null, "auditorio.jpg", "Auditório Principal"),
+        new EspacoInicial("sala-reuniao", "Sala de reunião", "Sala de reunião", 16, null, "sala-reuniao.jpg", null),
+        new EspacoInicial("coworking", "Coworking", "Coworking", 35, null, "coworking.jpg", "Área de Coworking"),
+        new EspacoInicial("sala-reuniao-1-coworking", "Sala de Reunião 1 (coworking)", "Sala de reunião", 6, null, "sala-reuniao-1-coworking.jpg", "Sala de Reunião 1"),
+        new EspacoInicial("sala-reuniao-2-coworking", "Sala de Reunião 2 (coworking)", "Sala de reunião", 6, null, "sala-reuniao-2-coworking.jpg", "Sala de Reunião 2"),
+        new EspacoInicial("sala-pre-incubacao", "Sala Pré-incubação", "Sala Pré-incubação", 34, null, "sala-pre-incubacao.jpg", null),
+        new EspacoInicial("sala-maker-via", "Sala Maker VIA", "Sala Maker VIA", 32, "6 sofás", "sala-maker-via.jpg", null),
+        new EspacoInicial("sala-via-hub", "Sala VIA hub", "Sala VIA hub", 15, "7 sofás, 1 arquibancada", "sala-via-hub.jpg", null),
+        new EspacoInicial("sala-distrito-inovacao", "Sala Distrito de Inovação", "Sala Distrito de Inovação", 42, null, "sala-distrito-inovacao.jpg", null)
     );
 
     @Bean
     @Order(2)
     ApplicationRunner atualizarCatalogoDeEspacos(EspacoRepository espacos) {
         return (ApplicationArguments args) -> {
-            List<Espaco> existentes = new ArrayList<>(espacos.findAllByOrderByNomeEspaco());
+            List<Espaco> existentes = espacos.findAllByOrderByNomeEspaco();
             for (EspacoInicial inicial : CATALOGO) {
-                List<Espaco> correspondencias = existentes.stream()
-                    .filter(espaco -> nomeIgual(espaco.getNomeEspaco(), inicial.nome())
+                Espaco existente = existentes.stream()
+                    .filter(espaco -> inicial.codigo().equals(espaco.getCodigoCatalogo())
+                        || nomeIgual(espaco.getNomeEspaco(), inicial.nome())
                         || inicial.nomeLegado() != null && nomeIgual(espaco.getNomeEspaco(), inicial.nomeLegado()))
-                    .toList();
-                Espaco escolhido = correspondencias.stream()
-                    .filter(espaco -> nomeIgual(espaco.getNomeEspaco(), inicial.nome()))
                     .findFirst()
-                    .orElseGet(() -> correspondencias.stream().findFirst().orElseGet(Espaco::new));
-
-                escolhido.setNomeEspaco(inicial.nome());
-                escolhido.setTipoEspaco(inicial.tipo());
-                escolhido.setCapacidadePessoas(inicial.capacidade());
-                escolhido.setArquivoImagem(inicial.imagem());
-                escolhido.setTipoImagem("image/jpeg");
-                if (inicial.equipamentos() != null) {
-                    escolhido.setEquipamentosDisponiveis(inicial.equipamentos());
-                }
-                espacos.save(escolhido);
-                if (!existentes.contains(escolhido)) {
-                    existentes.add(escolhido);
-                }
-
-                for (Espaco duplicado : correspondencias) {
-                    if (duplicado != escolhido) {
-                        duplicado.setAtivo(false);
-                        espacos.save(duplicado);
+                    .orElse(null);
+                if (existente != null) {
+                    if (!inicial.codigo().equals(existente.getCodigoCatalogo())) {
+                        existente.setCodigoCatalogo(inicial.codigo());
+                        espacos.save(existente);
                     }
+                    continue;
                 }
-            }
 
-            for (Espaco antigo : existentes) {
-                if (nomeIgual(antigo.getNomeEspaco(), "Sala de Aula 1")
-                    || nomeIgual(antigo.getNomeEspaco(), "Visita Guiada")) {
-                    antigo.setAtivo(false);
-                    antigo.setMotivoIndisponibilidade("Fora do catálogo atual; histórico e reservas preservados.");
-                    antigo.setDataPrevisaoRetorno(null);
-                    espacos.save(antigo);
-                }
+                Espaco novo = new Espaco();
+                novo.setCodigoCatalogo(inicial.codigo());
+                novo.setNomeEspaco(inicial.nome());
+                novo.setTipoEspaco(inicial.tipo());
+                novo.setCapacidadePessoas(inicial.capacidade());
+                novo.setArquivoImagem(inicial.imagem());
+                novo.setTipoImagem("image/jpeg");
+                novo.setEquipamentosDisponiveis(inicial.equipamentos());
+                novo.setExigeAprovacaoManual(false);
+                novo.setAtivo(true);
+                existentes.add(espacos.save(novo));
             }
         };
     }

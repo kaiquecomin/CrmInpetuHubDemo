@@ -137,6 +137,7 @@ class UsuarioControllerTest {
         verify(usuarios).save(saved.capture());
         assertEquals("Joana Silva", saved.getValue().getNomeCompleto());
         assertEquals("bcrypt-hash", saved.getValue().getSenhaHash());
+        assertTrue(saved.getValue().getSenhaTemporaria());
         ArgumentCaptor<LogAuditoria> log = ArgumentCaptor.forClass(LogAuditoria.class);
         verify(auditoria).save(log.capture());
         assertEquals("CADASTRO_CRIADO", log.getValue().getAcao());
