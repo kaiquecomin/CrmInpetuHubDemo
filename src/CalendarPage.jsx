@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CalendarDays, Check, ChevronLeft, ChevronRight, Users } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Users } from 'lucide-react'
 import { Button, RoomPhoto, Title, addMinutesToTime, isGuidedTour, localDateValue, request, saoPauloDateTime } from './App.jsx'
 
 export default function CalendarPage({ spaces, spacesLoaded, onReserve, initialDate, initialKind, initialSpaceId, availabilityVersion }) {
@@ -22,12 +22,21 @@ export default function CalendarPage({ spaces, spacesLoaded, onReserve, initialD
   const [endTime, setEndTime] = useState('')
   const [nextSlotSelection, setNextSlotSelection] = useState('start')
   const [saoPauloNow, setSaoPauloNow] = useState(saoPauloDateTime)
-  const selectedSpace = orderedSpaces.find(space => String(space.idEspaco) === selectedSpaceId && space.ativo !== false)
+  const selectedSpaceCandidate = orderedSpaces.find(space => String(space.idEspaco) === selectedSpaceId)
+  const unavailableSpace = selectedSpaceCandidate?.ativo === false ? selectedSpaceCandidate : null
+  const selectedSpace = selectedSpaceCandidate?.ativo !== false ? selectedSpaceCandidate : undefined
   const guidedTour = isGuidedTour(selectedSpace?.tipoEspaco)
   useEffect(() => {
     const interval = window.setInterval(() => setSaoPauloNow(saoPauloDateTime()), 30_000)
     return () => window.clearInterval(interval)
   }, [])
+  useEffect(() => {
+    if (!initialSpaceId || !spacesLoaded) return
+    const timer = window.setTimeout(() => {
+      document.getElementById('booking-date-title')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 150)
+    return () => window.clearTimeout(timer)
+  }, [initialSpaceId, spacesLoaded])
   useEffect(() => {
     if (selectedSpaceId || !spacesLoaded) return
     const suggestedSpace = spaces.find(space => space.tipoEspaco === initialKind && space.ativo !== false)
@@ -96,6 +105,23 @@ export default function CalendarPage({ spaces, spacesLoaded, onReserve, initialD
   }
   const canRequestReservation = Boolean(selectedSpace) && date >= saoPauloNow.date && !availabilityLoading && !availabilityError &&
     isRangeAvailable(startTime, endTime)
+  const reservationRequestHint = unavailableSpace
+    ? `Indisponível: ${unavailableSpace.motivoIndisponibilidade || 'Este espaço está temporariamente indisponível.'}`
+    : availabilityLoading
+      ? 'Aguarde a consulta dos horários.'
+      : availabilityError
+        ? 'Não é possível solicitar a reserva até a disponibilidade ser validada.'
+        : !selectedSpace
+          ? 'Escolha um espaço para continuar.'
+          : date < saoPauloNow.date
+            ? 'Escolha uma data de hoje em diante.'
+            : !startTime
+              ? 'Escolha um horário de início.'
+              : !endTime
+                ? 'Escolha um horário de término.'
+                : canRequestReservation
+                  ? 'Intervalo disponível para solicitação.'
+                  : 'Escolha um intervalo disponível.'
   const reservationDurationMinutes = startTime && endTime
     ? (Number(endTime.slice(0, 2)) * 60 + Number(endTime.slice(3, 5))) - (Number(startTime.slice(0, 2)) * 60 + Number(startTime.slice(3, 5)))
     : 0
@@ -137,7 +163,7 @@ export default function CalendarPage({ spaces, spacesLoaded, onReserve, initialD
     const value = localDateValue(day)
     const isSelected = value === date
     const isToday = value === saoPauloNow.date
-    return <button key={value} type="button" disabled={value < saoPauloNow.date} className={`calendar-date-option ${isSelected ? 'calendar-date-selected' : ''} ${isToday ? 'calendar-date-today' : ''}`} onClick={() => selectDate(day)} aria-current={isToday ? 'date' : undefined} aria-pressed={isSelected}>
+    return <button key={value} type="button" disabled={value < saoPauloNow.date} className="calendar-date-option" onClick={() => selectDate(day)} aria-current={isToday ? 'date' : undefined} aria-pressed={isSelected}>
       {day.getDate()}
     </button>
   }
@@ -147,9 +173,9 @@ export default function CalendarPage({ spaces, spacesLoaded, onReserve, initialD
       <p>Escolha o ambiente, defina o dia e horário e envie sua solicitação.</p>
     </header>
     <ol className="booking-steps" aria-label="Etapas da reserva">
-      <li className={selectedSpace ? 'booking-step-complete' : 'booking-step-current'}><span>1</span> Espaço</li>
-      <li className={startTime && endTime ? 'booking-step-complete' : selectedSpace ? 'booking-step-current' : ''}><span>2</span> Dia e horário</li>
-      <li className={canRequestReservation ? 'booking-step-current' : ''}><span>3</span> Confirmar</li>
+      <li className={selectedSpace ? 'booking-step-complete' : 'booking-step-current'}><span className="booking-step-number">1</span><strong>Espaço</strong></li>
+      <li className={startTime && endTime ? 'booking-step-complete' : selectedSpace ? 'booking-step-current' : ''}><span className="booking-step-number">2</span><strong>Dia e horário</strong></li>
+      <li className={canRequestReservation ? 'booking-step-current' : ''}><span className="booking-step-number">3</span><strong>Confirmar</strong></li>
     </ol>
 
     <div className="booking-layout">
@@ -161,11 +187,10 @@ export default function CalendarPage({ spaces, spacesLoaded, onReserve, initialD
               const unavailable = space.ativo === false
               const selected = selectedSpace?.idEspaco === space.idEspaco
               const needsManualReview = space.exigeAprovacaoManual
-              return <button key={space.idEspaco} type="button" className={`booking-space-card ${selected ? 'booking-space-selected' : ''} ${unavailable ? 'booking-space-unavailable' : ''}`} disabled={unavailable} onClick={() => setSelectedSpaceId(String(space.idEspaco))} aria-pressed={selected} aria-label={`${space.nomeEspaco}, até ${space.capacidadePessoas || 20} pessoas${unavailable ? `, indisponível: ${space.motivoIndisponibilidade || 'temporariamente indisponível'}` : ''}`}>
+              return <button key={space.idEspaco} type="button" className={`booking-space-card ${selected ? 'booking-space-selected' : ''}`} disabled={unavailable} onClick={() => setSelectedSpaceId(String(space.idEspaco))} aria-pressed={selected} aria-label={`${space.nomeEspaco}, até ${space.capacidadePessoas || 20} pessoas${unavailable ? `, indisponível: ${space.motivoIndisponibilidade || 'temporariamente indisponível'}` : ''}`}>
                 <RoomPhoto space={space} alt="" className="booking-space-photo" />
-                {unavailable && <span className="booking-unavailable-label">INDISPONÍVEL</span>}
-                {selected && <span className="booking-selected-check"><Check size={15} /></span>}
-                <span className="booking-space-copy"><strong>{space.nomeEspaco}</strong><span className="booking-space-capacity"><Users size={14} /> Até {space.capacidadePessoas || 20} pessoas</span>
+                {unavailable && <span className="booking-unavailable-label">Indisponível</span>}
+                <span className="booking-space-copy"><span className="booking-space-category">{space.tipoEspaco}</span><strong className="booking-space-name">{space.nomeEspaco}</strong><span className="booking-space-capacity icon-text"><Users size={14} /> Até {space.capacidadePessoas || 20} pessoas</span><span className={`booking-space-status ${unavailable ? 'booking-status-unavailable' : 'booking-status-available'}`}>{unavailable ? 'Indisponível' : 'Disponível'}</span>
                   {needsManualReview && <span className="booking-manual-badge">Requer análise manual</span>}
                   {unavailable && <span className="booking-unavailable-reason">{space.motivoIndisponibilidade || 'Este espaço está temporariamente indisponível.'}</span>}
                 </span>
@@ -195,7 +220,7 @@ export default function CalendarPage({ spaces, spacesLoaded, onReserve, initialD
           </div>}
           <div className="booking-legend" aria-label="Legenda de disponibilidade"><span><i className="booking-legend-free" /> Livre</span><span><i className="booking-legend-busy" /> Ocupado</span><span><i className="booking-legend-pending" /> Em análise</span></div>
           {guidedTour && <p className="booking-guided-note" role="note">Visitas guiadas exigem análise da equipe. O horário solicitado fica reservado enquanto aguarda a avaliação.</p>}
-          {!selectedSpace ? <p className="booking-state">Escolha um espaço para consultar os horários.</p> : availabilityLoading ? <p className="booking-state" role="status">Consultando disponibilidade...</p> : availabilityError ? <div className="booking-error" role="alert"><span>Não foi possível consultar a disponibilidade: {availabilityError}</span><button type="button" onClick={() => setAvailabilityReload(value => value + 1)}>Tentar novamente</button></div> : <div className="booking-time-groups">
+          {!selectedSpace ? <p className="booking-state">{unavailableSpace ? `${unavailableSpace.nomeEspaco}: ${unavailableSpace.motivoIndisponibilidade || 'Este espaço está temporariamente indisponível.'}` : 'Escolha um espaço para consultar os horários.'}</p> : availabilityLoading ? <p className="booking-state" role="status">Consultando disponibilidade...</p> : availabilityError ? <div className="booking-error" role="alert"><span>Não foi possível consultar a disponibilidade: {availabilityError}</span><button type="button" onClick={() => setAvailabilityReload(value => value + 1)}>Tentar novamente</button></div> : <div className="booking-time-groups">
             <p className="catalog-time-help">Clique no primeiro e no último horário que você quer reservar.</p>
             {slotGroups.map(group => <section className="booking-time-group" key={group.label} aria-label={group.label}>
               <Title as="h3">{group.label}</Title><div className="booking-time-grid">{group.times.map(time => {
@@ -224,10 +249,10 @@ export default function CalendarPage({ spaces, spacesLoaded, onReserve, initialD
 
       <aside className="booking-summary" aria-labelledby="booking-summary-title">
         <Title as="h2" id="booking-summary-title">Resumo da solicitação</Title>
-        <dl><div><dt>Espaço</dt><dd>{selectedSpace?.nomeEspaco || 'Não selecionado'}</dd></div><div><dt>Data</dt><dd>{date ? displayDate : 'Não selecionada'}</dd></div><div><dt>Horário</dt><dd>{startTime && endTime ? `${startTime}-${endTime} · ${reservationDurationLabel}` : 'Não selecionado'}</dd></div></dl>
+        <dl><div><dt>Espaço</dt><dd>{selectedSpace?.nomeEspaco || unavailableSpace?.nomeEspaco || 'Não selecionado'}</dd></div><div><dt>Data</dt><dd>{date ? displayDate : 'Não selecionada'}</dd></div><div><dt>Horário</dt><dd>{startTime && endTime ? `${startTime}-${endTime} · ${reservationDurationLabel}` : 'Não selecionado'}</dd></div></dl>
         {selectedSpace?.exigeAprovacaoManual && <p className="booking-summary-review">Este pedido requer análise manual.</p>}
-        {availabilityLoading ? <p className="booking-summary-hint" role="status">Consultando horários disponíveis...</p> : availabilityError ? <p className="booking-summary-hint booking-summary-hint-error">Não foi possível validar os horários. Tente novamente.</p> : !canRequestReservation && <p className="booking-summary-hint">{!selectedSpace ? 'Escolha um espaço.' : date < localDateValue() ? 'Escolha uma data de hoje em diante.' : !startTime ? 'Escolha um horário de início.' : !endTime ? 'Escolha um horário de término.' : 'Escolha um intervalo disponível.'}</p>}
-        <Button icon={CalendarDays} disabled={!canRequestReservation} onClick={() => onReserve(selectedSpace, date, startTime, endTime)}>{guidedTour ? 'Solicitar visita guiada' : 'Solicitar reserva'}</Button>
+        <p id="booking-request-help" className={`booking-summary-hint ${availabilityError ? 'booking-summary-hint-error' : ''}`} role={availabilityLoading ? 'status' : undefined}>{reservationRequestHint}</p>
+        <Button icon={CalendarDays} aria-describedby="booking-request-help" disabled={!canRequestReservation} onClick={() => onReserve(selectedSpace, date, startTime, endTime)}>{guidedTour ? 'Solicitar visita' : 'Solicitar reserva'}</Button>
       </aside>
     </div>
   </main>

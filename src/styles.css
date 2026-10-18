@@ -1,6 +1,14 @@
 @import "tailwindcss";
 
 :root {
+  --type-seal: 12px;
+  --type-metadata: 14px;
+  --type-card-description: 15px;
+  --type-body: 16px;
+  --type-card-title: 18px;
+  --type-section-heading: clamp(28px, 3vw, 40px);
+  --type-hero-heading: clamp(32px, 4vw, 44px);
+  --type-filter-label: 12px;
   font-family: var(--font-body);
   color: var(--color-text);
   background: var(--color-background);
@@ -10,7 +18,11 @@
   font-weight: 400;
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+  letter-spacing: 0;
+  word-spacing: normal;
+}
 
 .icon-text,
 button:has(> svg),
@@ -47,6 +59,8 @@ body {
   background: var(--color-background);
   color: var(--color-text);
   font-family: var(--font-body);
+  font-size: var(--type-body);
+  line-height: 1.6;
 }
 
 button,
@@ -89,7 +103,7 @@ h6 {
   margin-top: 0;
   color: var(--color-oxford-blue);
   font-family: var(--font-heading);
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 .public-app,
@@ -167,14 +181,14 @@ h6 {
 .crm-layout .brand strong {
   font-family: var(--font-heading);
   font-weight: 800;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 .brand small,
 .public-app .brand small,
 .crm-layout .brand small {
   color: var(--color-text-muted);
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
 }
 
 .main-nav {
@@ -231,7 +245,7 @@ button,
   border: 1px solid transparent;
   border-radius: 999px;
   background: var(--color-brand-accessible);
-  color: #FFFFFF;
+  color: var(--on-blue);
   font-weight: 700;
   transition: background-color 180ms ease, border-color 180ms ease, transform 180ms ease;
 }
@@ -304,7 +318,7 @@ button,
 .public-app .section-top h2,
 .inner-page h1 {
   font-family: var(--font-heading);
-  letter-spacing: -0.04em;
+  letter-spacing: 0;
 }
 
 .public-app .reference-description,
@@ -355,13 +369,13 @@ button,
 .crm-layout .crm-nav button {
   min-height: 44px;
   border-radius: var(--radius-control);
-  color: rgb(255 255 255 / 82%);
+  color: var(--on-blue-muted);
 }
 
 .crm-layout .crm-nav button:hover,
 .crm-layout .crm-nav button.crm-nav-active {
-  background: rgb(255 255 255 / 12%);
-  color: #FFFFFF;
+  background: var(--color-brand);
+  color: var(--on-blue);
 }
 
 .crm-layout .crm-main {

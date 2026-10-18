@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, ArrowRight, CalendarDays, Check, ChevronDown, Filter, Mail, MapPin, MessageCircle, Plus, ShieldCheck } from 'lucide-react'
-import { Avatar, Button, Logo, Modal, PasswordInput, PhoneInput, Title, calendarDaysUntil, formatBrazilianPhone, localDateValue, maskEmail, request, reservationStatusClass, reservationStatusLabel, storeUser, uploadQuestion } from './App.jsx'
+import { Avatar, Button, Logo, Modal, PasswordInput, PasswordRecoveryForm, PhoneInput, Title, calendarDaysUntil, formatBrazilianPhone, localDateValue, maskEmail, request, reservationStatusClass, reservationStatusLabel, storeUser, uploadQuestion } from './App.jsx'
 import { CountUp, Reveal, Stagger, StaggerItem } from './motion/index.js'
 
 export function AccessPage({ onLogin, onSignup }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [notice, setNotice] = useState('')
+  const [recoverySuccess, setRecoverySuccess] = useState('')
+  const [recoveryOpen, setRecoveryOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   async function submit(event) {
     event.preventDefault(); setBusy(true); setNotice('')
@@ -20,12 +22,18 @@ export function AccessPage({ onLogin, onSignup }) {
     <div className="account-brand"><Logo variant="institutionalLight" /></div><div className="account-page-heading"><Title as="h1">Acesso ao InPETU Connect</Title><p>Entre com seu e-mail e senha para acessar sua conta.</p></div>
     <section className="account-card" aria-label="Acessar sua conta">
       <p className="account-description">Acesse para acompanhar e gerenciar suas solicitações. O painel da equipe é exibido conforme as permissões da sua conta.</p>
-      <form className="form-stack account-form" onSubmit={submit}>
-        <label>E-mail <span aria-hidden="true">*</span><input required type="email" autoComplete="email" placeholder="seu.email@empresa.com" value={email} onChange={e => setEmail(e.target.value)} /></label>
-        <label>Senha <span aria-hidden="true">*</span><PasswordInput required autoComplete="current-password" placeholder="Sua senha" value={password} onChange={e => setPassword(e.target.value)} /></label>
-        {notice && <p className="account-notice account-notice-error" role="alert">{notice}</p>}
-        <Button type="submit" disabled={busy}>{busy ? 'Aguarde...' : 'Entrar com e-mail e senha'}</Button>
-      </form>
+      {recoveryOpen
+        ? <PasswordRecoveryForm onCancel={() => setRecoveryOpen(false)} onSuccess={message => { setRecoveryOpen(false); setRecoverySuccess(message) }} />
+        : <>
+          <form className="form-stack account-form" onSubmit={submit}>
+            <label>E-mail <span aria-hidden="true">*</span><input required type="email" autoComplete="email" placeholder="seu.email@empresa.com" value={email} onChange={e => setEmail(e.target.value)} /></label>
+            <label>Senha <span aria-hidden="true">*</span><PasswordInput required autoComplete="current-password" placeholder="Sua senha" value={password} onChange={e => setPassword(e.target.value)} /></label>
+            {recoverySuccess && <p className="account-notice" role="status">{recoverySuccess}</p>}
+            {notice && <p className="account-notice account-notice-error" role="alert">{notice}</p>}
+            <Button type="submit" disabled={busy}>{busy ? 'Aguarde...' : 'Entrar com e-mail e senha'}</Button>
+          </form>
+          <p className="account-signup"><button type="button" onClick={() => { setNotice(''); setRecoverySuccess(''); setRecoveryOpen(true) }}>Esqueci minha senha</button></p>
+        </>}
       <p className="account-signup">Ainda não tem cadastro? <button type="button" onClick={onSignup}>Cadastre-se aqui</button></p>
       <p className="account-security"><ShieldCheck size={14} /> Acesso à equipe restrito a colaboradores autorizados.</p>
     </section>

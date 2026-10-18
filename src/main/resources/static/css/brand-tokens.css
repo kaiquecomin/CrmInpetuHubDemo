@@ -44,8 +44,8 @@
   --space-content: clamp(1rem, 3vw, 2rem);
   --shadow-card: 0 12px 32px rgb(24 31 55 / 8%);
   --shadow-panel: 0 24px 64px rgb(24 31 55 / 12%);
-  --font-heading: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-body: "Lato", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "DM Sans", ui-sans-serif, system-ui, sans-serif;
   --font-sans: var(--font-body);
   --ink: var(--color-text);
   --muted: var(--color-text-muted);
