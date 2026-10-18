@@ -102,6 +102,9 @@ try {
     Set-TemporaryEnvironment 'JWT_SECRET' (New-TemporarySecret)
     Set-TemporaryEnvironment 'OTP_SECRET' (New-TemporarySecret)
     Set-TemporaryEnvironment 'APP_RATE_LIMIT_SECRET' (New-TemporarySecret)
+    Set-TemporaryEnvironment 'MAIL_ENABLED' 'false'
+    Set-TemporaryEnvironment 'APP_PASSWORD_RESET_DEV_CODE_LOG' 'true'
+    Set-TemporaryEnvironment 'MURAL_ENABLED' 'true'
     Set-TemporaryEnvironment 'SPRING_PROFILES_ACTIVE' 'dev,demo'
 
     Push-Location $repoRoot

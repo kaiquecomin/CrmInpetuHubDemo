@@ -40,7 +40,9 @@ npm run dev
 
 Com a aplicação no ar, o portal fica em `http://localhost:5173` e a API em `http://localhost:8080/api/v1`.
 
-Para testar com dados fictícios, use `scripts/start-local-demo.ps1`. Se `scripts/local-secrets.ps1` existir, o script usa os valores definidos nele e pergunta apenas os que faltarem; as senhas digitadas não são exibidas. O script gera segredos aleatórios temporários para JWT, OTP e limitação de tentativas a cada execução, e aponta a API somente para um MySQL em `localhost`. O arquivo real de segredos é ignorado pelo Git; o guia para cadastrar as contas de teste está em [docs/passbolt-local-test-access.md](./docs/passbolt-local-test-access.md). Nunca grave senhas no repositório.
+Para testar com dados fictícios, use `scripts/start-local-demo.ps1`. Se `scripts/local-secrets.ps1` existir, o script usa os valores definidos nele e pergunta apenas os que faltarem; as senhas digitadas não são exibidas. O script gera segredos aleatórios temporários para JWT, OTP e limitação de tentativas a cada execução e aponta a API somente para um MySQL em `localhost`. O arquivo real de segredos é ignorado pelo Git; o guia para cadastrar as contas de teste está em [docs/passbolt-local-test-access.md](./docs/passbolt-local-test-access.md). Nunca grave senhas no repositório.
+
+Com `MAIL_ENABLED=false` no perfil local `dev`, após solicitar uma recuperação de senha pela tela de acesso, obtenha o código de uso único uma vez em `http://localhost:8080/api/v1/dev/password-reset-code?email=<email-url-encoded>`. Esse canal existe apenas no perfil `dev`, aceita conexões de loopback e não registra o código em logs.
 
 ### Variáveis de ambiente
 
@@ -59,6 +61,7 @@ Para testar com dados fictícios, use `scripts/start-local-demo.ps1`. Se `script
 | `TRUSTED_PROXIES` | Não | IPs de proxy confiáveis usados para resolver IP cliente |
 | `APP_ADMIN_EMAIL` | Condicional | E-mail do primeiro Coordenador criado pelo bootstrap |
 | `APP_ADMIN_PASSWORD` | Condicional | Senha do primeiro Coordenador criado pelo bootstrap |
+| `APP_COOKIE_SECURE` | Não | Flag `Secure` do cookie de sessão; padrão `true` e `false` no perfil local `dev` |
 | `APP_UPLOAD_DIR` | Não | Diretório de anexos de dúvidas e imagens; padrão `uploads/inpetu` |
 | `FRONTEND_ORIGIN` | Não | Origens CORS; padrão `http://localhost:5173` |
 | `MAIL_ENABLED` | Não | Ativa todos os envios transacionais por Brevo (códigos, respostas e notificações) |
@@ -72,7 +75,7 @@ Para testar com dados fictícios, use `scripts/start-local-demo.ps1`. Se `script
 | `VITE_API_URL` | Não | URL da API incorporada ao frontend Vite durante o build; padrão do código local |
 | `JAVA_TOOL_OPTIONS` | Não | Opções da JVM; definida no estágio final do Dockerfile |
 
-`APP_ADMIN_EMAIL` e `APP_ADMIN_PASSWORD` criam o primeiro coordenador apenas uma vez, se ainda não existir nenhum usuário com perfil 1. Sem elas, a aplicação registra um aviso e não cria conta administrativa; não há credenciais padrão. Não alteram nem removem contas existentes. Remova essas duas variáveis depois de confirmar o acesso. `OTP_SECRET` deve ser um segredo aleatório, estável entre deploys e distinto de `JWT_SECRET`; a aplicação não inicia sem ele. `APP_RATE_LIMIT_SECRET` também deve ser aleatório, estável entre deploys e distinto dos demais segredos. Para habilitar qualquer envio, defina `MAIL_ENABLED=true` e configure `BREVO_API_KEY` e `MAIL_FROM` com remetente validado no Brevo.
+`APP_ADMIN_EMAIL` e `APP_ADMIN_PASSWORD` criam o primeiro coordenador apenas uma vez, se ainda não existir nenhum usuário com perfil 1. Sem elas, a aplicação registra um aviso e não cria conta administrativa; não há credenciais padrão. Não alteram nem removem contas existentes. Remova essas duas variáveis depois de confirmar o acesso. `OTP_SECRET` deve ser um segredo aleatório, estável entre deploys e distinto de `JWT_SECRET`; a aplicação não inicia sem ele. `APP_RATE_LIMIT_SECRET` também deve ser aleatório, estável entre deploys e distinto dos demais segredos. Em produção, mantenha `APP_COOKIE_SECURE=true`, habilite `MAIL_ENABLED=true` e configure `BREVO_API_KEY` e `MAIL_FROM` com remetente validado no Brevo.
 
 Os envios de código, resposta de dúvida e notificação compartilham o cliente HTTP do Brevo; o transporte e a dependência de e-mail SMTP foram removidos. Para resolver IPs atrás de um proxy, `TRUSTED_PROXIES` aceita uma lista separada por vírgulas de endereços IP exatos (não CIDRs). Vazio é o comportamento seguro padrão: ignora `X-Forwarded-For` e usa o endereço remoto visto pela aplicação.
 
