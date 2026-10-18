@@ -25,6 +25,15 @@ iniciar-inpetu-demo.ps1
 .tsupgrader/
 *.iml
 
+# Capturas de verificação visual (Playwright)
+screenshots/
+
+# Local-only optional community board module
+src/mural/
+src/main/java/com/inpetu/connect/mural/
+src/test/java/com/inpetu/connect/mural/
+uploads/mural/
+
 # Arquivos gerados pelo sistema operacional
 Thumbs.db
 desktop.ini
