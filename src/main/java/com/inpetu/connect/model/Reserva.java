@@ -9,7 +9,7 @@ import java.time.LocalTime;
 @Entity @Table(name = "reserva", indexes = @Index(name = "idx_reserva_espaco_data", columnList = "id_espaco,data_reserva")) @Getter @Setter @NoArgsConstructor
 public class Reserva {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) @Column(name = "id_reserva") private Integer idReserva;
-    @Column(name = "titulo_evento", nullable = false, length = 150) private String tituloEvento;
+    @Column(name = "titulo_evento", nullable = false, length = 500) private String tituloEvento;
     @Lob @Column(name = "descricao_finalidade") private String descricaoFinalidade;
     @Column(name = "data_reserva", nullable = false) private LocalDate dataReserva;
     @Column(name = "horario_inicio", nullable = false) private LocalTime horarioInicio;

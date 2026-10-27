@@ -52,12 +52,14 @@ public class PasswordResetService {
     private final LogAuditoriaRepository auditoria;
     private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
     private final EmailSender emailSender;
+    private final boolean trustProxyHeaders;
     private final Set<String> trustedProxies;
     private final String otpSecret;
     private final String rateLimitSecret;
     private final boolean mailEnabled;
     private final boolean logDevCodes;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public PasswordResetService(
         UsuarioRepository usuarios,
         CodigoRecuperacaoSenhaRepository codigos,
@@ -65,6 +67,7 @@ public class PasswordResetService {
         LogAuditoriaRepository auditoria,
         org.springframework.security.crypto.password.PasswordEncoder passwordEncoder,
         EmailSender emailSender,
+        @Value("${app.trust-proxy-headers:false}") boolean trustProxyHeaders,
         @Value("${app.security.trusted-proxies:}") String trustedProxyConfig,
         @Value("${OTP_SECRET:}") String otpSecret,
         @Value("${APP_RATE_LIMIT_SECRET:}") String rateLimitSecret,
@@ -84,6 +87,7 @@ public class PasswordResetService {
         this.auditoria = auditoria;
         this.passwordEncoder = passwordEncoder;
         this.emailSender = emailSender;
+        this.trustProxyHeaders = trustProxyHeaders;
         this.trustedProxies = ClientIpResolver.parseTrustedProxies(trustedProxyConfig);
         this.otpSecret = otpSecret;
         this.rateLimitSecret = effectiveRateLimitSecret;
@@ -92,9 +96,27 @@ public class PasswordResetService {
             && environment.acceptsProfiles(Profiles.of("dev"));
     }
 
+    public PasswordResetService(
+        UsuarioRepository usuarios,
+        CodigoRecuperacaoSenhaRepository codigos,
+        EventoCadastroRepository eventos,
+        LogAuditoriaRepository auditoria,
+        org.springframework.security.crypto.password.PasswordEncoder passwordEncoder,
+        EmailSender emailSender,
+        String trustedProxyConfig,
+        String otpSecret,
+        String rateLimitSecret,
+        boolean mailEnabled,
+        boolean devCodeLogEnabled,
+        Environment environment
+    ) {
+        this(usuarios, codigos, eventos, auditoria, passwordEncoder, emailSender,
+             false, trustedProxyConfig, otpSecret, rateLimitSecret, mailEnabled, devCodeLogEnabled, environment);
+    }
+
     public ResponseEntity<Map<String, String>> solicitar(String email, HttpServletRequest request) {
         String normalizedEmail = normalize(email);
-        String clientIp = ClientIpResolver.resolve(request, trustedProxies);
+        String clientIp = ClientIpResolver.resolve(request, trustProxyHeaders, trustedProxies);
         String emailHash = keyedHash(rateLimitSecret, normalizedEmail);
         String ipHash = clientIp == null || clientIp.isBlank() ? null : keyedHash(rateLimitSecret, clientIp);
         LocalDateTime now = LocalDateTime.now();
@@ -114,7 +136,7 @@ public class PasswordResetService {
     @Transactional(noRollbackFor = ResponseStatusException.class)
     public ResponseEntity<Map<String, String>> validar(String email, String code, HttpServletRequest request) {
         String normalizedEmail = normalize(email);
-        String clientIp = ClientIpResolver.resolve(request, trustedProxies);
+        String clientIp = ClientIpResolver.resolve(request, trustProxyHeaders, trustedProxies);
         String emailHash = keyedHash(rateLimitSecret, normalizedEmail);
         String ipHash = clientIp == null || clientIp.isBlank() ? null : keyedHash(rateLimitSecret, clientIp);
         if (isValidationRateLimited(emailHash, ipHash)) return rateLimited();
@@ -132,7 +154,7 @@ public class PasswordResetService {
         HttpServletRequest request
     ) {
         String normalizedEmail = normalize(email);
-        String clientIp = ClientIpResolver.resolve(request, trustedProxies);
+        String clientIp = ClientIpResolver.resolve(request, trustProxyHeaders, trustedProxies);
         String emailHash = keyedHash(rateLimitSecret, normalizedEmail);
         String ipHash = clientIp == null || clientIp.isBlank() ? null : keyedHash(rateLimitSecret, clientIp);
         if (isValidationRateLimited(emailHash, ipHash)) return rateLimited();

@@ -41,14 +41,17 @@ public class AuthController {
     private final OrganizacaoRepository organizacoes;
     private final PasswordEncoder passwordEncoder;
     private final LoginAttemptService loginAttempts;
+    private final boolean trustProxyHeaders;
     private final Set<String> trustedProxies;
     private final CadastroPublicoService cadastroPublicoService;
     private final PasswordResetService passwordResetService;
     private final boolean cookieSecure;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public AuthController(AuthenticationManager auth, JwtService jwt, UserDetailsService users,
                           UsuarioRepository usuarios, UsuarioFotoRepository fotos, OrganizacaoRepository organizacoes, PasswordEncoder passwordEncoder,
                           LoginAttemptService loginAttempts,
+                          @Value("${app.trust-proxy-headers:false}") boolean trustProxyHeaders,
                           @Value("${app.security.trusted-proxies:}") String trustedProxyConfig,
                           CadastroPublicoService cadastroPublicoService,
                           PasswordResetService passwordResetService,
@@ -57,16 +60,29 @@ public class AuthController {
         this.fotos = fotos; this.organizacoes = organizacoes;
         this.passwordEncoder = passwordEncoder;
         this.loginAttempts = loginAttempts;
+        this.trustProxyHeaders = trustProxyHeaders;
         this.trustedProxies = ClientIpResolver.parseTrustedProxies(trustedProxyConfig);
         this.cadastroPublicoService = cadastroPublicoService;
         this.passwordResetService = passwordResetService;
         this.cookieSecure = cookieSecure;
     }
+
+    public AuthController(AuthenticationManager auth, JwtService jwt, UserDetailsService users,
+                          UsuarioRepository usuarios, UsuarioFotoRepository fotos, OrganizacaoRepository organizacoes, PasswordEncoder passwordEncoder,
+                          LoginAttemptService loginAttempts,
+                          String trustedProxyConfig,
+                          CadastroPublicoService cadastroPublicoService,
+                          PasswordResetService passwordResetService,
+                          boolean cookieSecure) {
+        this(auth, jwt, users, usuarios, fotos, organizacoes, passwordEncoder, loginAttempts,
+             false, trustedProxyConfig, cadastroPublicoService, passwordResetService, cookieSecure);
+    }
+
     @PostMapping("/auth/login")
     public ResponseEntity<Map<String, Object>> login(@Valid @RequestBody LoginRequest request,
                                                       HttpServletRequest servletRequest,
                                                       HttpServletResponse servletResponse) {
-        String ip = ClientIpResolver.resolve(servletRequest, trustedProxies);
+        String ip = ClientIpResolver.resolve(servletRequest, trustProxyHeaders, trustedProxies);
         var status = loginAttempts.check(ip, request.email());
         if (status.blocked()) {
             throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,

@@ -1,14 +1,39 @@
 import { Fragment, lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import { Combobox, ComboboxInput, ComboboxOption, ComboboxOptions, Dialog, DialogPanel, DialogTitle, Menu, MenuButton, MenuItem, MenuItems, Tab, TabGroup, TabList, TabPanel, TabPanels, Transition, TransitionChild } from '@headlessui/react'
-import { ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, Bell, Building2, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, Clock3, DoorOpen, Download, Eye, EyeOff, ExternalLink, FileText, Filter, GraduationCap, Home as HomeIcon, LayoutDashboard, ListChecks, LockKeyhole, Mail, MapPin, Menu as MenuIcon, MessageCircle, MoreHorizontal, Plus, Search, ShieldCheck, SlidersHorizontal, Users, X } from 'lucide-react'
+import { Combobox, ComboboxButton, ComboboxInput, ComboboxOption, ComboboxOptions, Dialog, DialogPanel, DialogTitle, Menu, MenuButton, MenuItem, MenuItems, Tab, TabGroup, TabList, TabPanel, TabPanels, Transition, TransitionChild } from '@headlessui/react'
+import { ArrowDownRight, ArrowLeft, ArrowRight, ArrowUpRight, Bell, Building2, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, Clock3, DoorOpen, Download, Eye, EyeOff, ExternalLink, FileText, Filter, GraduationCap, Home as HomeIcon, LayoutDashboard, ListChecks, LockKeyhole, Mail, MapPin, Menu as MenuIcon, MessageCircle, Moon, MoreHorizontal, Plus, Search, ShieldCheck, Sun, Users, X } from 'lucide-react'
 import { personas, personaQuotaLabel } from './personas.js'
 import { formatRelativeNotificationDate, normalizeNotificationMessage } from './notifications.js'
 import { BRAND_LOGOS } from './brand.js'
 import { CountUp, Reveal, Stagger, StaggerItem, useScrollProgress } from './motion/index.js'
+import ErrorBoundary from './ErrorBoundary.jsx'
 
 const CalendarPage = lazy(() => import('./CalendarPage.jsx'))
 const Crm = lazy(() => import('./CrmPage.jsx'))
 const loadPublicPage = name => lazy(() => import('./PublicPages.jsx').then(pages => ({ default: pages[name] })))
+
+export function readThemePreference() {
+  let savedTheme = null
+  try {
+    savedTheme = localStorage.getItem('inpetu-crm-theme')
+  } catch {
+    // Storage may be disabled; continue with the system preference.
+  }
+  if (savedTheme === 'dark' || savedTheme === 'light') return savedTheme
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+
+export function applyThemePreference(theme, persist = true) {
+  document.documentElement.dataset.theme = theme
+  document.documentElement.style.colorScheme = theme
+  document.body.dataset.crmTheme = theme
+  if (persist) {
+    try {
+      localStorage.setItem('inpetu-crm-theme', theme)
+    } catch {
+      // Theme application must not depend on storage availability.
+    }
+  }
+}
 const optionalFeatureModules = Object.values(import.meta.glob('./mural/*.jsx', { eager: true }))
   .map(module => module.default)
   .filter(Boolean)
@@ -215,6 +240,30 @@ const getRoomInitials = user => (user?.nome || user?.email || 'U')
   .map(part => part[0].toLocaleUpperCase('pt-BR'))
   .join('')
 export const localDateValue = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+const saoPauloDateTimeFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'America/Sao_Paulo',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hourCycle: 'h23',
+})
+export const getSaoPauloDateTime = (instant = new Date()) => {
+  const parts = Object.fromEntries(saoPauloDateTimeFormatter.formatToParts(instant).map(part => [part.type, part.value]))
+  const date = `${parts.year}-${parts.month}-${parts.day}`
+  return { date, time: `${parts.hour}:${parts.minute}`, dateTime: `${date}T${parts.hour}:${parts.minute}:${parts.second}` }
+}
+export const getReservationStartError = (date, time, now = new Date()) => {
+  if (!date || !time) return ''
+  const saoPauloNow = getSaoPauloDateTime(now)
+  if (date < saoPauloNow.date) return 'A data de início deve ser hoje ou uma data futura.'
+  if (date === saoPauloNow.date && `${date}T${time}:00` < saoPauloNow.dateTime) {
+    return 'O horário de início não pode estar no passado.'
+  }
+  return ''
+}
 export const saoPauloDateTime = () => {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Sao_Paulo',
@@ -244,6 +293,7 @@ export const addMinutesToTime = (time, minutes) => {
   const total = hours * 60 + mins + minutes
   return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
 }
+export const formatTimeForDisplay = value => typeof value === 'string' ? value.slice(0, 5) : ''
 const reservationDurationHours = reservation => {
   const [startHour, startMinute] = (reservation.horarioInicio || '00:00').split(':').map(Number)
   const [endHour, endMinute] = (reservation.horarioFim || '00:00').split(':').map(Number)
@@ -384,7 +434,7 @@ export function Modal({ open, close, title, children, wide = false }) {
   return <Transition appear show={open} as={Fragment}><Dialog as="div" className="dialog-root" onClose={close}>
     <TransitionChild as={Fragment} enter="ease-out duration-200" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-150" leaveFrom="opacity-100" leaveTo="opacity-0"><div className="dialog-backdrop" /></TransitionChild>
     <div className="dialog-wrap"><TransitionChild as={Fragment} enter="ease-out duration-200" enterFrom="opacity-0 translate-y-3" enterTo="opacity-100 translate-y-0" leave="ease-in duration-150" leaveFrom="opacity-100 translate-y-0" leaveTo="opacity-0 translate-y-3"><DialogPanel className={`dialog-panel ${wide ? 'dialog-wide' : ''}`}>
-      <div className="dialog-heading"><DialogTitle as={Title} className="dialog-title"><span className="dialog-title-emoji" aria-hidden="true">✨</span>{title}</DialogTitle><button className="icon-button" aria-label="Fechar" onClick={close}><X size={19} /></button></div>{children}
+      <div className="dialog-heading"><DialogTitle as={Title} className="dialog-title">{title}</DialogTitle><button className="icon-button" aria-label="Fechar" onClick={close}><X size={19} /></button></div>{children}
     </DialogPanel></TransitionChild></div>
   </Dialog></Transition>
 }
@@ -908,20 +958,42 @@ function Header({ view, setView, openLogin, onOpenCalendar, user, onLogout, onUs
   const [menuOpen, setMenuOpen] = useState(false)
   const [profileDetailsOpen, setProfileDetailsOpen] = useState(false)
   const [compact, setCompact] = useState(false)
+  const [theme, setTheme] = useState(readThemePreference)
   useEffect(() => {
     const updateCompact = () => setCompact(window.scrollY > 24)
     updateCompact()
     window.addEventListener('scroll', updateCompact, { passive: true })
     return () => window.removeEventListener('scroll', updateCompact)
   }, [])
+  useEffect(() => {
+    applyThemePreference(theme, false)
+  }, [theme])
+  function toggleTheme() {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark'
+    applyThemePreference(nextTheme)
+    setTheme(nextTheme)
+  }
   const goTo = (id) => { setView('home'); setMenuOpen(false); window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0) }
   const perfilLabel = getProfileMenuRole(user)
-  return <header className={`site-header reference-header ${compact ? 'site-header-compact' : ''}`}><div className="header-inner"><button className="logo-button" aria-label="InPETU hub — página inicial" onClick={() => { setView(user && !isCrmUser(user) ? 'portal' : 'home'); window.scrollTo({ top: 0, behavior: 'smooth' }) }}><Logo /></button>
+  return <header className={`site-header reference-header ${compact ? 'site-header-compact' : ''} ${menuOpen ? 'site-header-menu-open' : ''}`}><div className="header-inner"><button className="logo-button" aria-label="InPETU hub — página inicial" onClick={() => { setView(user && !isCrmUser(user) ? 'portal' : 'home'); window.scrollTo({ top: 0, behavior: 'smooth' }) }}><Logo variant={theme === 'dark' ? 'horizontalDark' : 'horizontalLight'} /></button>
     <nav id="public-navigation" className={`main-nav ${menuOpen ? 'nav-open' : ''}`}><button className={view === 'home' || view === 'portal' ? 'nav-active' : ''} onClick={() => { setView(user && !isCrmUser(user) ? 'portal' : 'home'); window.scrollTo({ top: 0, behavior: 'smooth' }); setMenuOpen(false) }}>{user && !isCrmUser(user) ? 'Meu portal' : 'Início'}</button><button onClick={() => goTo('spaces')}>Nossos Espaços</button>{optionalNavigation.map(item => <button key={item.view} className={view === item.view ? 'nav-active' : ''} onClick={() => { setView(item.view); window.scrollTo({ top: 0, behavior: 'smooth' }); setMenuOpen(false) }}>{item.label}</button>)}<button className={view === 'help' ? 'nav-active' : ''} onClick={() => { setView('help'); setMenuOpen(false) }}>Fale Conosco</button>{!user && <button className="mobile-nav-login" onClick={() => { openLogin(); setMenuOpen(false) }}>Entrar</button>}</nav>
-    <div className="header-actions">{user ? <div className="profile-control"><NotificationCenter user={user} /><Menu as="div" className="profile-switcher"><MenuButton type="button" className="profile-trigger" aria-label={`Menu da conta de ${user.nome || user.email || 'usuário'}`}><Avatar user={user} tamanho={34} className="profile-avatar" /><span className="profile-meta"><strong>{user.nome || user.email || 'Perfil'}</strong>{perfilLabel && <small>{perfilLabel}</small>}</span><ChevronDown className="profile-chevron" size={16} aria-hidden="true" /></MenuButton><MenuItems className="profile-menu"><MenuItem><button type="button" onClick={() => setProfileDetailsOpen(true)}>Meu perfil</button></MenuItem><MenuItem><button type="button" onClick={() => setView('reservations')}>Minhas reservas</button></MenuItem>{isCrmUser(user) && <MenuItem><a href="/paineladm">Painel da equipe</a></MenuItem>}<div className="profile-menu-divider" role="separator" /><MenuItem><button type="button" className="profile-menu-signout" onClick={() => onLogout?.()}>Sair da conta</button></MenuItem></MenuItems></Menu><ProfileDialog open={profileDetailsOpen} close={() => setProfileDetailsOpen(false)} user={user} onUserUpdate={onUserUpdate} /></div> : <button className="team-link reference-login" onClick={() => { openLogin(); setMenuOpen(false) }}>Entrar</button>}<Button icon={CalendarDays} aria-label="Agendar Espaço" className="reference-header-cta" onClick={() => { onOpenCalendar(); setMenuOpen(false) }}><span className="header-cta-full">Agendar Espaço</span><span className="header-cta-short">Agendar</span></Button></div><button className="mobile-menu icon-button" aria-controls="public-navigation" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? 'Fechar menu' : 'Abrir menu'}><MenuIcon /></button>
+    <div className="header-actions">{user ? <div className="profile-control"><NotificationCenter user={user} /><Menu as="div" className="profile-switcher"><MenuButton type="button" className="profile-trigger" aria-label={`Menu da conta de ${user.nome || user.email || 'usuário'}`}><Avatar user={user} tamanho={34} className="profile-avatar" /><span className="profile-meta"><strong>{user.nome || user.email || 'Perfil'}</strong>{perfilLabel && <small>{perfilLabel}</small>}</span><ChevronDown className="profile-chevron" size={16} aria-hidden="true" /></MenuButton><MenuItems className="profile-menu"><MenuItem><button type="button" onClick={() => setProfileDetailsOpen(true)}>Meu perfil</button></MenuItem><MenuItem><button type="button" onClick={() => setView('reservations')}>Minhas reservas</button></MenuItem>{isCrmUser(user) && <MenuItem><a href="/paineladm">Painel da equipe</a></MenuItem>}<div className="profile-menu-divider" role="separator" /><MenuItem><button type="button" className="profile-menu-signout" onClick={() => onLogout?.()}>Sair da conta</button></MenuItem></MenuItems></Menu><ProfileDialog open={profileDetailsOpen} close={() => setProfileDetailsOpen(false)} user={user} onUserUpdate={onUserUpdate} /></div> : <button className="team-link reference-login" onClick={() => { openLogin(); setMenuOpen(false) }}>Entrar</button>}<button type="button" className="public-theme-toggle icon-button" aria-label={theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'} aria-pressed={theme === 'dark'} onClick={toggleTheme}>{theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}</button><Button icon={CalendarDays} aria-label="Agendar Espaço" className="reference-header-cta" onClick={() => { onOpenCalendar(); setMenuOpen(false) }}><span className="header-cta-full">Agendar Espaço</span><span className="header-cta-short">Agendar</span></Button></div><button className="mobile-menu icon-button" aria-controls="public-navigation" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)} aria-label={menuOpen ? 'Fechar menu' : 'Abrir menu'}><MenuIcon /></button>
   </div></header>
 }
-function RoomGallery({ space, onClose, onConsultSpace }) {
+export function SpaceCardAction({ space, onConsultSpace, onRequestReservation, onClose }) {
+  const unavailable = space.ativo === false
+  const guidedTourSpace = isGuidedTour(space.tipoEspaco)
+  const label = unavailable ? 'Ver motivo' : guidedTourSpace ? 'Solicitar visita' : 'Ver horários'
+  const onClick = () => {
+    onClose?.()
+    if (guidedTourSpace && !unavailable) onRequestReservation(space)
+    else onConsultSpace(space)
+  }
+
+  return <button type="button" className="space-cta" onClick={onClick}>{label}</button>
+}
+
+export function RoomGallery({ space, onClose, onConsultSpace, onRequestReservation }) {
   const [imageIndex, setImageIndex] = useState(0)
   if (!space) return null
   const images = getRoomImages(space)
@@ -929,38 +1001,32 @@ function RoomGallery({ space, onClose, onConsultSpace }) {
   const coverImage = getRoomImage(space)
   return <Modal open={Boolean(space)} close={onClose} title={`Foto de ${space.nomeEspaco}`} wide>
     <div className="room-gallery">
-      <div className="room-gallery-stage" aria-live="polite">
+      <div className="room-gallery-stage" aria-label="Fotos do espaço">
         <img key={selectedImage} src={selectedImage} alt={`${space.nomeEspaco} , foto ${imageIndex + 1} de ${images.length}`} onError={event => {
           const image = event.currentTarget
           if (image.src !== new URL(coverImage, window.location.href).href) image.src = coverImage
         }} />
         {images.length > 1 && <>
-          <button type="button" className="room-gallery-arrow room-gallery-previous" aria-label="Foto anterior" onClick={() => setImageIndex(index => (index - 1 + images.length) % images.length)}><ChevronLeft size={22} /></button>
-          <button type="button" className="room-gallery-arrow room-gallery-next" aria-label="Próxima foto" onClick={() => setImageIndex(index => (index + 1) % images.length)}><ChevronRight size={22} /></button>
-          <span className="room-gallery-counter">{imageIndex + 1} / {images.length}</span>
+          <div className="room-gallery-controls" aria-label="Controles da galeria">
+            <button type="button" className="room-gallery-arrow room-gallery-previous" aria-label="Foto anterior" onClick={() => setImageIndex(index => (index - 1 + images.length) % images.length)}><ChevronLeft size={22} /></button>
+            <span className="room-gallery-counter" aria-live="polite">{imageIndex + 1} / {images.length}</span>
+            <button type="button" className="room-gallery-arrow room-gallery-next" aria-label="Próxima foto" onClick={() => setImageIndex(index => (index + 1) % images.length)}><ChevronRight size={22} /></button>
+          </div>
         </>}
       </div>
-      {images.length > 1 && <div className="room-gallery-thumbnails" aria-label="Selecionar foto">
-        {images.map((image, index) => <button key={image} type="button" className={index === imageIndex ? 'room-gallery-thumbnail room-gallery-thumbnail-active' : 'room-gallery-thumbnail'} aria-label={`Mostrar foto ${index + 1}`} aria-pressed={index === imageIndex} onClick={() => setImageIndex(index)}>
-          <img src={image} alt="" />
-        </button>)}
-      </div>}
       <div className="room-gallery-caption">
         <div><small>{space.tipoEspaco}</small><Title as="h3">{space.nomeEspaco}</Title><p>{space.capacidadePessoas ? `Capacidade para até ${space.capacidadePessoas} pessoas` : 'Capacidade não informada'}</p></div>
-        <Button icon={CalendarDays} onClick={() => { onClose(); onConsultSpace(space) }}>{space.ativo === false ? 'Ver motivo' : 'Ver horários'}</Button>
+        <SpaceCardAction space={space} onConsultSpace={onConsultSpace} onRequestReservation={onRequestReservation} onClose={onClose} />
       </div>
     </div>
   </Modal>
 }
-function Home({ spaces, spacesLoaded, onConsultSpace, onSearchAvailability, onOpenCalendar, user, optionalGallery: OptionalGallery, openOptionalFeature, openOptionalFeatureLogin }) {
+function Home({ spaces, spacesLoaded, onConsultSpace, onRequestReservation, onOpenCalendar, user, optionalGallery: OptionalGallery, openOptionalFeature, openOptionalFeatureLogin }) {
   const [filter, setFilter] = useState('Todos os espaços')
   const filtered = filter === 'Todos os espaços' ? spaces : spaces.filter(space => space.tipoEspaco === filter)
   const types = ['Todos os espaços', ...new Set(spaces.map(space => space.tipoEspaco))]
   const activeSpaces = spaces.filter(space => space.ativo !== false)
   const [gallerySpace, setGallerySpace] = useState(null)
-  const todayValue = localDateValue()
-  const [searchType, setSearchType] = useState('')
-  const [searchDate, setSearchDate] = useState(todayValue)
   const heroSpace = activeSpaces[0]
   return <>
     <Reveal as="section" className="hero-shell reference-hero">
@@ -968,11 +1034,6 @@ function Home({ spaces, spacesLoaded, onConsultSpace, onSearchAvailability, onOp
         <div className="reference-location icon-text"><MapPin size={17} /><span>Lote 73 · Sapiens Parque · Florianópolis</span></div>
         <Title as="h1" className="reference-heading">Um espaço para suas ideias <em>ganharem vida.</em></Title>
         <p className="reference-description">Encontre o ambiente certo para se reunir, aprender e fazer acontecer no InPETU Hub.</p>
-        <form id="availability-search" className="availability-search" onSubmit={event => { event.preventDefault(); onSearchAvailability(searchDate, searchType) }}>
-          <label><span>Tipo de espaço</span><select value={searchType} onChange={event => setSearchType(event.target.value)}><option value="">Todos os espaços</option>{[...new Set(spaces.map(space => space.tipoEspaco))].map(type => <option value={type} key={type}>{type}</option>)}</select></label>
-          <label><span>Data desejada</span><input type="date" min={todayValue} value={searchDate} onChange={event => setSearchDate(event.target.value)} /></label>
-          <Button type="submit" icon={Search}>Consultar horários</Button>
-        </form>
         <dl className="reference-stats">
           <div><dt><CountUp value={22} from={8} format={value => `08h-${Math.round(value)}h`} /></dt><dd>Horário de funcionamento</dd></div>
           <div><dt>{spacesLoaded ? <CountUp value={spaces.filter(space => space.ativo !== false).length} /> : '...'}</dt><dd>Ambientes ativos</dd></div>
@@ -984,13 +1045,12 @@ function Home({ spaces, spacesLoaded, onConsultSpace, onSearchAvailability, onOp
       </div>
     </Reveal>
     <Reveal as="section" id="spaces" className="spaces-section"><div className="section-top"><div><Title as="h2">Nossos <em>Espaços</em></Title><p>Ambientes preparados para capacitações, eventos, mentorias e visitas técnicas.</p></div><button className="all-spaces-link icon-text" onClick={onOpenCalendar}>Abrir calendário completo <ArrowRight size={16} /></button></div>
-      <div className="filter-row"><div className="filter-label icon-text"><SlidersHorizontal size={15} /> EXPLORE POR TIPO</div><div className="filter-options">{types.map(type => <button key={type} className={`filter-chip ${filter === type ? 'filter-chip-active' : ''}`} onClick={() => setFilter(type)}>{type}</button>)}</div></div>
+      <div className="filter-row"><div className="filter-options">{types.map(type => <button key={type} className={`filter-chip ${filter === type ? 'filter-chip-active' : ''}`} onClick={() => setFilter(type)}>{type}</button>)}</div></div>
       {!spacesLoaded && <p className="empty-inline" role="status">Carregando espaços...</p>}
       {spacesLoaded && spaces.length === 0 && <p className="empty-inline" role="status">Nenhum espaço cadastrado no momento.</p>}
       <Stagger as="div" key={filter} className="space-grid">
         {filtered.map(space => {
           const unavailable = space.ativo === false
-          const guidedTourSpace = isGuidedTour(space.tipoEspaco)
           const showSpaceCategory = normalizeRoomName(space.tipoEspaco) !== normalizeRoomName(space.nomeEspaco)
           return <StaggerItem
             as="article"
@@ -1016,16 +1076,14 @@ function Home({ spaces, spacesLoaded, onConsultSpace, onSearchAvailability, onOp
                   : space.descricao || space.equipamentosDisponiveis || 'Um ambiente versátil para as suas ideias.'}
               </p>
               {unavailable && <small className="unavailable-deadline">{unavailableDeadlineLabel(space.dataPrevisaoRetorno)}</small>}
-              <button className="space-cta" onClick={() => onConsultSpace(space)}>
-                {unavailable ? 'Ver motivo' : guidedTourSpace ? 'Solicitar visita' : 'Ver horários'}
-              </button>
+              <SpaceCardAction space={space} onConsultSpace={onConsultSpace} onRequestReservation={onRequestReservation} />
             </div>
           </StaggerItem>
         })}
       </Stagger>
     </Reveal>
     {OptionalGallery && <OptionalGallery API={API} request={request} Modal={Modal} Button={Button} ImageUploadField={ImageUploadField} Reveal={Reveal} Title={Title} user={user} onOpenLogin={openOptionalFeatureLogin} preview onViewFull={openOptionalFeature} />}
-    {gallerySpace && <RoomGallery space={gallerySpace} onClose={() => setGallerySpace(null)} onConsultSpace={onConsultSpace} />}
+    {gallerySpace && <RoomGallery space={gallerySpace} onClose={() => setGallerySpace(null)} onConsultSpace={onConsultSpace} onRequestReservation={onRequestReservation} />}
   </>
 }
 function BookingModal({ space, close, onSaved, openLogin, initialDate, initialTime, initialEndTime, user }) {
@@ -1084,7 +1142,7 @@ function BookingModal({ space, close, onSaved, openLogin, initialDate, initialTi
         <label>Telefone para contato ou alteração<PhoneInput value={form.telefoneContato} onChange={telefoneContato => setForm(current => ({ ...current, telefoneContato }))} /><small>Usaremos este número caso seja necessário falar sobre a solicitação.</small></label>
       </section>
       <label><span>{guidedTour ? 'Data preferida da visita' : 'Data do encontro'} <span className="required-indicator" aria-hidden="true">*</span></span><input required type="date" min={localDateValue()} value={form.dataReserva} onChange={e => setForm({ ...form, dataReserva: e.target.value })} /></label><div className="field-pair"><label><span>{guidedTour ? 'Horário preferido de início' : 'Início'} <span className="required-indicator" aria-hidden="true">*</span></span><input required type="time" min="08:00" max="21:30" step="1800" value={form.horarioInicio} onChange={e => setForm({ ...form, horarioInicio: e.target.value })} /></label><label><span>{guidedTour ? 'Horário preferido de término' : 'Fim'} <span className="required-indicator" aria-hidden="true">*</span></span><input required type="time" min={form.horarioInicio || '08:30'} max="22:00" step="1800" value={form.horarioFim} onChange={e => setForm({ ...form, horarioFim: e.target.value })} /></label></div>
-      {guidedTour && <label>Quantidade de visitantes<input required type="number" min="1" max={space?.capacidadePessoas || 20} value={form.quantidadeParticipantes} onChange={e => setForm({ ...form, quantidadeParticipantes: e.target.value })} /><small>Capacidade máxima: {space?.capacidadePessoas || 20} pessoas.</small></label>}
+      {guidedTour && <label>Quantidade de visitantes<input required type="number" min="1" max={space?.capacidadePessoas || 20} value={form.quantidadeParticipantes} onChange={e => setForm({ ...form, quantidadeParticipantes: e.target.value === '' ? '' : e.target.value })} /><small>Capacidade máxima: {space?.capacidadePessoas || 20} pessoas.</small></label>}
       <label><span>{guidedTour ? 'Nome do grupo ou da instituição' : 'Nome do encontro'} <span className="required-indicator" aria-hidden="true">*</span></span><input required maxLength="150" placeholder={guidedTour ? 'Ex.: Turma de Engenharia da UFSC' : 'Ex.: Oficina de prototipagem'} value={form.tituloEvento} onChange={e => setForm({ ...form, tituloEvento: e.target.value })} /></label><label><span>{guidedTour ? 'Objetivo ou observações da visita' : 'O que você está planejando?'} <span className="required-indicator" aria-hidden="true">*</span></span><textarea required rows="3" placeholder={guidedTour ? 'Conte brevemente o perfil do grupo e o que gostaria de conhecer' : 'Conte um pouco sobre o encontro'} value={form.descricaoFinalidade} onChange={e => setForm({ ...form, descricaoFinalidade: e.target.value })} /></label>
       {message && <p className="form-message" role="alert">{message}</p>}<Button type="submit" icon={ArrowRight} disabled={busy}>{busy ? 'Enviando...' : guidedTour ? 'Enviar pedido de visita' : 'Continuar solicitação'}</Button><p className="form-footnote icon-text"><ShieldCheck size={14} /> Seus dados são tratados de acordo com a LGPD.</p>
     </form>
@@ -1180,19 +1238,32 @@ export function Kpi({ icon: Icon, label, value, change, accent }) { return <arti
 export function CrmTitle({ title, description, action }) { return <div className="crm-title-row"><div><Title as="h1">{title}</Title><p>{description}</p></div>{action}</div> }
 function PersonaCombobox({ value, onChange }) {
   const [query, setQuery] = useState('')
+  const buttonRef = useRef(null)
   const options = Object.entries(personas).filter(([id, persona]) =>
     `p${id} ${persona.label} ${personaQuotaLabel(persona)}`.toLocaleLowerCase('pt-BR')
       .includes(query.trim().toLocaleLowerCase('pt-BR')))
-  return <Combobox value={value ? Number(value) : null} onChange={selected => { onChange(String(selected)); setQuery('') }}>
+  return <Combobox value={value ? Number(value) : null} onChange={selected => {
+    if (selected == null) {
+      setQuery('')
+      return
+    }
+    onChange(String(selected))
+    setQuery('')
+  }}>
     <div className="persona-combobox">
       <ComboboxInput
         aria-label="Classificação por persona"
         className="persona-combobox-input"
         displayValue={id => id ? `P${id} · ${personas[Number(id)]?.label || ''}` : ''}
         onChange={event => setQuery(event.target.value)}
+        onClick={event => {
+          if (event.currentTarget.getAttribute('aria-expanded') !== 'true') buttonRef.current?.click()
+        }}
         placeholder="Selecione P1-P6"
       />
-      <ChevronDown size={16} aria-hidden="true" />
+      <ComboboxButton ref={buttonRef} className="persona-combobox-button" aria-label="Abrir lista de personas">
+        <ChevronDown size={16} aria-hidden="true" />
+      </ComboboxButton>
       <ComboboxOptions className="persona-combobox-options">
         {options.map(([id, persona]) => <ComboboxOption key={id} value={Number(id)} className={({ focus, selected }) => `persona-combobox-option ${focus ? 'persona-option-focus' : ''} ${selected ? 'persona-option-selected' : ''}`}>
           <span className={`persona-code-badge ${persona.badge}`}>P{id}</span>
@@ -1348,7 +1419,7 @@ export function ClientProfileDialog({ client, reservations, tickets, auditItems,
           </form> : <button type="button" className="client-profile-action" onClick={() => { setResetOpen(true); setResetError('') }}>Redefinir senha</button>}
         </section>}
       </>}
-      {tab === 'Reservas' && <div className="client-history-list">{clientReservations.length ? clientReservations.map(item => <article key={item.idReserva}><div><strong>{item.tituloEvento}</strong><small>{item.dataReserva} · {item.horarioInicio}-{item.horarioFim} · {item.espaco || 'Espaço InPETU'}</small></div><span className={`status-pill ${item.statusReserva === 'Confirmada' ? 'status-confirmed' : item.statusReserva === 'Cancelada' ? 'status-cancelled' : 'status-pending'}`}><i />{reservationStatusLabel(item.statusReserva)}</span>{item.excedeCota && <span className="quota-exceeded-badge">Excede cota</span>}</article>) : <p className="empty-inline">Este cliente ainda não possui reservas.</p>}</div>}
+      {tab === 'Reservas' && <div className="client-history-list">{clientReservations.length ? clientReservations.map(item => <article key={item.idReserva}><div><strong>{item.tituloEvento}</strong><small>{item.dataReserva} · {formatTimeForDisplay(item.horarioInicio)}-{formatTimeForDisplay(item.horarioFim)} · {item.espaco || 'Espaço InPETU'}</small></div><span className={`status-pill ${item.statusReserva === 'Confirmada' ? 'status-confirmed' : item.statusReserva === 'Cancelada' ? 'status-cancelled' : 'status-pending'}`}><i />{reservationStatusLabel(item.statusReserva)}</span>{item.excedeCota && <span className="quota-exceeded-badge">Excede cota</span>}</article>) : <p className="empty-inline">Este cliente ainda não possui reservas.</p>}</div>}
       {tab === 'Dúvidas' && <div className="client-history-list">{clientTickets.length ? clientTickets.map(ticket => <article key={ticket.idDuvida}><div><strong>{ticket.statusAtendimento} · {new Date(ticket.dataEnvio).toLocaleDateString('pt-BR')}</strong><small>{ticket.mensagemDuvida}</small>{ticket.respostaEquipe && <small>Resposta da equipe: {ticket.respostaEquipe}</small>}</div></article>) : <p className="empty-inline">Nenhuma dúvida vinculada a este e-mail.</p>}</div>}
       {tab === 'Auditoria' && <div className="client-history-list">{clientAudit.length ? clientAudit.map((item, index) => <article key={`${item.time}-${index}`}><div><strong>{item.action} · {item.time}</strong><small>{item.user} · {item.detail}</small></div></article>) : <p className="empty-inline">Nenhum registro de auditoria deste cliente.</p>}</div>}
     </div>
@@ -1606,7 +1677,11 @@ function AppInner({ onCodeSent, onNavigate, initialView = 'default' }) {
           setView('password-change')
           return null
         }
-        if (isCrmUser(normalized) && window.location.pathname.replace(/\/+$/, '') !== '/paineladm' && new URLSearchParams(window.location.search).get('legacyAdmin') !== '1') {
+        const isPublicMuralRoute = window.location.pathname.replace(/\/+$/, '') === '/mural'
+        const muralRouteCanRemainPublic = isPublicMuralRoute
+          && (!runtimeConfigLoaded || runtimeConfig?.mural === true)
+        if (isCrmUser(normalized) && window.location.pathname.replace(/\/+$/, '') !== '/paineladm'
+          && new URLSearchParams(window.location.search).get('legacyAdmin') !== '1' && !muralRouteCanRemainPublic) {
           window.location.replace('/paineladm')
           return null
         }
@@ -1630,7 +1705,7 @@ function AppInner({ onCodeSent, onNavigate, initialView = 'default' }) {
       window.removeEventListener('focus', refreshNow)
       document.removeEventListener('visibilitychange', refreshWhenVisible)
     }
-  }, [user?.idUsuario, user?.email])
+  }, [user?.idUsuario, user?.email, runtimeConfig, runtimeConfigLoaded])
   function updateCancel(item, reason) {
     const update = items => items.map(r => r.idReserva === item.idReserva ? { ...r, ...item, statusReserva: 'Cancelada', motivoCancelamento: reason } : r)
     setReservations(update); setMyReservations(update)
@@ -1656,31 +1731,33 @@ function AppInner({ onCodeSent, onNavigate, initialView = 'default' }) {
   if (view === 'password-change') {
     return <div className="public-app"><ReadingProgress /><Suspense fallback={<PageLoading />}><PasswordChangePage user={user} onLogout={logout} onPasswordChanged={passwordChanged} /></Suspense><LegalNotice /></div>
   }
-  if (view === 'crm') return <><Suspense fallback={<p className="page-loading" role="status">Carregando painel da equipe...</p>}><Crm user={user} setUser={setUser} onReturnHome={() => { setView('home'); window.scrollTo({ top: 0, behavior: 'smooth' }) }} spaces={spaces} setSpaces={setSpaces} reservations={reservations} setReservations={setReservations} optionalExtensions={optionalCrmExtensions} /></Suspense><LegalNotice /></>
+  if (view === 'crm') return <ErrorBoundary><Suspense fallback={<p className="page-loading" role="status">Carregando painel da equipe...</p>}><Crm user={user} setUser={setUser} onReturnHome={() => { setView('home'); window.scrollTo({ top: 0, behavior: 'smooth' }) }} spaces={spaces} setSpaces={setSpaces} reservations={reservations} setReservations={setReservations} optionalExtensions={optionalCrmExtensions} /></Suspense><LegalNotice /></ErrorBoundary>
   return (
-    <div className="public-app">
-      <ReadingProgress />
-      <Header view={view} setView={setView} openLogin={() => setView('access')} onOpenCalendar={openCalendar} user={user} onLogout={logout} onUserUpdate={updateCurrentUser} optionalNavigation={optionalNavigation} />
-      {bookingConfirmation && <div className="booking-confirmation" role="status"><span className="booking-confirmation-icon" aria-hidden="true"><Check size={18} /></span><div><strong>Reserva enviada</strong><p>{bookingConfirmation}</p></div><button type="button" aria-label="Fechar confirmação" onClick={() => setBookingConfirmation('')}><X size={18} /></button></div>}
-      {dataError && <p className="form-message api-error-banner" role="alert">{dataError}{dataError === SESSION_EXPIRED_MESSAGE ? '' : ' Atualize a página para tentar novamente.'}</p>}
-      {view === 'home' && <main className="public-main"><Home spaces={spaces} spacesLoaded={spacesLoaded} onConsultSpace={showSpaceAvailability} setSignupOpen={() => setView('signup')} onOpenCalendar={openCalendar} user={user} optionalGallery={previewFeature?.PublicGallery} openOptionalFeature={() => previewFeatureRoute && setView(previewFeatureRoute.view)} openOptionalFeatureLogin={() => openLogin(previewFeatureRoute?.view)} onSearchAvailability={(date, kind) => { setCalendarQuery({ date, kind, spaceId: '' }); setView('calendar'); window.scrollTo({ top: 0, behavior: 'smooth' }) }} /></main>}
-      {activeFeatureRoute && <main className="public-main">{!runtimeConfigLoaded ? <p className="page-loading" role="status">Carregando configuração...</p> : runtimeConfigError ? <p className="form-message" role="alert">{runtimeConfigError}</p> : ActiveFeaturePage ? <ActiveFeaturePage API={API} request={request} Modal={Modal} Button={Button} ImageUploadField={ImageUploadField} Reveal={Reveal} Title={Title} user={user} onOpenLogin={() => openLogin(activeFeatureRoute.view)} /> : <section className="empty-inline" aria-labelledby="not-found-title"><strong id="not-found-title">Página não encontrada</strong><p>O endereço solicitado não está disponível.</p></section>}</main>}
-      {requestedFeatureRoute && !activeFeatureRoute && <main className="public-main">{!runtimeConfigLoaded ? <p className="page-loading" role="status">Carregando configuração...</p> : runtimeConfigError ? <p className="form-message" role="alert">{runtimeConfigError}</p> : <section className="empty-inline" aria-labelledby="not-found-title"><strong id="not-found-title">Página não encontrada</strong><p>O endereço solicitado não está disponível.</p></section>}</main>}
-      {view === 'portal' && user ? <Suspense fallback={<PageLoading />}><PortalHome user={user} items={myReservations} reservationsLoaded={myReservationsLoaded} onOpenCalendar={openCalendar} onOpenReservations={() => setView('reservations')} /></Suspense> : view === 'portal' && <Suspense fallback={<PageLoading />}><AccessPage onLogin={completeLogin} onSignup={() => setView('signup')} onForgotPassword={() => setView('help')} /></Suspense>}
-      {view === 'calendar' && <Reveal key={view} className="route-reveal"><Suspense fallback={<p className="page-loading" role="status">Carregando calendário...</p>}><CalendarPage spaces={spaces} spacesLoaded={spacesLoaded} onReserve={openBooking} initialDate={calendarQuery.date || localDateValue()} initialKind={calendarQuery.kind} initialSpaceId={calendarQuery.spaceId} availabilityVersion={availabilityVersion} /></Suspense></Reveal>}
-      {view === 'reservations' && user ? <Reveal key={view} className="route-reveal"><Suspense fallback={<PageLoading />}><ReservationsPage items={myReservations} onCancel={updateCancel} /></Suspense></Reveal> : view === 'reservations' && <Reveal key={view} className="route-reveal"><Suspense fallback={<PageLoading />}><AccessPage onLogin={completeLogin} onSignup={() => setView('signup')} onForgotPassword={() => setView('help')} /></Suspense></Reveal>}
-      {view === 'help' && <Reveal key={view} className="route-reveal"><Suspense fallback={<PageLoading />}><HelpPage /></Suspense></Reveal>}
-      {(view === 'terms' || view === 'privacy') && <LegalPage privacy={view === 'privacy'} optionalPrivacySection={OptionalPrivacySection} optionalTermsSection={OptionalTermsSection} />}
-      {view === 'access' && <Reveal key={view} className="route-reveal"><Suspense fallback={<PageLoading />}><AccessPage onLogin={completeLogin} onSignup={() => setView('signup')} onForgotPassword={() => setView('help')} /></Suspense></Reveal>}
-      {view === 'signup' && <Reveal key={view} className="route-reveal"><Suspense fallback={<PageLoading />}><SignupPage onBack={() => setView('access')} onCodeSent={onCodeSent} /></Suspense></Reveal>}
-      {!['access', 'signup'].includes(view) && <Footer setView={setView} />}
-      <LegalNotice />
-      <Modal open={Boolean(unavailableSpace)} close={() => setUnavailableSpace(null)} title="Espaço indisponível">
-        <div className="unavailable-reason-modal"><strong>{unavailableSpace?.nomeEspaco}</strong><p>{unavailableSpace?.motivoIndisponibilidade || 'Este espaço está temporariamente indisponível.'}</p>{unavailableSpace?.dataPrevisaoRetorno && <small>{unavailableDeadlineLabel(unavailableSpace.dataPrevisaoRetorno)}</small>}</div>
-        <Button onClick={() => setUnavailableSpace(null)}>Fechar</Button>
-      </Modal>
-      <BookingModal space={bookingSpace} close={() => setBookingSpace(null)} onSaved={updateSaved} openLogin={() => openLogin('calendar')} initialDate={bookingSchedule.date} initialTime={bookingSchedule.time} initialEndTime={bookingEndTime} user={user} />
-    </div>
+    <ErrorBoundary>
+      <div className="public-app">
+        <ReadingProgress />
+        <Header view={view} setView={setView} openLogin={() => setView('access')} onOpenCalendar={openCalendar} user={user} onLogout={logout} onUserUpdate={updateCurrentUser} optionalNavigation={optionalNavigation} />
+        {bookingConfirmation && <div className="booking-confirmation" role="status"><span className="booking-confirmation-icon" aria-hidden="true"><Check size={18} /></span><div><strong>Reserva enviada</strong><p>{bookingConfirmation}</p></div><button type="button" aria-label="Fechar confirmação" onClick={() => setBookingConfirmation('')}><X size={18} /></button></div>}
+        {dataError && <p className="form-message api-error-banner" role="alert">{dataError}{dataError === SESSION_EXPIRED_MESSAGE ? '' : ' Atualize a página para tentar novamente.'}</p>}
+        {view === 'home' && <main className="public-main"><Home spaces={spaces} spacesLoaded={spacesLoaded} onConsultSpace={showSpaceAvailability} onRequestReservation={openBooking} setSignupOpen={() => setView('signup')} onOpenCalendar={openCalendar} user={user} optionalGallery={previewFeature?.PublicGallery} openOptionalFeature={() => previewFeatureRoute && setView(previewFeatureRoute.view)} openOptionalFeatureLogin={() => openLogin(previewFeatureRoute?.view)} /></main>}
+        {activeFeatureRoute && <main className="public-main">{!runtimeConfigLoaded ? <p className="page-loading" role="status">Carregando configuração...</p> : runtimeConfigError ? <p className="form-message" role="alert">{runtimeConfigError}</p> : ActiveFeaturePage ? <ActiveFeaturePage API={API} request={request} Modal={Modal} Button={Button} ImageUploadField={ImageUploadField} Reveal={Reveal} Title={Title} user={user} onOpenLogin={() => openLogin(activeFeatureRoute.view)} /> : <section className="empty-inline" aria-labelledby="not-found-title"><strong id="not-found-title">Página não encontrada</strong><p>O endereço solicitado não está disponível.</p></section>}</main>}
+        {requestedFeatureRoute && !activeFeatureRoute && <main className="public-main">{!runtimeConfigLoaded ? <p className="page-loading" role="status">Carregando configuração...</p> : runtimeConfigError ? <p className="form-message" role="alert">{runtimeConfigError}</p> : <section className="empty-inline" aria-labelledby="not-found-title"><strong id="not-found-title">Página não encontrada</strong><p>O endereço solicitado não está disponível.</p></section>}</main>}
+        {view === 'portal' && user ? <Suspense fallback={<PageLoading />}><PortalHome user={user} items={myReservations} reservationsLoaded={myReservationsLoaded} onOpenCalendar={openCalendar} onOpenReservations={() => setView('reservations')} /></Suspense> : view === 'portal' && <Suspense fallback={<PageLoading />}><AccessPage onLogin={completeLogin} onSignup={() => setView('signup')} onForgotPassword={() => setView('help')} /></Suspense>}
+        {view === 'calendar' && <Reveal key={view} className="route-reveal"><Suspense fallback={<p className="page-loading" role="status">Carregando calendário...</p>}><CalendarPage spaces={spaces} spacesLoaded={spacesLoaded} onReserve={openBooking} initialDate={calendarQuery.date || localDateValue()} initialKind={calendarQuery.kind} initialSpaceId={calendarQuery.spaceId} availabilityVersion={availabilityVersion} /></Suspense></Reveal>}
+        {view === 'reservations' && user ? <Reveal key={view} className="route-reveal"><Suspense fallback={<PageLoading />}><ReservationsPage items={myReservations} onCancel={updateCancel} /></Suspense></Reveal> : view === 'reservations' && <Reveal key={view} className="route-reveal"><Suspense fallback={<PageLoading />}><AccessPage onLogin={completeLogin} onSignup={() => setView('signup')} onForgotPassword={() => setView('help')} /></Suspense></Reveal>}
+        {view === 'help' && <Reveal key={view} className="route-reveal"><Suspense fallback={<PageLoading />}><HelpPage /></Suspense></Reveal>}
+        {(view === 'terms' || view === 'privacy') && <LegalPage privacy={view === 'privacy'} optionalPrivacySection={OptionalPrivacySection} optionalTermsSection={OptionalTermsSection} />}
+        {view === 'access' && <Reveal key={view} className="route-reveal"><Suspense fallback={<PageLoading />}><AccessPage onLogin={completeLogin} onSignup={() => setView('signup')} onForgotPassword={() => setView('help')} /></Suspense></Reveal>}
+        {view === 'signup' && <Reveal key={view} className="route-reveal"><Suspense fallback={<PageLoading />}><SignupPage onBack={() => setView('access')} onCodeSent={onCodeSent} /></Suspense></Reveal>}
+        {!['access', 'signup'].includes(view) && <Footer setView={setView} />}
+        <LegalNotice />
+        <Modal open={Boolean(unavailableSpace)} close={() => setUnavailableSpace(null)} title="Espaço indisponível">
+          <div className="unavailable-reason-modal"><strong>{unavailableSpace?.nomeEspaco}</strong><p>{unavailableSpace?.motivoIndisponibilidade || 'Este espaço está temporariamente indisponível.'}</p>{unavailableSpace?.dataPrevisaoRetorno && <small>{unavailableDeadlineLabel(unavailableSpace.dataPrevisaoRetorno)}</small>}</div>
+          <Button onClick={() => setUnavailableSpace(null)}>Fechar</Button>
+        </Modal>
+        <BookingModal space={bookingSpace} close={() => setBookingSpace(null)} onSaved={updateSaved} openLogin={() => openLogin('calendar')} initialDate={bookingSchedule.date} initialTime={bookingSchedule.time} initialEndTime={bookingEndTime} user={user} />
+      </div>
+    </ErrorBoundary>
   )
 }
 

@@ -1,6 +1,7 @@
 package com.inpetu.connect.service;
 
 import com.inpetu.connect.dto.ReservaRequest;
+import com.inpetu.connect.dto.ReservaEdicaoRequest;
 import com.inpetu.connect.model.LogAuditoria;
 import com.inpetu.connect.model.Espaco;
 import com.inpetu.connect.model.Reserva;
@@ -16,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Optional;
@@ -39,6 +41,34 @@ class ReservaServiceTest {
     NotificacaoService notificacoes;
     @InjectMocks
     ReservaService service;
+
+    @Test
+    void rejeitaEdicaoComInicioNoPassadoNoFusoDeSaoPaulo() {
+        LocalDate ontemEmSaoPaulo = LocalDate.now(ZoneId.of("America/Sao_Paulo")).minusDays(1);
+        ReservaEdicaoRequest request = new ReservaEdicaoRequest("Reunião", "Teste", ontemEmSaoPaulo,
+                LocalTime.of(10, 0), LocalTime.of(11, 0), 2, null);
+
+        ResponseStatusException error = assertThrows(ResponseStatusException.class,
+                () -> service.editar(14, request, "equipe@inpetu.ufsc.br"));
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatusCode());
+        assertEquals("A data e o horário de início não podem estar no passado.", error.getReason());
+        verifyNoInteractions(reservas, espacos, usuarios, cancelamentos, auditoria, notificacoes);
+    }
+
+    @Test
+    void rejeitaCriacaoComInicioNoPassadoNoFusoDeSaoPaulo() {
+        LocalDate ontemEmSaoPaulo = LocalDate.now(ZoneId.of("America/Sao_Paulo")).minusDays(1);
+        ReservaRequest request = new ReservaRequest("Reunião", "Teste", ontemEmSaoPaulo,
+                LocalTime.of(10, 0), LocalTime.of(11, 0), 2, null);
+
+        ResponseStatusException error = assertThrows(ResponseStatusException.class,
+                () -> service.criar(request, "visitante@exemplo.com"));
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatusCode());
+        assertEquals("A data e o horário de início não podem estar no passado.", error.getReason());
+        verifyNoInteractions(reservas, espacos, usuarios, cancelamentos, auditoria, notificacoes);
+    }
 
     @Test
     void rejeitaReservaComSobreposicaoComConflito409() {
@@ -206,7 +236,7 @@ class ReservaServiceTest {
         usuario.setNomeCompleto("Joana Silva");
         usuario.setIdPersona(2);
         usuario.setAtivo(true);
-        YearMonth mes = YearMonth.now();
+        YearMonth mes = YearMonth.from(LocalDate.now(ZoneId.of("America/Sao_Paulo"))).plusMonths(1);
         List<Reserva> existentes = List.of(reservaComCincoHoras(40), reservaComCincoHoras(41),
                 reservaComCincoHoras(42), reservaComCincoHoras(43), reservaComCincoHoras(44),
                 reservaComCincoHoras(45));

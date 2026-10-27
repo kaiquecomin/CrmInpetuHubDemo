@@ -20,23 +20,44 @@ public final class ClientIpResolver {
             .collect(Collectors.toUnmodifiableSet());
     }
 
-    public static String resolve(HttpServletRequest request, Set<String> trustedProxies) {
-        String remoteAddress = request.getRemoteAddr();
-        String normalizedRemote = normalize(remoteAddress);
-        if (normalizedRemote == null || !trustedProxies.contains(normalizedRemote)) {
-            return remoteAddress;
-        }
+    public static String resolve(HttpServletRequest request, boolean trustProxyHeaders) {
+        return resolve(request, trustProxyHeaders, Set.of());
+    }
 
-        String forwardedFor = request.getHeader("X-Forwarded-For");
-        if (forwardedFor == null || forwardedFor.isBlank()) return remoteAddress;
-        String[] addresses = forwardedFor.split(",");
-        for (int index = addresses.length - 1; index >= 0; index--) {
-            String candidate = addresses[index].trim();
-            if (!candidate.isEmpty() && !trustedProxies.contains(normalize(candidate))) {
-                return candidate;
+    public static String resolve(HttpServletRequest request, boolean trustProxyHeaders, Set<String> trustedProxies) {
+        HttpServletRequest raw = getRawRequest(request);
+        String rawRemote = raw.getRemoteAddr();
+        if (!trustProxyHeaders) {
+            return rawRemote;
+        }
+        if (trustedProxies != null && !trustedProxies.isEmpty()) {
+            String normalizedRemote = normalize(rawRemote);
+            if (normalizedRemote == null || !trustedProxies.contains(normalizedRemote)) {
+                return rawRemote;
             }
         }
-        return remoteAddress;
+        String realIp = request.getHeader("X-Real-IP");
+        if (realIp != null && !realIp.isBlank()) {
+            return realIp.trim();
+        }
+        return rawRemote;
+    }
+
+    private static HttpServletRequest getRawRequest(HttpServletRequest request) {
+        HttpServletRequest current = request;
+        while (current instanceof jakarta.servlet.http.HttpServletRequestWrapper wrapper) {
+            if (wrapper.getRequest() instanceof HttpServletRequest inner) {
+                current = inner;
+            } else {
+                break;
+            }
+        }
+        return current;
+    }
+
+    public static String resolve(HttpServletRequest request, Set<String> trustedProxies) {
+        boolean trust = trustedProxies != null && !trustedProxies.isEmpty();
+        return resolve(request, trust, trustedProxies);
     }
 
     private static String normalize(String address) {

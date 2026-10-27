@@ -41,10 +41,6 @@
 .public-app .reference-heading{max-width:620px;font:700 var(--type-hero-heading)/1.08 var(--font-heading),sans-serif;letter-spacing:-.01em;color:var(--color-brand);margin:25px 0 16px}
 .public-app .reference-heading em{color:var(--color-brand);font-style:normal}
 .public-app .reference-description{max-width:490px;font-size:var(--type-body);line-height:1.6;color:var(--color-text-muted);margin-bottom:25px}
-.availability-search{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.84fr) auto;align-items:end;gap:10px;padding:13px;background:#fff;border:1px solid #e0e6ed;border-radius:14px;box-shadow:0 14px 36px rgba(24, 31, 55, .1);max-width:720px}
-.availability-search label{min-width:0;display:flex;flex-direction:column;gap:7px;color:var(--color-brand);font-size:13px;font-weight:600}
-.availability-search select,.availability-search input{width:100%;height:42px;min-width:0;padding:0 10px;background:#fff;border:1px solid #d9e0e8;border-radius:8px;color:var(--color-brand);font-size:13px}
-.availability-search .button{height:42px;min-height:42px;padding:0 14px;white-space:nowrap;font-size:13px}
 .reference-stats{max-width:620px;margin:27px 0 0;padding-top:18px;border-top:1px solid #d9e2ec;display:flex;gap:0}
 .reference-stats>div{min-width:0;flex:1;display:flex;flex-direction:column;gap:5px;padding:0 14px;border-left:1px solid #d9e2ec}
 .reference-stats>div:first-child{padding-left:0;border-left:0}
@@ -130,8 +126,6 @@
   .public-app .reference-hero{padding:43px 25px 50px;grid-template-columns:minmax(0,1.08fr) minmax(300px,.92fr);gap:28px}
   .public-app .reference-heading{font-size:clamp(38px,4.5vw,48px)}
   .reference-hero-images{height:405px}
-  .availability-search{grid-template-columns:1fr 1fr}
-  .availability-search .button{grid-column:1/-1;width:100%}
   .about-hub{padding-left:25px;padding-right:25px;gap:35px}
 }
 @media(max-width:720px){
@@ -156,10 +150,6 @@
   .public-app .reference-location{font-size:13px;padding:6px 9px}
   .public-app .reference-heading{font-size:clamp(34px,9vw,42px);line-height:1.08;letter-spacing:-.01em;margin:18px 0 12px}
   .public-app .reference-description{font-size:13px;line-height:1.65;margin-bottom:17px}
-  .availability-search{padding:11px;grid-template-columns:1fr 1fr;gap:9px;border-radius:12px}
-  .availability-search label{font-size:13px}
-  .availability-search select,.availability-search input{height:37px;font-size:13px}
-  .availability-search .button{min-height:39px}
   .reference-stats{margin-top:17px;padding-top:13px}
   .reference-stats>div{padding:0 8px}
   .reference-stats dt{font-size:16px}
@@ -313,6 +303,7 @@ body .public-app .section-top h2 {
 body .public-app .space-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
   gap: 24px;
 }
 
@@ -395,7 +386,7 @@ body .public-app .spaces-section .space-unavailable-overlay {
 body .public-app .spaces-section .space-info {
   display: flex;
   min-width: 0;
-  flex: 1;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: 12px;
   padding: 20px;
@@ -495,17 +486,109 @@ body .public-app .spaces-section .unavailable-deadline {
 
 body .public-app .spaces-section .space-info .space-cta {
   width: 100%;
+  height: 46px;
   min-height: 46px;
+  flex: 0 0 46px;
   margin-top: auto;
   padding: 0 14px;
   border: 1px solid var(--color-brand);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--color-brand);
-  color: #FAFAFA;
+  color: var(--on-blue);
   font-size: 14px;
   font-weight: 600;
   line-height: 1.35;
   white-space: normal;
+}
+
+body .dialog-panel .room-gallery .space-cta {
+  width: 100%;
+  height: 46px;
+  min-height: 46px;
+  flex: 0 0 46px;
+  padding: 0 8px;
+  border: 1px solid var(--color-brand);
+  border-radius: var(--radius-control);
+  background: var(--color-brand);
+  color: var(--on-blue);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: normal;
+}
+
+body .dialog-panel .room-gallery {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+body .dialog-panel .room-gallery-stage {
+  position: relative;
+  width: 100%;
+  height: clamp(220px, 42vw, 480px);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-muted);
+}
+
+body .dialog-panel .room-gallery-stage > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+body .dialog-panel .room-gallery-controls {
+  position: absolute;
+  z-index: 1;
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  left: 12px;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 40px;
+  align-items: center;
+  pointer-events: none;
+}
+
+body .dialog-panel .room-gallery-arrow {
+  display: flex;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--color-brand);
+  border-radius: 50%;
+  background: var(--color-brand);
+  color: var(--on-blue);
+  pointer-events: auto;
+}
+
+body .dialog-panel .room-gallery-counter {
+  justify-self: center;
+  padding: 4px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+body .dialog-panel .room-gallery-caption {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+body .dialog-panel .room-gallery-caption > div {
+  min-width: 0;
 }
 
 body .public-app .filter-row {
@@ -568,11 +651,7 @@ body .public-app .ecosystem-cta p,
 body .public-app .ecosystem-cta > strong,
 body .public-app .ecosystem-cta .button,
 body .public-app .hero-image-note strong,
-body .public-app .hero-image-note small,
-body .public-app .availability-search label,
-body .public-app .availability-search select,
-body .public-app .availability-search input,
-body .public-app .availability-search .button {
+body .public-app .hero-image-note small {
   font-size: 14px;
   letter-spacing: 0;
   word-spacing: normal;
@@ -890,8 +969,8 @@ body .public-app .booking-legend > span {
 .dialog-panel .form-stack{display:grid;gap:16px}
 .dialog-panel:has(.reservation-contact-card) .dialog-title{font-size:22px}
 .dialog-panel:has(.reservation-contact-card) .form-stack{gap:18px;font-size:16px}
-.dialog-panel .form-stack>label{display:grid;gap:8px}
-.dialog-panel .form-stack input,.dialog-panel .form-stack textarea{width:100%;min-width:0}
+.dialog-panel .form-stack>label:not(.space-approval-option):not(.reset-password-option):not(.mural-image-consent){display:grid;gap:8px}
+.dialog-panel .form-stack input:not([type="checkbox"]):not([type="radio"]),.dialog-panel .form-stack textarea{width:100%;min-width:0}
 .dialog-panel:has(.reservation-contact-card) .form-stack input,
 .dialog-panel:has(.reservation-contact-card) .form-stack textarea{min-height:46px;padding:10px 12px;font-size:16px}
 .dialog-panel:has(.reservation-contact-card) .form-stack textarea{min-height:96px}
@@ -1702,7 +1781,8 @@ body .public-app .spaces-section .space-capacity svg {
 }
 
 body .public-app .spaces-section .space-description {
-  flex: 0 1 auto;
+  flex: 1 1 auto;
+  min-height: 0;
   font-size: var(--type-card-description);
   line-height: 1.5;
 }
@@ -1712,8 +1792,11 @@ body .public-app .spaces-section .space-description {
 }
 
 body .public-app .spaces-section .space-info .space-cta {
-  min-height: 40px;
-  margin-top: 2px;
+  height: 46px;
+  min-height: 46px;
+  flex: 0 0 46px;
+  width: 100%;
+  margin-top: auto;
   font-size: var(--type-metadata);
   font-weight: 600;
 }
@@ -2910,4 +2993,20 @@ body .public-app .account-security svg {
   .legal-notice button {
     align-self: flex-end;
   }
+}
+
+body .dialog-panel .reservation-edit-form > label,
+body .dialog-panel .reservation-edit-form .reservation-contact-card > label,
+body .dialog-panel .reservation-edit-time-row > label {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 8px;
+}
+
+body .dialog-panel .reservation-edit-time-row {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
 }

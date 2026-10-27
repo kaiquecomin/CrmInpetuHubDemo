@@ -17,6 +17,21 @@
     <link rel="icon" type="image/png" sizes="48x48" href="/brand/favicons/favicon-48x48.png" />
     <link rel="apple-touch-icon" href="/brand/favicons/apple-touch-icon.png" />
     <link rel="manifest" href="/brand/site.webmanifest" />
+    <script>
+      (() => {
+        let savedTheme = null
+        try {
+          savedTheme = localStorage.getItem('inpetu-crm-theme')
+        } catch {
+          // Storage may be disabled; continue with the system preference.
+        }
+        const theme = savedTheme === 'dark' || savedTheme === 'light'
+          ? savedTheme
+          : window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+        document.documentElement.dataset.theme = theme
+        document.documentElement.style.colorScheme = theme
+      })()
+    </script>
     <link rel="stylesheet" href="/css/brand-tokens.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

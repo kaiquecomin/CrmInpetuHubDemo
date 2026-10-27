@@ -65,11 +65,51 @@ class LoginAttemptServiceTest {
     }
 
     @Test
-    void usesLastUntrustedAddressOnlyBehindConfiguredTrustedProxy() {
-        MockHttpServletRequest request = request("10.0.0.2", "192.0.2.5, 10.0.0.1");
-        Set<String> trusted = ClientIpResolver.parseTrustedProxies("10.0.0.1,10.0.0.2");
+    void separateCountersBehindProxy_limitDoesNotBecomeGlobal() {
+        LoginAttemptService service = new LoginAttemptService(2, 60);
+        MockHttpServletRequest client1 = proxyRequest("10.0.0.2", "198.51.100.10");
+        MockHttpServletRequest client2 = proxyRequest("10.0.0.2", "198.51.100.20");
 
-        assertEquals("192.0.2.5", ClientIpResolver.resolve(request, trusted));
+        String ip1 = ClientIpResolver.resolve(client1, true);
+        String ip2 = ClientIpResolver.resolve(client2, true);
+
+        // Cliente 1 erra duas vezes e é bloqueado
+        service.recordFailure(ip1);
+        service.recordFailure(ip1);
+        assertTrue(service.check(ip1).blocked());
+
+        // Cliente 2 atrás do mesmo proxy NÃO é bloqueado
+        assertFalse(service.check(ip2).blocked(), "O limite por IP não deve ser global atrás de proxy");
+    }
+
+    @Test
+    void forgedHeadersDoNotEscapeLockoutBehindProxyOrDirectly() {
+        LoginAttemptService service = new LoginAttemptService(1, 60);
+        MockHttpServletRequest request1 = new MockHttpServletRequest();
+        request1.setRemoteAddr("10.0.0.2");
+        request1.addHeader("X-Real-IP", "198.51.100.10");
+        request1.addHeader("X-Forwarded-For", "203.0.113.1");
+
+        String ip1 = ClientIpResolver.resolve(request1, true);
+        service.recordFailure(ip1);
+        assertTrue(service.check(ip1).blocked());
+
+        // Cliente 1 altera X-Forwarded-For para tentar escapar
+        MockHttpServletRequest request2 = new MockHttpServletRequest();
+        request2.setRemoteAddr("10.0.0.2");
+        request2.addHeader("X-Real-IP", "198.51.100.10");
+        request2.addHeader("X-Forwarded-For", "203.0.113.99, 1.2.3.4");
+
+        String ip2 = ClientIpResolver.resolve(request2, true);
+        assertEquals(ip1, ip2);
+        assertTrue(service.check(ip2).blocked(), "X-Forwarded-For forjado não escapa do bloqueio");
+    }
+
+    private MockHttpServletRequest proxyRequest(String remoteAddress, String realIp) {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setRemoteAddr(remoteAddress);
+        if (realIp != null) request.addHeader("X-Real-IP", realIp);
+        return request;
     }
 
     private MockHttpServletRequest request(String remoteAddress, String forwardedFor) {

@@ -19,7 +19,7 @@ export function AccessPage({ onLogin, onSignup }) {
     } catch (error) { setNotice(error.message) } finally { setBusy(false) }
   }
   return <main className="account-page">
-    <div className="account-brand"><Logo variant="institutionalLight" /></div><div className="account-page-heading"><Title as="h1">Acesso ao InPETU Connect</Title><p>Entre com seu e-mail e senha para acessar sua conta.</p></div>
+    <div className="account-brand"><Logo variant="institutionalLight" className="account-brand-logo-light" /><Logo variant="institutionalDark" className="account-brand-logo-dark" /></div><div className="account-page-heading"><Title as="h1">Acesso ao InPETU Connect</Title><p>Entre com seu e-mail e senha para acessar sua conta.</p></div>
     <section className="account-card" aria-label="Acessar sua conta">
       <p className="account-description">Acesse para acompanhar e gerenciar suas solicitações. O painel da equipe é exibido conforme as permissões da sua conta.</p>
       {recoveryOpen
@@ -75,7 +75,7 @@ export function SignupPage({ onBack, onCodeSent }) {
     }
   }
   return <main className="account-page account-page-signup">
-    <div className="account-brand"><Logo variant="institutionalLight" /></div><div className="account-page-heading"><Title as="h1">Criar acesso público</Title><p>Cadastre-se para solicitar espaços e acompanhar seus agendamentos.</p></div>
+    <div className="account-brand"><Logo variant="institutionalLight" className="account-brand-logo-light" /><Logo variant="institutionalDark" className="account-brand-logo-dark" /></div><div className="account-page-heading"><Title as="h1">Criar acesso público</Title><p>Cadastre-se para solicitar espaços e acompanhar seus agendamentos.</p></div>
     <section className="account-card account-card-signup">
       <p className="account-description">Preencha seus dados. A classificação da organização é feita pela equipe InPETU.</p>
       <form className="form-stack account-form" onSubmit={submit}>
@@ -214,7 +214,7 @@ export function EmailVerificationPage({ email, onCorrectEmail, onConfirmed }) {
 
   const countdown = `${String(Math.floor(secondsLeft / 60)).padStart(2, '0')}:${String(secondsLeft % 60).padStart(2, '0')}`
   return <main className="account-page">
-    <div className="account-brand"><Logo variant="institutionalLight" /></div><div className="account-page-heading"><Title as="h1">Verifique seu e-mail</Title><p>Digite o código de 6 dígitos enviado para {email ? <strong>{maskEmail(email)}</strong> : 'seu endereço de e-mail'}.</p></div>
+    <div className="account-brand"><Logo variant="institutionalLight" className="account-brand-logo-light" /><Logo variant="institutionalDark" className="account-brand-logo-dark" /></div><div className="account-page-heading"><Title as="h1">Verifique seu e-mail</Title><p>Digite o código de 6 dígitos enviado para {email ? <strong>{maskEmail(email)}</strong> : 'seu endereço de e-mail'}.</p></div>
     <section className="account-card verification-card">
       {email ? <form className="form-stack account-form" onSubmit={submit}>
         <div className="verification-code" role="group" aria-label="Código de verificação de seis dígitos">
@@ -277,7 +277,7 @@ export function EmailConfirmationPage() {
   }, [])
 
   return <main className="account-page">
-    <div className="account-brand"><Logo variant="institutionalLight" /></div><div className="account-page-heading"><Title as="h1">Confirmação de cadastro</Title><p>Validação do seu acesso ao InPETU Connect.</p></div>
+    <div className="account-brand"><Logo variant="institutionalLight" className="account-brand-logo-light" /><Logo variant="institutionalDark" className="account-brand-logo-dark" /></div><div className="account-page-heading"><Title as="h1">Confirmação de cadastro</Title><p>Validação do seu acesso ao InPETU Connect.</p></div>
     <section className="account-card" aria-live="polite">
       <p className={`account-notice ${status.kind === 'success' ? 'account-notice-success' : status.kind === 'error' ? 'account-notice-error' : ''}`} role={status.kind === 'error' ? 'alert' : 'status'}>{status.message}</p>
       {status.kind !== 'loading' && <p className="account-signup"><a href="/">Voltar ao InPETU Connect</a></p>}

@@ -1,3 +1,7 @@
+:root {
+  --color-dialog-action: #005A96;
+}
+
 html,
 body {
   background: var(--color-seasalt);
@@ -253,7 +257,7 @@ select:focus-visible,
   background: rgb(24 31 55 / 76%);
 }
 
-.public-app .reference-hero :where(.availability-search, .hero-image-note) {
+.public-app .reference-hero .hero-image-note {
   color: var(--color-oxford-blue);
 }
 
@@ -274,19 +278,6 @@ select:focus-visible,
   background: none;
   background-clip: initial;
   -webkit-text-fill-color: currentColor;
-}
-
-.public-app :is(.reference-heading, .section-top h2, .about-copy h2, .portal-welcome h1, .portal-section-heading h2, .inner-page h1)::before {
-  content: "";
-  display: block;
-  width: 48px;
-  height: 5px;
-  margin-bottom: 12px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #0077CC 0 58%, #F28C38 58% 78%, #181F37 78%);
-  transform: scaleX(0);
-  transform-origin: left center;
-  animation: brand-bars-grow 700ms cubic-bezier(0.22, 1, 0.36, 1) 180ms both;
 }
 
 @keyframes hub-header-intro {
@@ -453,6 +444,18 @@ select:focus-visible,
   object-fit: contain;
 }
 
+.account-brand-logo-dark {
+  display: none;
+}
+
+:root[data-theme="dark"] .account-brand-logo-light {
+  display: none;
+}
+
+:root[data-theme="dark"] .account-brand-logo-dark {
+  display: block;
+}
+
 .account-page-heading {
   margin-bottom: 24px;
 }
@@ -490,9 +493,7 @@ select:focus-visible,
 .help-form textarea,
 .crm-layout input,
 .crm-layout select,
-.crm-layout textarea,
-.availability-search input,
-.availability-search select {
+.crm-layout textarea {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
   background: var(--color-surface);
@@ -850,10 +851,10 @@ select:focus-visible,
 
   .public-app .mobile-menu.icon-button {
     display: grid;
-    width: 38px;
-    min-width: 38px;
-    height: 38px;
-    min-height: 38px;
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    min-height: 40px;
     padding: 0;
     place-items: center;
   }
@@ -879,10 +880,6 @@ select:focus-visible,
       animation: none;
     }
 
-    .public-app :is(.reference-heading, .section-top h2, .about-copy h2, .portal-welcome h1, .portal-section-heading h2, .inner-page h1)::before {
-      transform: none;
-      animation: none;
-    }
   }
 
   .logo-button .brand-logo {
@@ -955,10 +952,10 @@ select:focus-visible,
 
   .public-app .mobile-menu.icon-button {
     display: grid;
-    width: 38px;
-    min-width: 38px;
-    height: 38px;
-    min-height: 38px;
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    min-height: 40px;
     padding: 0;
     place-items: center;
   }
@@ -1232,28 +1229,97 @@ body .public-app .reference-hero {
   color-scheme: light;
 }
 
+:root {
+  --theme-dark-background: #111827;
+  --theme-dark-surface: #1F2937;
+  --theme-dark-surface-muted: #273548;
+  --theme-dark-border: #435168;
+  --theme-dark-border-accessible: #8291A5;
+  --theme-dark-text: #F1F5F9;
+  --theme-dark-text-muted: #C2CDDA;
+  --theme-dark-brand: #69B8F5;
+  --theme-dark-brand-strong: #101A2B;
+  --theme-dark-brand-soft: #203B54;
+  --theme-dark-brand-accessible: #9ACDFF;
+  --theme-dark-success: #8DDBB0;
+  --theme-dark-success-soft: #183D32;
+  --theme-dark-warning: #FFD28A;
+  --theme-dark-warning-soft: #49391E;
+  --theme-dark-danger: #FFAAA3;
+  --theme-dark-danger-soft: #4A282B;
+  --theme-dark-on-danger: #4A282B;
+  --theme-dark-info: #9ACDFF;
+  --theme-dark-info-soft: #203B54;
+  --theme-dark-accent: #FFD28A;
+  --theme-dark-on-brand: #F8FAFC;
+  --theme-dark-on-brand-muted: rgb(248 250 252 / 92%);
+  --theme-light-border-accessible: #6B7280;
+  --theme-light-on-danger: #FAFAFA;
+  --theme-light-on-brand: #FFFFFF;
+}
+
+:root[data-theme="dark"] {
+  --color-background: var(--theme-dark-background);
+  --color-surface: var(--theme-dark-surface);
+  --color-surface-muted: var(--theme-dark-surface-muted);
+  --color-border: var(--theme-dark-border);
+  --color-text: var(--theme-dark-text);
+  --color-text-muted: var(--theme-dark-text-muted);
+  --color-brand: var(--theme-dark-brand);
+  --color-brand-strong: var(--theme-dark-brand-strong);
+  --color-brand-soft: var(--theme-dark-brand-soft);
+  --color-brand-accessible: var(--theme-dark-brand-accessible);
+  --color-success: var(--theme-dark-success);
+  --color-success-soft: var(--theme-dark-success-soft);
+  --color-warning: var(--theme-dark-warning);
+  --color-warning-soft: var(--theme-dark-warning-soft);
+  --color-danger: var(--theme-dark-danger);
+  --color-danger-soft: var(--theme-dark-danger-soft);
+  --color-danger-contrast: var(--theme-dark-on-danger);
+  --color-info: var(--theme-dark-info);
+  --color-info-soft: var(--theme-dark-info-soft);
+  --color-ut-orange: var(--theme-dark-accent);
+  --color-accent-accessible: var(--theme-dark-accent);
+  --on-blue: var(--theme-dark-on-brand);
+  --on-blue-muted: var(--theme-dark-on-brand-muted);
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --color-danger-contrast: var(--theme-light-on-danger);
+  --on-blue: var(--theme-light-on-brand);
+  color-scheme: light;
+}
+
+:root[data-theme="light"] .public-app {
+  --color-border: var(--theme-light-border-accessible);
+  --color-brand: var(--color-brand-accessible);
+  --ref-ink: var(--color-brand-accessible);
+  --ref-muted: var(--color-text-muted);
+}
+
 .crm-layout[data-theme="dark"] {
-  --crm-color-background: #111827;
-  --crm-color-surface: #1F2937;
-  --crm-color-surface-muted: #273548;
-  --crm-color-border: #435168;
-  --crm-color-text: #F1F5F9;
-  --crm-color-text-muted: #C2CDDA;
-  --crm-color-brand: #69B8F5;
-  --crm-color-brand-strong: #101A2B;
-  --crm-color-brand-soft: #203B54;
-  --crm-color-brand-accessible: #9ACDFF;
-  --crm-color-success: #8DDBB0;
-  --crm-color-success-soft: #183D32;
-  --crm-color-warning: #FFD28A;
-  --crm-color-warning-soft: #49391E;
-  --crm-color-danger: #FFAAA3;
-  --crm-color-danger-soft: #4A282B;
-  --crm-color-info: #9ACDFF;
-  --crm-color-info-soft: #203B54;
-  --crm-color-accent: #FFD28A;
-  --crm-color-on-brand: #F8FAFC;
-  --crm-color-on-brand-muted: rgb(248 250 252 / 92%);
+  --crm-color-background: var(--theme-dark-background);
+  --crm-color-surface: var(--theme-dark-surface);
+  --crm-color-surface-muted: var(--theme-dark-surface-muted);
+  --crm-color-border: var(--theme-dark-border);
+  --crm-color-text: var(--theme-dark-text);
+  --crm-color-text-muted: var(--theme-dark-text-muted);
+  --crm-color-brand: var(--theme-dark-brand);
+  --crm-color-brand-strong: var(--theme-dark-brand-strong);
+  --crm-color-brand-soft: var(--theme-dark-brand-soft);
+  --crm-color-brand-accessible: var(--theme-dark-brand-accessible);
+  --crm-color-success: var(--theme-dark-success);
+  --crm-color-success-soft: var(--theme-dark-success-soft);
+  --crm-color-warning: var(--theme-dark-warning);
+  --crm-color-warning-soft: var(--theme-dark-warning-soft);
+  --crm-color-danger: var(--theme-dark-danger);
+  --crm-color-danger-soft: var(--theme-dark-danger-soft);
+  --crm-color-info: var(--theme-dark-info);
+  --crm-color-info-soft: var(--theme-dark-info-soft);
+  --crm-color-accent: var(--theme-dark-accent);
+  --crm-color-on-brand: var(--theme-dark-on-brand);
+  --crm-color-on-brand-muted: var(--theme-dark-on-brand-muted);
   --crm-shadow-card: 0 12px 32px rgb(0 0 0 / 24%);
   --crm-shadow-panel: 0 24px 64px rgb(0 0 0 / 36%);
   color-scheme: dark;
@@ -1405,12 +1471,6 @@ body .public-app .reference-hero {
   overflow-wrap: anywhere;
 }
 
-.dialog-title-emoji {
-  flex: 0 0 auto;
-  font-family: "Montserrat", ui-sans-serif, system-ui, sans-serif;
-  font-size: 1em;
-}
-
 .dialog-panel :where(.form-stack, .client-profile-edit-form, .profile-editor-form, .profile-password-form),
 .account-card :where(.form-stack, .account-form),
 .help-form {
@@ -1487,9 +1547,9 @@ body .public-app .reference-hero {
 .dialog-panel :where(input[type="checkbox"], input[type="radio"]),
 .account-card :where(input[type="checkbox"], input[type="radio"]),
 .help-form :where(input[type="checkbox"], input[type="radio"]) {
-  width: 18px;
-  height: 18px;
-  min-height: 18px;
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
   accent-color: var(--color-brand-accessible);
 }
 
@@ -1499,6 +1559,8 @@ body .public-app .reference-hero {
   display: flex;
   align-items: flex-start;
   gap: 10px;
+  width: fit-content;
+  max-width: 100%;
   min-height: 36px;
   font-size: 13px;
   line-height: 1.5;
@@ -1680,6 +1742,109 @@ body .public-app .reference-hero {
   font-size: 13px;
 }
 
+.persona-combobox {
+  position: relative;
+  min-width: 0;
+}
+
+.dialog-panel .persona-combobox-input {
+  padding-right: 44px;
+}
+
+.persona-combobox-button {
+  position: absolute;
+  inset-block: 0;
+  right: 5px;
+  display: grid;
+  width: 36px;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.persona-combobox-button:hover,
+.persona-combobox-button[aria-expanded="true"] {
+  color: var(--color-brand-accessible);
+}
+
+.persona-combobox-button:focus-visible {
+  outline: 3px solid var(--color-brand-accessible);
+  outline-offset: 1px;
+}
+
+.persona-combobox-options {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  z-index: 1100;
+  width: 100%;
+  max-height: min(18rem, 60vh);
+  overflow-y: auto;
+  padding: 5px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: 0 12px 28px rgb(15 23 42 / 22%);
+}
+
+.persona-combobox-option {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 9px;
+  border-radius: calc(var(--radius-control) - 3px);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.persona-combobox-option > svg {
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: var(--color-brand-accessible);
+  opacity: 0;
+}
+
+.persona-option-focus {
+  background: var(--color-surface-muted);
+}
+
+.persona-option-selected > svg {
+  opacity: 1;
+}
+
+.persona-option-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.persona-option-copy strong {
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.persona-option-copy small {
+  color: var(--color-text-muted);
+  font-size: 11px;
+}
+
+.persona-combobox-empty {
+  margin: 0;
+  padding: 10px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
 .client-profile-action-danger,
 .client-profile-deactivation > .client-profile-action-danger {
   border-color: var(--color-danger);
@@ -1688,25 +1853,430 @@ body .public-app .reference-hero {
 }
 
 body[data-crm-theme="dark"] {
-  --color-background: #111827;
-  --color-surface: #1F2937;
-  --color-surface-muted: #273548;
-  --color-border: #435168;
-  --color-text: #F1F5F9;
-  --color-text-muted: #C2CDDA;
-  --color-brand: #69B8F5;
-  --color-brand-strong: #101A2B;
-  --color-brand-soft: #203B54;
-  --color-brand-accessible: #9ACDFF;
-  --color-success: #8DDBB0;
-  --color-success-soft: #183D32;
-  --color-warning: #FFD28A;
-  --color-warning-soft: #49391E;
-  --color-danger: #FFAAA3;
-  --color-danger-soft: #4A282B;
-  --color-info: #9ACDFF;
-  --color-info-soft: #203B54;
+  --color-background: var(--theme-dark-background);
+  --color-surface: var(--theme-dark-surface);
+  --color-surface-muted: var(--theme-dark-surface-muted);
+  --color-border: var(--theme-dark-border);
+  --color-text: var(--theme-dark-text);
+  --color-text-muted: var(--theme-dark-text-muted);
+  --color-brand: var(--theme-dark-brand);
+  --color-brand-strong: var(--theme-dark-brand-strong);
+  --color-brand-soft: var(--theme-dark-brand-soft);
+  --color-brand-accessible: var(--theme-dark-brand-accessible);
+  --color-success: var(--theme-dark-success);
+  --color-success-soft: var(--theme-dark-success-soft);
+  --color-warning: var(--theme-dark-warning);
+  --color-warning-soft: var(--theme-dark-warning-soft);
+  --color-danger: var(--theme-dark-danger);
+  --color-danger-soft: var(--theme-dark-danger-soft);
+  --color-info: var(--theme-dark-info);
+  --color-info-soft: var(--theme-dark-info-soft);
   color-scheme: dark;
+}
+
+:root[data-theme="dark"] body {
+  background: var(--color-background);
+  color: var(--color-text);
+}
+
+:root[data-theme="dark"] .public-app {
+  --ref-ink: var(--color-text);
+  --ref-muted: var(--color-text-muted);
+  --ref-line: var(--theme-dark-border-accessible);
+  --color-border: var(--theme-dark-border-accessible);
+  background: var(--color-background);
+  color: var(--color-text);
+}
+
+:root[data-theme] .public-app :where(input, select, textarea, .filter-chip, .space-card, .account-card, .portal-summary-card, .portal-upcoming, .profile-readonly, .profile-password-form, .profile-menu, .notification-popover, .dialog-panel, .button-outline, .profile-photo-button) {
+  border-color: var(--color-border);
+}
+
+:root[data-theme] .public-app .space-image-open {
+  background: var(--color-brand-strong);
+  color: var(--on-blue);
+}
+
+:root[data-theme="light"] .dialog-panel :where(input, select, textarea) {
+  border-color: var(--theme-light-border-accessible);
+}
+
+:root[data-theme="dark"] .dialog-panel :where(input, select, textarea) {
+  border-color: var(--theme-dark-border-accessible);
+  background: var(--theme-dark-background);
+  color: var(--theme-dark-text);
+}
+
+body[data-crm-theme="dark"] .dialog-panel :where(h1, h2, h3, h4, .dialog-title) {
+  color: var(--theme-dark-text);
+}
+
+:root[data-theme="dark"] .public-app .site-header,
+:root[data-theme="dark"] .public-app .main-nav,
+:root[data-theme="dark"] .public-app .profile-menu,
+:root[data-theme="dark"] .public-app .space-card,
+:root[data-theme="dark"] .partner-list span,
+:root[data-theme="dark"] .account-card,
+:root[data-theme="dark"] .portal-summary-card,
+:root[data-theme="dark"] .portal-upcoming,
+:root[data-theme="dark"] .dialog-panel,
+:root[data-theme="dark"] .public-app .notification-popover {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+:root[data-theme="dark"] .public-app .reference-hero {
+  background: linear-gradient(116deg, var(--color-brand-strong) 0%, var(--color-brand-soft) 54%, var(--color-brand-soft) 100%);
+  color: var(--color-text);
+}
+
+:root[data-theme="light"] .public-app .reference-hero {
+  background: linear-gradient(120deg, var(--color-brand-accessible), var(--color-brand-strong));
+}
+
+:root[data-theme="dark"] .public-app .reference-hero :where(h1, h2, p, small) {
+  color: var(--color-text);
+}
+
+:root[data-theme="dark"] .public-app :where(.section-top h2, .about-copy h2, .section-top h2 em) {
+  color: var(--color-brand-accessible);
+}
+
+:root[data-theme="dark"] .public-app .inner-page h1,
+:root[data-theme="dark"] .public-app .inner-page h1 em {
+  color: var(--color-brand-accessible);
+}
+
+:root[data-theme="dark"] .public-app h1 {
+  color: var(--color-brand-accessible);
+}
+
+:root[data-theme="dark"] .public-app .account-page h1 {
+  color: var(--color-brand-accessible);
+}
+
+:root[data-theme="dark"] .public-app .account-form label {
+  color: var(--color-text);
+}
+
+:root[data-theme="dark"] .public-app .text-button {
+  color: var(--color-brand-accessible);
+}
+
+:root[data-theme="dark"] .public-app .legal-document :where(h1, h2) {
+  color: var(--color-text);
+}
+
+:root[data-theme="dark"] body .public-app .spaces-section .space-info h3 {
+  color: var(--color-brand-accessible);
+}
+
+:root[data-theme="dark"] body .public-app .spaces-section .space-info .space-cta {
+  color: var(--color-brand-strong);
+}
+
+:root[data-theme="dark"] body .dialog-panel .room-gallery .space-cta {
+  color: var(--color-brand-strong);
+}
+
+:root[data-theme="dark"] .public-app .all-spaces-link {
+  color: var(--color-brand-strong);
+}
+
+:root[data-theme="dark"] .public-app .main-nav :where(button:hover, .nav-active) {
+  color: var(--color-brand-accessible);
+}
+
+:root[data-theme="dark"] .public-app .profile-menu a,
+:root[data-theme="dark"] .public-app .profile-menu button,
+:root[data-theme="dark"] .public-app .profile-menu a:hover,
+:root[data-theme="dark"] .public-app .profile-menu button:hover,
+:root[data-theme="dark"] .public-app .profile-menu a:focus-visible,
+:root[data-theme="dark"] .public-app .profile-menu button:focus-visible {
+  color: var(--color-text);
+}
+
+:root[data-theme="dark"] .public-app .profile-menu .profile-menu-signout {
+  color: var(--color-danger);
+}
+
+:root[data-theme="dark"] .public-app .notification-popover .notification-heading strong {
+  color: var(--color-text);
+}
+
+:root[data-theme="dark"] .public-app :where(.booking-step-current, .booking-step-complete) {
+  color: var(--color-brand-accessible) !important;
+}
+
+:root[data-theme="dark"] .public-app .booking-step-number {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+:root[data-theme="dark"] .public-app :where(.booking-step-current, .booking-step-complete) .booking-step-number {
+  border-color: var(--color-brand-accessible);
+  background: var(--color-brand-accessible);
+  color: var(--color-brand-strong);
+}
+
+:root[data-theme="dark"] .public-app .account-form input,
+:root[data-theme="dark"] .public-app .verification-code input,
+:root[data-theme="dark"] .public-app .profile-editor-form input,
+:root[data-theme="dark"] .public-app .profile-password-form input,
+:root[data-theme="dark"] .public-app .dialog-panel :where(input, select, textarea),
+:root[data-theme="dark"] .public-app :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  border-color: var(--color-border);
+  background: var(--color-background);
+  color: var(--color-text);
+}
+
+:root[data-theme="dark"] .public-app .space-card,
+:root[data-theme="dark"] .public-app .partner-list span,
+:root[data-theme="dark"] .public-app .booking-section,
+:root[data-theme="dark"] .public-app .booking-summary,
+:root[data-theme="dark"] .public-app .profile-readonly,
+:root[data-theme="dark"] .public-app .account-tabs,
+:root[data-theme="dark"] .public-app .profile-password-form,
+:root[data-theme="dark"] .public-app .portal-classification-note,
+:root[data-theme="dark"] .public-app .portal-date,
+:root[data-theme="dark"] .public-app .portal-empty,
+:root[data-theme="dark"] .public-app .catalog-guided-notice {
+  border-color: var(--color-border);
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+}
+
+:root[data-theme="dark"] .public-app .booking-time-option {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+:root[data-theme="dark"] .public-app .booking-space-card {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+:root[data-theme="dark"] .public-app .booking-space-name {
+  color: var(--color-text);
+}
+
+:root[data-theme="dark"] .public-app .booking-date-card {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+}
+
+:root[data-theme="dark"] .public-app .booking-date-card strong {
+  color: var(--color-text);
+}
+
+:root[data-theme="dark"] .public-app .booking-date-selected {
+  border-color: var(--color-brand-accessible);
+  background: var(--color-brand-soft);
+  color: var(--color-text);
+}
+
+:root[data-theme="dark"] .public-app .booking-status-available {
+  color: var(--color-success);
+}
+
+:root[data-theme="dark"] .public-app .booking-status-unavailable {
+  color: var(--color-danger);
+}
+
+:root[data-theme="dark"] .public-app .booking-time-option:disabled {
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+}
+
+:root[data-theme="dark"] .public-app :where(.booking-calendar-toggle, .calendar-today-button, .booking-error button) {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-brand-accessible);
+}
+
+:root[data-theme="dark"] .public-app :where(.booking-section-heading h2, .booking-summary h2, .booking-summary dd) {
+  color: var(--color-text);
+}
+
+:root[data-theme="dark"] .public-app .booking-section h3 {
+  color: var(--color-text);
+}
+
+:root[data-theme="dark"] .public-app :where(.reference-header-cta, .reference-login, .button-primary) {
+  border-color: var(--color-brand);
+  background: var(--color-brand);
+  color: var(--color-brand-strong);
+}
+
+:root[data-theme="dark"] .public-app :where(.button-outline, .filter-chip, .space-cta, .profile-photo-button, .public-theme-toggle) {
+  border-color: var(--color-border);
+  color: var(--color-brand);
+}
+
+:root[data-theme="dark"] .public-app:has(.account-page),
+:root[data-theme="dark"] .public-app :where(.about-hub, .account-page) {
+  background: var(--color-background);
+  color: var(--color-text);
+}
+
+:root[data-theme="dark"] .public-app .account-tabs button.account-tab-active {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+:root[data-theme="dark"] .public-app :where(.profile-details > div, .profile-readonly > div, .portal-upcoming-list article, .profile-editor-heading, .ecosystem-panel, .ecosystem-cta) {
+  border-color: var(--color-border);
+}
+
+:root[data-theme="dark"] .public-app .account-notice-success {
+  border-color: var(--color-success);
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+
+:root[data-theme="dark"] .public-app .account-notice-error {
+  border-color: var(--color-danger);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+:root[data-theme="dark"] .public-app :where(.profile-field-error, .verification-expired, .profile-photo-remove) {
+  color: var(--color-danger);
+}
+
+:root[data-theme="dark"] .public-app :where(.space-card img, .reference-hero img) {
+  border: 1px solid var(--color-border);
+}
+
+:root[data-theme="dark"] .public-app .dialog-heading,
+:root[data-theme="dark"] .public-app .profile-save-action {
+  background: var(--color-surface);
+  box-shadow: 0 -8px 16px var(--color-surface);
+}
+
+:root[data-theme="dark"] .public-app .profile-menu-divider {
+  background: var(--color-border);
+}
+
+:root[data-theme="dark"] .public-app .avatar {
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+}
+
+:root[data-theme] .public-app .notification-count {
+  background: var(--color-danger);
+  color: var(--color-danger-contrast);
+}
+
+:root[data-theme="dark"] .public-app .legal-notice button {
+  background: var(--color-brand);
+  color: var(--color-brand-strong);
+}
+
+.public-theme-toggle {
+  display: flex;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+  flex: 0 0 40px;
+  align-self: center;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--color-surface);
+  color: var(--color-brand);
+  cursor: pointer;
+  line-height: 1;
+  box-sizing: border-box;
+}
+
+.public-app .profile-control .notification-trigger {
+  display: flex;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+  box-sizing: border-box;
+}
+
+.dialog-panel .dialog-heading > .icon-button,
+.crm-layout :is(.crm-sidebar-toggle, .crm-icon, .notification-trigger, .icon-button, .table-more) {
+  display: flex;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+  flex: 0 0 40px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 50%;
+  line-height: 1;
+  box-sizing: border-box;
+}
+
+.crm-layout .crm-avatar {
+  display: flex;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.crm-layout .crm-topbar :is(.notification-trigger, .crm-icon, .crm-avatar) {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+  flex: 0 0 40px;
+  align-self: center;
+}
+
+.crm-layout .date-navigation .date-step {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+  flex: 0 0 40px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.crm-layout .crm-sidebar-close {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.public-theme-toggle:focus-visible {
+  outline: 2px solid var(--color-brand-accessible);
+  outline-offset: 2px;
 }
 
 body[data-crm-theme="dark"] .dialog-panel {
@@ -1745,5 +2315,378 @@ body[data-crm-theme="dark"] .dialog-panel {
 @media (min-width: 721px) {
   .crm-layout .crm-sidebar-backdrop {
     display: none !important;
+  }
+}
+
+.dialog-panel .dialog-title {
+  color: var(--color-text);
+}
+
+.dialog-panel :where(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea) {
+  border-color: var(--color-brand-accessible);
+}
+
+.dialog-panel button:not(.client-profile-tabs button):not(.password-visibility):not(.persona-combobox-button):not(.image-upload-remove):not(.client-profile-action-danger):not(.client-profile-action-muted):not(.button-danger):not(.button-outline):not(.profile-photo-button):not(.space-cta) {
+  border-color: var(--color-dialog-action);
+  background: var(--color-dialog-action);
+  color: var(--on-blue);
+}
+
+.dialog-panel button:disabled {
+  border-color: var(--color-brand-accessible);
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  opacity: 1;
+}
+
+.dialog-panel .client-profile-action-muted,
+.dialog-panel .button-outline {
+  border-color: var(--color-brand-accessible);
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+}
+
+.dialog-panel .client-profile-action-danger,
+.dialog-panel .client-profile-deactivation > .client-profile-action-danger,
+.dialog-panel .button-danger {
+  border-color: var(--color-danger);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.dialog-panel:has(.profile-editor) .dialog-heading {
+  background: var(--color-surface);
+}
+
+.dialog-panel .profile-editor-heading {
+  border-color: var(--color-border);
+}
+
+.dialog-panel .profile-editor-avatar {
+  background: var(--color-brand-soft);
+  color: var(--color-text);
+}
+
+.dialog-panel .client-profile-avatar {
+  background: var(--color-brand-soft);
+  color: var(--color-text);
+}
+
+.dialog-panel .profile-editor-form label,
+.dialog-panel .profile-password-form label,
+.dialog-panel .profile-password-form h3 {
+  color: var(--color-text);
+}
+
+.dialog-panel .profile-editor-form input,
+.dialog-panel .profile-password-form input {
+  border-color: var(--color-brand-accessible);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.dialog-panel .profile-password-form {
+  border-color: var(--color-border);
+  background: var(--color-surface-muted);
+}
+
+.dialog-panel .profile-password-rules {
+  color: var(--color-text-muted);
+}
+
+.dialog-panel .profile-editor-form .profile-save-action {
+  box-shadow: 0 -8px 16px var(--color-surface);
+}
+
+.dialog-panel .profile-readonly {
+  border-color: var(--color-border);
+}
+
+.dialog-panel .profile-readonly > div {
+  border-color: var(--color-border);
+}
+
+.dialog-panel .profile-photo-actions .profile-photo-button {
+  border-color: var(--color-brand-accessible);
+  background: var(--color-surface-muted);
+  color: var(--color-brand-accessible);
+}
+
+.dialog-panel .profile-photo-actions .profile-photo-remove {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.dialog-panel .password-visibility {
+  background: transparent;
+  color: var(--color-brand-accessible);
+}
+
+.public-app {
+  --public-content-width: 1520px;
+  --public-content-gutter: clamp(16px, 4vw, 48px);
+}
+
+body .public-app .header-inner {
+  max-width: var(--public-content-width);
+  padding-inline: var(--public-content-gutter);
+  box-sizing: border-box;
+}
+
+body .public-app .reference-hero {
+  padding-inline: max(
+    var(--public-content-gutter),
+    calc((100vw - var(--public-content-width)) / 2 + var(--public-content-gutter))
+  );
+}
+
+body .public-app .spaces-section {
+  width: 100%;
+  max-width: var(--public-content-width);
+  margin-inline: auto;
+  padding-inline: var(--public-content-gutter);
+  box-sizing: border-box;
+}
+
+body .public-app .about-hub {
+  padding-inline: max(
+    var(--public-content-gutter),
+    calc((100vw - var(--public-content-width)) / 2 + var(--public-content-gutter))
+  );
+}
+
+body .public-app .booking-page,
+body .public-app .inner-page {
+  width: min(100%, var(--public-content-width));
+  max-width: var(--public-content-width);
+  margin-inline: auto;
+  padding-inline: var(--public-content-gutter);
+  box-sizing: border-box;
+}
+
+body .public-app .portal-home {
+  max-width: var(--public-content-width);
+}
+
+body .public-app .legal-page {
+  width: min(100%, var(--public-content-width));
+  margin-inline: auto;
+  padding-inline: var(--public-content-gutter);
+  box-sizing: border-box;
+}
+
+body .public-app .legal-document {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+}
+
+body .public-app .site-footer {
+  padding-inline: 0;
+}
+
+body .public-app .footer-main,
+body .public-app .footer-bottom {
+  width: min(100%, var(--public-content-width));
+  margin-inline: auto;
+  padding-inline: var(--public-content-gutter);
+  box-sizing: border-box;
+}
+
+body .public-app .help-page {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  align-items: start;
+  gap: clamp(24px, 4vw, 64px);
+  padding-block: 48px 72px;
+}
+
+body .public-app .help-intro {
+  display: grid;
+  align-content: start;
+  gap: 22px;
+  min-width: 0;
+}
+
+body .public-app .help-intro h1,
+body .public-app .help-intro p {
+  margin: 0;
+}
+
+body .public-app .help-intro p {
+  max-width: 58ch;
+  color: var(--color-text-muted);
+  line-height: 1.65;
+}
+
+body .public-app .help-contact {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+body .public-app .help-contact > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+body .public-app .help-contact strong {
+  overflow-wrap: anywhere;
+}
+
+body .public-app .help-form {
+  display: grid;
+  min-width: 0;
+  padding: clamp(20px, 3vw, 32px);
+}
+
+body .public-app .help-form .form-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+body .public-app .help-form .form-heading > div {
+  display: grid;
+  gap: 4px;
+}
+
+body .public-app .help-form .upload-box {
+  position: relative;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-muted);
+  cursor: pointer;
+}
+
+body .public-app .help-form .upload-box:focus-within {
+  outline: 3px solid rgb(0 119 204 / 20%);
+  outline-offset: 2px;
+}
+
+body .public-app .help-form .upload-box input[type="file"] {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+body .public-app .help-form .upload-box > span:not(.upload-icon):not(.upload-action) {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+body .public-app .help-form .upload-box .upload-action {
+  white-space: nowrap;
+}
+
+body .public-app .help-form > .button {
+  justify-self: start;
+}
+
+body .public-app .help-form .form-footnote {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  body .public-app .help-page {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+    padding-block: 32px 48px;
+  }
+
+  body .public-app .help-form > .button {
+    justify-self: stretch;
+  }
+}
+
+@media (max-width: 520px) {
+  body .public-app .help-form .upload-box {
+    grid-template-columns: 36px minmax(0, 1fr);
+  }
+
+  body .public-app .help-form .upload-action {
+    grid-column: 2;
+  }
+}
+
+@media (max-width: 720px) {
+  body .public-app .site-header.site-header-menu-open .header-actions .profile-control {
+    position: absolute;
+    z-index: 51;
+    top: calc(100% + 8px);
+    right: 16px;
+    display: flex;
+    gap: 8px;
+    padding: 0;
+    border: 0;
+    background: var(--color-surface);
+  }
+
+  body .public-app .site-header.site-header-menu-open .main-nav {
+    padding-top: 56px;
+  }
+
+  body .public-app .site-header.site-header-menu-open .notification-popover {
+    position: fixed;
+    z-index: 61;
+    top: 120px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+    max-height: calc(100vh - 132px);
+    overflow: auto;
+  }
+}
+
+@media (max-width: 420px) {
+  body .public-app .logo-button .brand-logo {
+    width: clamp(92px, 26vw, 110px);
+    max-width: 110px;
+  }
+
+  body .public-app .header-actions {
+    gap: 6px;
+  }
+
+  body .public-app .reference-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 0;
+  }
+
+  body .public-app .reference-stats > div {
+    min-width: 0;
+    padding-inline: 8px;
+  }
+
+  body .public-app .reference-stats > div:nth-child(3) {
+    grid-column: 1 / -1;
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  body .public-app .reference-stats dd {
+    overflow-wrap: anywhere;
   }
 }

@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react'
 import { ArrowLeft, ArrowRight, ArrowUpRight, Bell, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, Clock3, DoorOpen, Download, Filter, Home as HomeIcon, LayoutDashboard, ListChecks, Mail, MapPin, Menu as MenuIcon, MessageCircle, Moon, MoreHorizontal, Plus, Search, ShieldCheck, Sun, Users, X } from 'lucide-react'
-import { API, Avatar, Button, ClientProfileDialog, CrmTitle, getProfileRoleLabel, ImageUploadField, Kpi, LoginInline, Logo, Modal, NotificationCenter, PhoneInput, ProfileDialog, Title, clearStoredUser, formatBrazilianPhone, isGuidedTour, localDateValue, omitPersona, phoneDigits, request, reservationStatusLabel, storeUser, unavailableDeadlineLabel } from './App.jsx'
+import { API, applyThemePreference, Avatar, Button, ClientProfileDialog, CrmTitle, getProfileRoleLabel, getReservationStartError, getSaoPauloDateTime, ImageUploadField, Kpi, LoginInline, Logo, Modal, NotificationCenter, PhoneInput, ProfileDialog, readThemePreference, Title, clearStoredUser, formatBrazilianPhone, formatTimeForDisplay, isGuidedTour, localDateValue, omitPersona, phoneDigits, request, reservationStatusLabel, storeUser, unavailableDeadlineLabel } from './App.jsx'
+import { toNumberOrEmpty } from './numericInput.js'
 
 export default function Crm({ user, setUser, onReturnHome, spaces, setSpaces, reservations, setReservations, optionalExtensions = [] }) {
   const [section, setSection] = useState('Visão geral')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
-  const [crmTheme, setCrmTheme] = useState(() => localStorage.getItem('inpetu-crm-theme') === 'dark' ? 'dark' : 'light')
-  const [helpOpen, setHelpOpen] = useState(false)
+  const [crmTheme, setCrmTheme] = useState(readThemePreference)
   const [profileDetailsOpen, setProfileDetailsOpen] = useState(false)
   const [dashboardDate, setDashboardDate] = useState(localDateValue())
   const [partners, setPartners] = useState([])
@@ -22,6 +22,7 @@ export default function Crm({ user, setUser, onReturnHome, spaces, setSpaces, re
   const [reservationEditForm, setReservationEditForm] = useState(null)
   const [reservationEditError, setReservationEditError] = useState('')
   const [reservationEditBusy, setReservationEditBusy] = useState(false)
+  const [reservationEditNow, setReservationEditNow] = useState(() => new Date())
   const [negotiationTarget, setNegotiationTarget] = useState(null)
   const [negotiationNote, setNegotiationNote] = useState('')
   const [negotiationError, setNegotiationError] = useState('')
@@ -42,6 +43,16 @@ export default function Crm({ user, setUser, onReturnHome, spaces, setSpaces, re
   const [spaceCoverError, setSpaceCoverError] = useState('')
   const [spaceCoverImage, setSpaceCoverImage] = useState(null)
   const [spaceCoverPreview, setSpaceCoverPreview] = useState('')
+  const reservationEditValidation = reservationEditForm
+    ? getReservationStartError(reservationEditForm.dataReserva, reservationEditForm.horarioInicio, reservationEditNow)
+    : ''
+  const reservationEditLocalTime = getSaoPauloDateTime(reservationEditNow)
+
+  useEffect(() => {
+    if (!reservationEditTarget) return undefined
+    const interval = window.setInterval(() => setReservationEditNow(new Date()), 15000)
+    return () => window.clearInterval(interval)
+  }, [reservationEditTarget])
   const [spacePhotos, setSpacePhotos] = useState([])
   const [spacePhotosLoading, setSpacePhotosLoading] = useState(false)
   const [spacePhotosBusy, setSpacePhotosBusy] = useState(false)
@@ -87,10 +98,14 @@ export default function Crm({ user, setUser, onReturnHome, spaces, setSpaces, re
     return () => window.removeEventListener('keydown', closeOnEscape)
   }, [mobileSidebarOpen])
   useEffect(() => {
-    localStorage.setItem('inpetu-crm-theme', crmTheme)
-    document.body.dataset.crmTheme = crmTheme
+    applyThemePreference(crmTheme, false)
     return () => { delete document.body.dataset.crmTheme }
   }, [crmTheme])
+  function toggleTheme() {
+    const nextTheme = crmTheme === 'dark' ? 'light' : 'dark'
+    applyThemePreference(nextTheme)
+    setCrmTheme(nextTheme)
+  }
   function toggleSidebar() {
     if (window.matchMedia?.('(max-width: 720px)').matches) {
       setMobileSidebarOpen(open => !open)
@@ -262,6 +277,11 @@ export default function Crm({ user, setUser, onReturnHome, spaces, setSpaces, re
     async function saveReservationEdit(event) {
       event.preventDefault()
       if (!reservationEditTarget || !reservationEditForm || reservationEditBusy) return
+      const validation = getReservationStartError(reservationEditForm.dataReserva, reservationEditForm.horarioInicio)
+      if (validation) {
+        setReservationEditError(validation)
+        return
+      }
       setReservationEditBusy(true)
       setReservationEditError('')
       try {
@@ -799,8 +819,7 @@ export default function Crm({ user, setUser, onReturnHome, spaces, setSpaces, re
         </MenuItems>
       </Menu>
     </aside>
-    <main className="crm-main"><header className="crm-topbar"><button type="button" className="crm-sidebar-toggle" aria-label="Alternar menu lateral" aria-expanded={window.matchMedia?.('(max-width: 720px)').matches ? mobileSidebarOpen : !sidebarCollapsed} onClick={toggleSidebar}><MenuIcon size={19} /></button><div className="breadcrumbs"><span>InPETU Connect</span><span>/</span><strong>{section}</strong></div><label className="global-search"><Search size={16} /><input placeholder="Buscar em tudo" value={search} onChange={e => setSearch(e.target.value)} /></label><NotificationCenter user={user} /><button type="button" className="crm-icon" aria-label="Ajuda" onClick={() => setHelpOpen(true)}><CircleHelp size={18} /></button><button type="button" className="crm-icon crm-theme-toggle" aria-label={crmTheme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'} aria-pressed={crmTheme === 'dark'} onClick={() => setCrmTheme(theme => theme === 'dark' ? 'light' : 'dark')}>{crmTheme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}</button><Menu as="div" className="crm-topbar-profile"><MenuButton type="button" className="crm-avatar" aria-label={`Perfil de ${user.nome || 'usuário'}`}><Avatar user={user} tamanho={36} /></MenuButton><MenuItems className="crm-profile-menu-items crm-topbar-profile-items"><MenuItem><button type="button" onClick={() => setProfileDetailsOpen(true)}>Meu perfil</button></MenuItem><MenuItem><button type="button" onClick={onReturnHome}><HomeIcon size={15} /> Voltar ao site</button></MenuItem><MenuItem><button type="button" onClick={logout}><DoorOpen size={15} /> Sair da conta</button></MenuItem></MenuItems></Menu></header>
-      <Modal open={helpOpen} close={() => setHelpOpen(false)} title="Ajuda do painel"><p className="access-intro">Use o menu lateral para acessar visão geral, reservas, cadastros, espaços, atendimento e auditoria.</p><p className="access-intro">Para consultar dúvidas enviadas pelos usuários e responder chamados, abra a área de Atendimento.</p><Button icon={ArrowRight} onClick={() => { setSection('Atendimento'); setHelpOpen(false) }}>Abrir atendimento</Button></Modal>
+    <main className="crm-main"><header className="crm-topbar"><button type="button" className="crm-sidebar-toggle" aria-label="Alternar menu lateral" aria-expanded={window.matchMedia?.('(max-width: 720px)').matches ? mobileSidebarOpen : !sidebarCollapsed} onClick={toggleSidebar}><MenuIcon size={19} /></button><div className="breadcrumbs"><span>InPETU Connect</span><span>/</span><strong>{section}</strong></div><label className="global-search"><Search size={16} /><input placeholder="Buscar em tudo" value={search} onChange={e => setSearch(e.target.value)} /></label><NotificationCenter user={user} /><button type="button" className="crm-icon crm-theme-toggle" aria-label={crmTheme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'} aria-pressed={crmTheme === 'dark'} onClick={toggleTheme}>{crmTheme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}</button><Menu as="div" className="crm-topbar-profile"><MenuButton type="button" className="crm-avatar" aria-label={`Perfil de ${user.nome || 'usuário'}`}><Avatar user={user} tamanho={36} /></MenuButton><MenuItems className="crm-profile-menu-items crm-topbar-profile-items"><MenuItem><button type="button" onClick={() => setProfileDetailsOpen(true)}>Meu perfil</button></MenuItem><MenuItem><button type="button" onClick={onReturnHome}><HomeIcon size={15} /> Voltar ao site</button></MenuItem><MenuItem><button type="button" onClick={logout}><DoorOpen size={15} /> Sair da conta</button></MenuItem></MenuItems></Menu></header>
       <ProfileDialog open={profileDetailsOpen} close={() => setProfileDetailsOpen(false)} user={user} onUserUpdate={updated => { const next = omitPersona({ ...user, ...updated }); storeUser(next); setUser(next); setStaff(items => items.map(person => person.idUsuario === next.idUsuario ? { ...person, ...updated } : person)); setClientUsers(items => items.map(person => person.idUsuario === next.idUsuario ? { ...person, ...updated } : person)) }} />
       <div className="crm-content">
         {crmDataError && <div className="form-message" role="alert">{crmDataError}</div>}
@@ -822,8 +841,8 @@ export default function Crm({ user, setUser, onReturnHome, spaces, setSpaces, re
             <Kpi icon={MessageCircle} label="Dúvidas em aberto" value={String(pendingQuestions.length).padStart(2, '0')} change={`${tickets.length} mensagens recebidas`} accent="coral" />
           </div>
           <div className="dashboard-columns">
-            <section className="crm-panel conflict-panel"><div className="panel-heading"><Title as="h2">Solicitações pendentes {selectedPending.length}</Title><button type="button" className="subtle-action" onClick={() => setSection('Reservas')}>Ver todas <ArrowRight size={15} /></button></div>{selectedPending.length ? selectedPending.map(item => <div className="conflict-card" key={item.idReserva}><strong>{item.tituloEvento}</strong><span>{item.espaco} · {item.solicitante}</span></div>) : <div className="empty-inline">Nenhuma solicitação pendente nesta data.</div>}</section>
-            <section className="crm-panel today-panel"><div className="panel-heading"><Title as="h2">Agenda do dia</Title><button type="button" className="icon-button" aria-label="Abrir agenda" onClick={() => setSection('Reservas')}><ArrowUpRight size={18} /></button></div>{selectedReservations.length ? selectedReservations.map(item => <div className="timeline-event" key={item.idReserva}><span>{item.horarioInicio}</span><div><strong>{item.tituloEvento}</strong><small>{item.espaco} · {item.statusReserva}</small></div></div>) : <div className="empty-inline">Nenhuma reserva nesta data.</div>}<button type="button" className="full-width-link" onClick={() => setSection('Reservas')}>Abrir agenda completa <ArrowRight size={15} /></button></section>
+            <section className="crm-panel conflict-panel"><div className="panel-heading"><div className="conflict-heading"><Title as="h2">Solicitações pendentes</Title><span className="conflict-count">{selectedPending.length}</span></div><button type="button" className="subtle-action" onClick={() => setSection('Reservas')}>Ver todas <ArrowRight size={15} /></button></div>{selectedPending.length ? selectedPending.map(item => <div className="conflict-card" key={item.idReserva}><strong>{item.tituloEvento}</strong><span>{item.espaco} · {item.solicitante}</span></div>) : <div className="empty-inline">Nenhuma solicitação pendente nesta data.</div>}</section>
+            <section className="crm-panel today-panel"><div className="panel-heading"><Title as="h2">Agenda do dia</Title><button type="button" className="icon-button" aria-label="Abrir agenda" onClick={() => setSection('Reservas')}><ArrowUpRight size={18} /></button></div>{selectedReservations.length ? selectedReservations.map(item => <div className="timeline-event" key={item.idReserva}><span>{formatTimeForDisplay(item.horarioInicio)}</span><div><strong>{item.tituloEvento}</strong><small>{item.espaco} · {item.statusReserva}</small></div></div>) : <div className="empty-inline">Nenhuma reserva nesta data.</div>}<button type="button" className="full-width-link" onClick={() => setSection('Reservas')}>Abrir agenda completa <ArrowRight size={15} /></button></section>
           </div>
           <section className="crm-panel recent-panel"><div className="panel-heading"><Title as="h2">Cadastros recentes</Title><button type="button" className="subtle-action" onClick={() => setSection('Cadastros')}>Gerenciar cadastros <ArrowRight size={15} /></button></div><table className="data-table"><thead><tr><th>Organização</th><th>Contato principal</th><th>E-mail</th></tr></thead><tbody>{partners.slice(0, 3).map(partner => <tr key={partner.id}><td>{partner.name}</td><td>{partner.contact}</td><td>{partner.email}</td></tr>)}</tbody></table></section>
         </>}
@@ -837,7 +856,7 @@ export default function Crm({ user, setUser, onReturnHome, spaces, setSpaces, re
               const day = item.dataReserva ? new Date(`${item.dataReserva}T12:00:00`) : null
               return <div className="crm-reservation" key={item.idReserva}>
                 <div className="res-date-block"><strong>{day?.toLocaleDateString('pt-BR', { day: '2-digit' }) || '--'}</strong><small>{day?.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase() || ''}</small></div>
-                <div className="crm-res-main"><strong>{item.tituloEvento}</strong><small>{item.espaco} · {item.horarioInicio}-{item.horarioFim} · {item.solicitante}{item.quantidadeParticipantes ? ` · ${item.quantidadeParticipantes} visitantes` : ''}</small></div>
+                <div className="crm-res-main"><strong>{item.tituloEvento}</strong><small>{item.espaco} · {formatTimeForDisplay(item.horarioInicio)}-{formatTimeForDisplay(item.horarioFim)} · {item.solicitante}{item.quantidadeParticipantes ? ` · ${item.quantidadeParticipantes} visitantes` : ''}</small></div>
                 {item.excedeCota && <span className="quota-exceeded-badge">Excede cota · negociar</span>}
                 <span className={`status-pill ${item.statusReserva === 'Confirmada' ? 'status-confirmed' : item.statusReserva === 'Cancelada' ? 'status-cancelled' : 'status-pending'}`}><i />{reservationStatusLabel(item.statusReserva)}</span>
                 {item.statusReserva === 'Pendente' && <button className="decision-button compact-decision" disabled={approvingReservationId !== null} onClick={() => approve(item)}><Check size={14} /> {approvingReservationId === item.idReserva ? 'Aprovando...' : item.excedeCota && !item.dataNegociacao ? 'Negociar' : 'Aprovar'}</button>}
@@ -951,14 +970,14 @@ export default function Crm({ user, setUser, onReturnHome, spaces, setSpaces, re
         {section === 'Equipe' && user.perfil === 1 && <><CrmTitle title="Equipe e permissões" description="Gerencie colaboradores e papéis de acesso ao InPETU Connect." /><div className="crm-panel"><table className="data-table"><thead><tr><th>Colaborador</th><th>E-mail</th><th>Perfil</th><th>Status</th><th /></tr></thead><tbody>{staff.map(person => { const isCurrentUser = person.email?.toLowerCase() === user.email?.toLowerCase(); return <tr key={person.idUsuario}><td><div className="team-person-cell"><Avatar user={person} tamanho={34} /><span><strong>{person.nomeCompleto}</strong><small>{person.cargoVinculo}</small></span></div></td><td>{person.email}</td><td>{['', 'Coordenador', 'Gestor de espaços', 'Atendente'][person.idPerfil]}</td><td><span className={`status-pill ${person.ativo ? 'status-confirmed' : 'status-cancelled'}`}><i />{person.ativo ? 'Ativo' : 'Inativo'}</span></td><td>{isCurrentUser ? <span className="table-action-disabled" title="Você não pode alterar seu próprio perfil">Seu perfil</span> : <button className="table-action" onClick={() => setRoleTarget({ ...person })}>Gerenciar papel</button>}</td></tr> })}</tbody></table></div></>}
       </div></main>{toast && <div className="toast"><Check size={17} />{toast}</div>}
     <Modal open={Boolean(reservationCancelTarget)} close={() => { if (!reservationCancelBusy) { setReservationCancelTarget(null); setReservationCancelError('') } }} title="Cancelar reserva">
-      <div className="cancel-summary"><span>RESERVA #{reservationCancelTarget?.idReserva}</span><strong>{reservationCancelTarget?.tituloEvento}</strong><small>{reservationCancelTarget?.dataReserva} · {reservationCancelTarget?.horarioInicio}-{reservationCancelTarget?.horarioFim}</small></div>
+      <div className="cancel-summary"><span>RESERVA #{reservationCancelTarget?.idReserva}</span><strong>{reservationCancelTarget?.tituloEvento}</strong><small>{reservationCancelTarget?.dataReserva} · {formatTimeForDisplay(reservationCancelTarget?.horarioInicio)}-{formatTimeForDisplay(reservationCancelTarget?.horarioFim)}</small></div>
       <p className="access-intro">O cancelamento da equipe é permitido em qualquer data. O solicitante e a equipe receberão uma notificação por e-mail e no painel.</p>
       <label className="reason-field">Motivo do cancelamento<textarea rows="4" maxLength={1000} required value={reservationCancelReason} onChange={event => { setReservationCancelReason(event.target.value); setReservationCancelError('') }} placeholder="Informe o motivo para manter no histórico" /></label>
       {reservationCancelError && <p className="form-message" role="alert">{reservationCancelError}</p>}
       <Button variant="danger" disabled={!reservationCancelReason.trim() || reservationCancelBusy} onClick={cancelReservationByTeam}>{reservationCancelBusy ? 'Cancelando...' : 'Confirmar cancelamento'}</Button>
     </Modal>
     <Modal open={Boolean(reservationEditTarget)} close={() => { if (!reservationEditBusy) { setReservationEditTarget(null); setReservationEditForm(null); setReservationEditError('') } }} title="Editar reserva" wide>
-      {reservationEditForm && <form className="form-stack" onSubmit={saveReservationEdit}>
+      {reservationEditForm && <form className="form-stack reservation-edit-form" onSubmit={saveReservationEdit}>
         <p className="access-intro">As alterações são auditadas. Horários ocupados não podem ser salvos; se a nova duração ultrapassar a cota do cliente, a reserva volta para negociação manual.</p>
         <label>Título do encontro<input required maxLength={150} value={reservationEditForm.tituloEvento} onChange={event => setReservationEditForm({ ...reservationEditForm, tituloEvento: event.target.value })} /></label>
         <label>Descrição e finalidade<textarea required rows={3} value={reservationEditForm.descricaoFinalidade} onChange={event => setReservationEditForm({ ...reservationEditForm, descricaoFinalidade: event.target.value })} /></label>
@@ -967,11 +986,11 @@ export default function Crm({ user, setUser, onReturnHome, spaces, setSpaces, re
           <label>Telefone para contato ou alteração<PhoneInput value={reservationEditForm.telefoneContato} onChange={telefoneContato => setReservationEditForm({ ...reservationEditForm, telefoneContato })} /><small>Celular informado pelo solicitante para assuntos desta reserva.</small></label>
         </section>
         <label>Espaço<select value={reservationEditForm.idEspaco} onChange={event => setReservationEditForm({ ...reservationEditForm, idEspaco: event.target.value })}>{spaces.map(space => <option key={space.idEspaco} value={space.idEspaco}>{space.nomeEspaco}</option>)}</select></label>
-        <label>Data<input required type="date" value={reservationEditForm.dataReserva} onChange={event => setReservationEditForm({ ...reservationEditForm, dataReserva: event.target.value })} /></label>
-        <div className="form-row"><label>Início<input required type="time" value={reservationEditForm.horarioInicio} onChange={event => setReservationEditForm({ ...reservationEditForm, horarioInicio: event.target.value })} /></label><label>Fim<input required type="time" value={reservationEditForm.horarioFim} onChange={event => setReservationEditForm({ ...reservationEditForm, horarioFim: event.target.value })} /></label></div>
-        {isGuidedTour(spaces.find(space => Number(space.idEspaco) === Number(reservationEditForm.idEspaco))?.tipoEspaco) && <label>Quantidade de visitantes<input required type="number" min="1" value={reservationEditForm.quantidadeParticipantes} onChange={event => setReservationEditForm({ ...reservationEditForm, quantidadeParticipantes: event.target.value })} /></label>}
-        {reservationEditError && <p className="form-message" role="alert">{reservationEditError}</p>}
-        <Button type="submit" icon={Check} disabled={reservationEditBusy}>{reservationEditBusy ? 'Salvando...' : 'Salvar alterações'}</Button>
+        <label>Data<input required type="date" min={reservationEditLocalTime.date} aria-invalid={Boolean(reservationEditValidation && reservationEditForm.dataReserva < reservationEditLocalTime.date)} value={reservationEditForm.dataReserva} onChange={event => { setReservationEditForm({ ...reservationEditForm, dataReserva: event.target.value }); setReservationEditError('') }} /></label>
+        <div className="form-row reservation-edit-time-row"><label>Início<input required type="time" min={reservationEditForm.dataReserva === reservationEditLocalTime.date ? reservationEditLocalTime.time : undefined} aria-invalid={Boolean(reservationEditValidation)} value={reservationEditForm.horarioInicio} onChange={event => { setReservationEditForm({ ...reservationEditForm, horarioInicio: event.target.value }); setReservationEditError('') }} /></label><label>Fim<input required type="time" value={reservationEditForm.horarioFim} onChange={event => setReservationEditForm({ ...reservationEditForm, horarioFim: event.target.value })} /></label></div>
+        {isGuidedTour(spaces.find(space => Number(space.idEspaco) === Number(reservationEditForm.idEspaco))?.tipoEspaco) && <label>Quantidade de visitantes<input required type="number" min="1" value={reservationEditForm.quantidadeParticipantes} onChange={event => setReservationEditForm({ ...reservationEditForm, quantidadeParticipantes: event.target.value === '' ? '' : event.target.value })} /></label>}
+        {(reservationEditValidation || reservationEditError) && <p className="form-message" role="alert">{reservationEditValidation || reservationEditError}</p>}
+        <Button type="submit" icon={Check} disabled={reservationEditBusy || Boolean(reservationEditValidation)}>{reservationEditBusy ? 'Salvando...' : 'Salvar alterações'}</Button>
       </form>}
     </Modal>
     <Modal open={Boolean(negotiationTarget)} close={() => { if (!negotiationBusy) { setNegotiationTarget(null); setNegotiationError('') } }} title="Negociar excedente de cota">
@@ -1002,7 +1021,7 @@ export default function Crm({ user, setUser, onReturnHome, spaces, setSpaces, re
       {spaceEditForm && <form className="form-stack" onSubmit={saveSpaceEdit}>
         <label>Nome do espaço<input required maxLength={100} value={spaceEditForm.nomeEspaco} onChange={event => setSpaceEditForm({ ...spaceEditForm, nomeEspaco: event.target.value })} /></label>
         <label>Tipo de espaço<input required maxLength={50} value={spaceEditForm.tipoEspaco} onChange={event => setSpaceEditForm({ ...spaceEditForm, tipoEspaco: event.target.value })} /></label>
-        <label>Capacidade<input required type="number" min="1" value={spaceEditForm.capacidadePessoas} onChange={event => setSpaceEditForm({ ...spaceEditForm, capacidadePessoas: event.target.value === '' ? '' : Number(event.target.value) })} /></label>
+        <label>Capacidade<input required type="number" min="1" value={spaceEditForm.capacidadePessoas} onChange={event => setSpaceEditForm({ ...spaceEditForm, capacidadePessoas: toNumberOrEmpty(event.target.value) })} /></label>
         <label>Equipamentos (opcional)<textarea rows="3" maxLength={2000} value={spaceEditForm.equipamentosDisponiveis} onChange={event => setSpaceEditForm({ ...spaceEditForm, equipamentosDisponiveis: event.target.value })} /></label>
         <label>Descrição (opcional)<textarea rows="3" maxLength={2000} value={spaceEditForm.descricao} onChange={event => setSpaceEditForm({ ...spaceEditForm, descricao: event.target.value })} /></label>
         <label className="space-approval-option"><input type="checkbox" checked={spaceEditForm.exigeAprovacaoManual} onChange={event => setSpaceEditForm({ ...spaceEditForm, exigeAprovacaoManual: event.target.checked })} /> Exige aprovação manual</label>
@@ -1028,7 +1047,7 @@ export default function Crm({ user, setUser, onReturnHome, spaces, setSpaces, re
       <form className="form-stack" onSubmit={addSpace}>
         <label>Nome do espaço<input required maxLength={100} value={newSpace.nomeEspaco} onChange={event => setNewSpace({ ...newSpace, nomeEspaco: event.target.value })} placeholder="Ex.: Laboratório de prototipagem" /></label>
         <label>Tipo de espaço<input required maxLength={50} value={newSpace.tipoEspaco} onChange={event => setNewSpace({ ...newSpace, tipoEspaco: event.target.value })} placeholder="Digite um tipo ou categoria" /></label>
-        <label>Capacidade<input required type="number" min="1" value={newSpace.capacidadePessoas} onChange={event => setNewSpace({ ...newSpace, capacidadePessoas: event.target.value === '' ? '' : Number(event.target.value) })} /></label>
+        <label>Capacidade<input required type="number" min="1" value={newSpace.capacidadePessoas} onChange={event => setNewSpace({ ...newSpace, capacidadePessoas: toNumberOrEmpty(event.target.value) })} /></label>
         <label>Equipamentos ou descrição (opcional)<textarea rows="3" maxLength={2000} value={newSpace.equipamentosDisponiveis} onChange={event => setNewSpace({ ...newSpace, equipamentosDisponiveis: event.target.value })} placeholder="Ex.: Impressora 3D, bancadas e ferramentas" /></label>
         <ImageUploadField label="Imagem do espaço" previewSrc={spaceImagePreview} fileName={spaceImage?.name} onFile={selectSpaceImage} onRemove={() => selectSpaceImage(null)} error={spaceImageError} />
         {spaceCreateError && <p className="form-message" role="alert">{spaceCreateError}</p>}

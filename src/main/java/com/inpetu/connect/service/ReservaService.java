@@ -40,6 +40,7 @@ public class ReservaService {
 
     @Transactional
     public Reserva criar(ReservaRequest request, String email) {
+        validarInicioFuturo(request.dataReserva(), request.horarioInicio());
         if (!request.horarioFim().isAfter(request.horarioInicio()))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "O horário final deve ser posterior ao inicial.");
         Espaco espaco = espacos.bloquearParaReserva(request.idEspaco())
@@ -103,6 +104,7 @@ public class ReservaService {
 
     @Transactional
     public Reserva editar(Integer id, ReservaEdicaoRequest request, String email) {
+        validarInicioFuturo(request.dataReserva(), request.horarioInicio());
         if (!request.horarioFim().isAfter(request.horarioInicio()))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "O horário final deve ser posterior ao inicial.");
         Reserva reserva = reservas.findById(id)
@@ -152,6 +154,13 @@ public class ReservaService {
                 responsavel.getIdUsuario(), alteradaEm);
         if (passouAExceder) notificarExcedente(atualizada, solicitante, limiteMensal, horasPedido);
         return atualizada;
+    }
+
+    private void validarInicioFuturo(LocalDate data, LocalTime horario) {
+        if (LocalDateTime.of(data, horario).isBefore(LocalDateTime.now(ZONA_INPETU))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "A data e o horário de início não podem estar no passado.");
+        }
     }
 
     @Transactional

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
-import { Avatar, Title } from './App.jsx'
+import { Avatar, Modal, Title } from './App.jsx'
 
 const originalCreateObjectURL = URL.createObjectURL
 const originalRevokeObjectURL = URL.revokeObjectURL
@@ -86,5 +86,15 @@ describe('Title', () => {
     const heading = screen.getByRole('heading', { name: 'Minhas reservas', level: 2 })
     expect(heading.querySelector('.title-emoji')).toBeNull()
     expect(heading.textContent).toBe('Minhas reservas')
+  })
+})
+
+describe('Modal', () => {
+  it('renders the title without a decorative emoji', async () => {
+    render(<Modal open close={() => {}} title="Meu perfil">Conteúdo</Modal>)
+
+    const heading = await screen.findByRole('heading', { name: 'Meu perfil' })
+    expect(heading.querySelector('.dialog-title-emoji')).toBeNull()
+    expect(heading.textContent).toBe('Meu perfil')
   })
 })

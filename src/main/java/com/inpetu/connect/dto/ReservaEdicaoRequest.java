@@ -7,7 +7,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 
 public record ReservaEdicaoRequest(
-        @NotBlank @Size(max = 150) String tituloEvento,
+        @NotBlank @Size(max = 500) String tituloEvento,
         @NotBlank String descricaoFinalidade,
         @NotNull LocalDate dataReserva,
         @NotNull LocalTime horarioInicio,

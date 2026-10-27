@@ -266,10 +266,24 @@ body {
   flex: none;
   width: 40px;
   height: 40px;
+  padding: 0;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
   background: var(--color-surface);
   color: var(--color-text);
+}
+
+.notification-center .notification-trigger {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.notification-center .notification-count {
+  position: absolute;
+  top: -2px;
+  right: -2px;
 }
 
 .crm-sidebar-backdrop {
@@ -396,6 +410,22 @@ body {
   color: var(--color-surface);
 }
 
+.crm-layout .decision-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.crm-layout .full-width-link {
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.crm-layout .crm-title-row > .button.icon-text {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .crm-layout .button-primary:hover:not(:disabled),
 .crm-layout .decision-button:hover:not(:disabled) {
   background: var(--color-brand-strong);
@@ -465,6 +495,91 @@ body {
 .crm-layout .crm-reservation .status-pill {
   font-size: 14px;
   white-space: nowrap;
+}
+
+.crm-layout .conflict-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
+}
+
+.crm-layout .conflict-count {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  min-width: 24px;
+  height: 24px;
+  padding-inline: 6px;
+  border-radius: 999px;
+  background: var(--color-brand-soft);
+  color: var(--color-brand);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.crm-layout .conflict-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.crm-layout .conflict-card:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.crm-layout .conflict-card strong,
+.crm-layout .conflict-card span {
+  overflow-wrap: anywhere;
+}
+
+.crm-layout .conflict-card strong,
+.crm-layout .timeline-event strong {
+  color: var(--color-text);
+}
+
+.crm-layout .conflict-card span,
+.crm-layout .timeline-event small {
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.crm-layout .timeline-event {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: start;
+  gap: 14px;
+  min-width: 0;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.crm-layout .timeline-event > span {
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.crm-layout .timeline-event > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.crm-layout .timeline-event strong,
+.crm-layout .timeline-event small {
+  overflow-wrap: anywhere;
+}
+
+.crm-layout .timeline-event strong {
+  line-height: 1.4;
 }
 
 @media (max-width: 900px) {
@@ -1051,6 +1166,35 @@ body {
     flex: 1 1 auto;
     min-width: 0;
     gap: 8px;
+    min-height: 42px;
+    padding: 0 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-control);
+    background: var(--color-surface);
+    color: var(--color-text-muted);
+  }
+
+  .crm-layout .global-search:focus-within {
+    border-color: var(--color-brand);
+    box-shadow: 0 0 0 3px var(--color-brand-soft);
+  }
+
+  .crm-layout .global-search > svg {
+    flex: 0 0 auto;
+  }
+
+  .crm-layout .global-search > input {
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+    min-height: 40px;
+    padding: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--color-text);
+    font-size: 15px;
+    line-height: 1.4;
   }
 
   .crm-layout .crm-content {
@@ -1364,9 +1508,9 @@ body {
     display: flex;
     align-items: center;
     flex: none;
-    width: 30px;
-    height: 17px;
-    min-height: 17px;
+    width: 40px;
+    height: 24px;
+    min-height: 24px;
     padding: 2px;
     border: 0;
     border-radius: 999px;
@@ -1375,8 +1519,8 @@ body {
 
   .crm-layout .toggle span {
     display: block;
-    width: 13px;
-    height: 13px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     background: var(--color-surface);
     transition: transform 180ms ease;
@@ -1387,7 +1531,7 @@ body {
   }
 
   .crm-layout .toggle-on span {
-    transform: translateX(13px);
+    transform: translateX(20px);
   }
 
   .crm-layout .empty-inline {
